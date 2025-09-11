@@ -1,0 +1,29 @@
+**** Job starts ****
+Fri Aug 29 10:10:56 AM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 21691954
+Job name: registerHE
+Node name: compute-168
+Task id: 14
+Loading LIBD SLURM module for visium_hd/1.0
+Loading LIBD SLURM module for htslib/1.18
+
+Currently Loaded Modules:
+  1) JHPCE_ROCKY9_DEFAULT_ENV   3) conda/3-24.3.0   5) visium_hd/1.0
+  2) JHPCE_tools/3.0            4) htslib/1.18
+
+ 
+
+Br5367
+0068641_Slide3
+sample_05_y33763_x50720_h17752_w17803.tif
+HE: (21133, 21194, 3) uint8  DAPI: (20596, 20001) uint8
+Best angle ≈ 89.90° (score=0.0409)
+Saved overlay
+Translation: dy=606.00, dx=1500.00 (err=nan)
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/Br5367/HE_nuclei_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/Br5367/HE_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/Br5367/overlay_on_dapi.png
+**** Job ends ****
+Fri Aug 29 10:23:29 AM EDT 2025

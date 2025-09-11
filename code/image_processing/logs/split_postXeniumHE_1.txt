@@ -1,0 +1,36 @@
+**** Job starts ****
+Thu Aug 28 12:42:11 PM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 21685305
+Job name: split_postXeniumHE
+Node name: compute-155
+Task id: 1
+Loading LIBD SLURM module for visium_hd/1.0
+Loading LIBD SLURM module for htslib/1.18
+
+Currently Loaded Modules:
+  1) JHPCE_ROCKY9_DEFAULT_ENV   3) conda/3-24.3.0   5) visium_hd/1.0
+  2) JHPCE_tools/3.0            4) htslib/1.18
+
+ 
+
+Processing:  LC_PostXenium_0032704_Slide2_40x_04_30_2025_HRD.tif
+/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/code/xenium_imageProcessing/01_split_postXenium_HE.py:112: UserWarning: Lazy zarr read unavailable; loading full image (may be large).
+  warnings.warn("Lazy zarr read unavailable; loading full image (may be large).")
+Input file : /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/raw-data/xenium/post-xenium_images/LC_PostXenium_0032704_Slide2_40x_04_30_2025_HRD.tif
+Output dir : /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2
+[INFO] Reading preview: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/raw-data/xenium/post-xenium_images/LC_PostXenium_0032704_Slide2_40x_04_30_2025_HRD.tif
+[INFO] Full-res: 109800 x 58333 | Preview: 4000 x 2125 | scale sx=27.450, sy=27.451
+[INFO] Found 7 tissue blobs. Exporting crops to: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2
+[OK] Saved: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2/sample_01_y12098_x12070_h14510_w13549.tif
+[OK] Saved: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2/sample_02_y33537_x12811_h17941_w18600.tif
+[OK] Saved: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2/sample_03_y9627_x34277_h19287_w18353.tif
+[OK] Saved: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2/sample_04_y36694_x42842_h15690_w15689.tif
+[OK] Saved: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2/sample_05_y8502_x57610_h20604_w16458.tif
+[OK] Saved: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2/sample_06_y34910_x68370_h17419_w19972.tif
+[OK] Saved: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2/sample_07_y9161_x80503_h19807_w18023.tif
+[OK] Saved montage: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/0032704_Slide2/montage_preview_samples.tif
+[DONE]
+**** Job ends ****
+Thu Aug 28 12:55:50 PM EDT 2025

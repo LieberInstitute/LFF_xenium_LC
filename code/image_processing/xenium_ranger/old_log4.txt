@@ -1,0 +1,208 @@
+**** Job starts ****
+Wed Jul  9 01:06:22 PM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 19828547
+Job name: 01_xeniumranger_NM_DAPI.sh
+Hostname: 
+Task id: 1
+Loading LIBD SLURM module for xeniumranger/3.1.1
+Reference files, for use with the '--transcriptome' argument, can be accessed
+or downloaded into /dcs04/lieber/lcolladotor/annotationFiles_LIBD001/10x. 
+Martian Runtime - v4.0.13
+Running preflight checks (please wait)...
+2025-07-09 13:07:07 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_SETUP_INPUTS
+2025-07-09 13:07:07 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_SETUP_INPUTS.fork0.split
+2025-07-09 13:07:21 [runtime] (split_complete)  ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_SETUP_INPUTS
+2025-07-09 13:07:21 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_SETUP_INPUTS.fork0.join
+2025-07-09 13:07:40 [runtime] (join_complete)   ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_SETUP_INPUTS
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_NUCLEAR_SEGMENTATION_DATASET
+2025-07-09 13:07:40 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_NUCLEAR_SEGMENTATION_DATASET.fork0.split
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.FORWARD_OUTS
+2025-07-09 13:07:40 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.FORWARD_OUTS.fork0.chnk0.main
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_CELL_SEGMENTATION_DATASET
+2025-07-09 13:07:40 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_CELL_SEGMENTATION_DATASET.fork0.split
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SETUP_RELABEL
+2025-07-09 13:07:40 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SETUP_RELABEL.fork0.chnk0.main
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_UNZIP_TRANSCRIPTS
+2025-07-09 13:07:40 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_UNZIP_TRANSCRIPTS.fork0.chnk0.main
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.METRIC_CALCULATOR_CS.GENERATE_MORPHOLOGY_PLOTS
+2025-07-09 13:07:40 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.METRIC_CALCULATOR_CS.GENERATE_MORPHOLOGY_PLOTS.fork0.split
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS._SEGMENTOR_CORE.SEGMENT_NUCLEI
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS._SEGMENTOR_CORE.SETUP_CELL_SEGMENTOR_FINALIZER
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS._SEGMENTOR_CORE._CELL_SEGMENTOR_FINALIZER.SEGMENT_INTERIOR
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS._SEGMENTOR_CORE._CELL_SEGMENTOR_FINALIZER.SEGMENT_CELLS
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS._SEGMENTOR_CORE._CELL_SEGMENTOR_FINALIZER.PAIR_CELLS_NUCLEI
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS._SEGMENTOR_CORE._CELL_SEGMENTOR_FINALIZER.EXPAND_NUCLEI
+2025-07-09 13:07:40 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS._SEGMENTOR_CORE._CELL_SEGMENTOR_FINALIZER.GENERATE_CELLS_DATASET
+2025-07-09 13:07:42 [runtime] (chunks_complete) ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.FORWARD_OUTS
+2025-07-09 13:07:42 [runtime] (chunks_complete) ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SETUP_RELABEL
+2025-07-09 13:07:42 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_COMPUTE_CODEWORD_CATEGORIES_NEW
+2025-07-09 13:07:42 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_COMPUTE_CODEWORD_CATEGORIES_NEW.fork0.chnk0.main
+2025-07-09 13:07:42 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_COMPUTE_CODEWORD_CATEGORIES_ORIGINAL
+2025-07-09 13:07:42 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_COMPUTE_CODEWORD_CATEGORIES_ORIGINAL.fork0.chnk0.main
+2025-07-09 13:07:42 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.SETUP_COUNTER_CS
+2025-07-09 13:07:42 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.SETUP_COUNTER_CS.fork0.split
+2025-07-09 13:07:43 [runtime] (chunks_complete) ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_COMPUTE_CODEWORD_CATEGORIES_NEW
+2025-07-09 13:07:43 [runtime] (chunks_complete) ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_COMPUTE_CODEWORD_CATEGORIES_ORIGINAL
+2025-07-09 13:07:49 [runtime] (split_complete)  ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_NUCLEAR_SEGMENTATION_DATASET
+2025-07-09 13:07:49 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_NUCLEAR_SEGMENTATION_DATASET.fork0.join
+2025-07-09 13:07:49 [runtime] (split_complete)  ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_CELL_SEGMENTATION_DATASET
+2025-07-09 13:07:49 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_CELL_SEGMENTATION_DATASET.fork0.join
+2025-07-09 13:07:49 [runtime] (split_complete)  ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.SETUP_COUNTER_CS
+2025-07-09 13:07:49 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.SETUP_COUNTER_CS.fork0.join
+2025-07-09 13:07:56 [runtime] (join_complete)   ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.SETUP_COUNTER_CS
+2025-07-09 13:07:56 [runtime] (chunks_complete) ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_UNZIP_TRANSCRIPTS
+2025-07-09 13:08:01 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS
+2025-07-09 13:08:01 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.split
+2025-07-09 13:08:01 [runtime] (join_complete)   ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_CELL_SEGMENTATION_DATASET
+2025-07-09 13:08:01 [runtime] (split_complete)  ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.METRIC_CALCULATOR_CS.GENERATE_MORPHOLOGY_PLOTS
+2025-07-09 13:08:01 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.METRIC_CALCULATOR_CS.GENERATE_MORPHOLOGY_PLOTS.fork0.join
+2025-07-09 13:08:01 [runtime] (split_complete)  ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS
+2025-07-09 13:08:01 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk00.main
+2025-07-09 13:08:01 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk01.main
+2025-07-09 13:08:01 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk02.main
+2025-07-09 13:08:01 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk03.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk04.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk05.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk06.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk07.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk08.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk09.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk10.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk11.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk12.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk13.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk14.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk15.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk16.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk17.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk18.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk19.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk20.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk21.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk22.main
+2025-07-09 13:08:02 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.chnk23.main
+2025-07-09 13:08:06 [runtime] (chunks_complete) ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS
+2025-07-09 13:08:06 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS.fork0.join
+2025-07-09 13:08:19 [runtime] (join_complete)   ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.METRIC_CALCULATOR_CS.GENERATE_MORPHOLOGY_PLOTS
+2025-07-09 13:08:24 [runtime] (join_complete)   ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_RELABEL_TRANSCRIPTS
+2025-07-09 13:08:44 [runtime] (join_complete)   ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.IMPORT_NUCLEAR_SEGMENTATION_DATASET
+2025-07-09 13:08:44 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.split
+2025-07-09 13:08:44 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.PAIR_CELLS_NUCLEI
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.PAIR_CELLS_NUCLEI.fork0.split
+2025-07-09 13:08:44 [runtime] (split_complete)  ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk00.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk01.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk02.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk03.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk04.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk05.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk06.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk07.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk08.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk09.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk10.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk11.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk12.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk13.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk14.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk15.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk16.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk17.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk18.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk19.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk20.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk21.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk22.main
+2025-07-09 13:08:44 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.chnk23.main
+2025-07-09 13:08:52 [runtime] (chunks_complete) ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS
+2025-07-09 13:08:52 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS.fork0.join
+2025-07-09 13:08:57 [runtime] (split_complete)  ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.PAIR_CELLS_NUCLEI
+2025-07-09 13:08:57 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.PAIR_CELLS_NUCLEI.fork0.join
+2025-07-09 13:09:14 [runtime] (join_complete)   ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.PAIR_CELLS_NUCLEI
+2025-07-09 13:09:14 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.EXPAND_NUCLEI
+2025-07-09 13:09:14 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.EXPAND_NUCLEI.fork0.split
+2025-07-09 13:09:43 [runtime] (join_complete)   ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_SUBSAMPLE_TRANSCRIPTS
+2025-07-09 13:10:13 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_FINALIZE_RELABEL
+2025-07-09 13:10:13 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_FINALIZE_RELABEL.fork0.chnk0.main
+2025-07-09 13:11:06 [runtime] (chunks_complete) ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_RELABEL.XR_FINALIZE_RELABEL
+2025-07-09 13:11:25 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.INSITU_COUNTER_CORE.XR_UNZIP_TRANSCRIPTS
+2025-07-09 13:11:25 [runtime] (run:local)       ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.INSITU_COUNTER_CORE.XR_UNZIP_TRANSCRIPTS.fork0.chnk0.main
+2025-07-09 13:11:25 [runtime] (ready)           ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_TRANSCRIPT_ASSIGNMENTS
+2025-07-09 13:11:43 [runtime] (chunks_complete) ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.INSITU_COUNTER_CS.INSITU_COUNTER_CORE.XR_UNZIP_TRANSCRIPTS
+2025-07-09 13:13:02 [runtime] (failed)          ID.IMPORT_SEGMENTATION.XENIUM_RANGER_CS.XR_IMPORT_SEGMENTATION.EXPAND_NUCLEI
+
+[error] Pipestance failed. Error log at:
+xeniumranger_NM_DAPI/XENIUM_RANGER_CS/XR_IMPORT_SEGMENTATION/EXPAND_NUCLEI/fork0/split-u81826ea23a/_errors
+
+Log message:
+Traceback (most recent call last):
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/martian/adapters/python/martian_shell.py", line 648, in _main
+    stage.main()
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/martian/adapters/python/martian_shell.py", line 598, in main
+    self._run(
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/martian/adapters/python/martian_shell.py", line 564, in _run
+    cmd()
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/martian/adapters/python/martian_shell.py", line 599, in <lambda>
+    lambda: self._record_result(lambda: self._module.split(args))
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/martian/adapters/python/martian_shell.py", line 568, in _record_result
+    self._result = cmd()
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/martian/adapters/python/martian_shell.py", line 599, in <lambda>
+    lambda: self._record_result(lambda: self._module.split(args))
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/mro/insitu/stages/expand_nuclei/__init__.py", line 69, in split
+    ) = expand_nuclei_stage.tile_image_archive_for_expansion(
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/lib/python/turing/engine/cell_segmentation/stages/expand_nuclei.py", line 57, in tile_image_archive_for_expansion
+    image_archive = OmeArchive(
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/lib/python/turing/engine/infra/slices/archives/archive_ome.py", line 152, in __init__
+    with self.open_zarrgroup() as zgroup:
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/lib/python/turing/engine/infra/slices/archives/archive_ome.py", line 432, in open_zarrgroup
+    zgroup.create_dataset(name="0", data=zgroup_or_zarray)
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/hierarchy.py", line 808, in create_dataset
+    return self._write_op(self._create_dataset_nosync, name, **kwargs)
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/hierarchy.py", line 661, in _write_op
+    return f(*args, **kwargs)
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/hierarchy.py", line 824, in _create_dataset_nosync
+    a = array(data, store=self._store, path=path, chunk_store=self._chunk_store,
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/creation.py", line 377, in array
+    z[...] = data
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/core.py", line 1224, in __setitem__
+    self.set_basic_selection(selection, value, fields=fields)
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/core.py", line 1319, in set_basic_selection
+    return self._set_basic_selection_nd(selection, value, fields=fields)
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/core.py", line 1610, in _set_basic_selection_nd
+    self._set_selection(indexer, value, fields=fields)
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/core.py", line 1652, in _set_selection
+    chunk_value = value[out_selection]
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/core.py", line 673, in __getitem__
+    return self.get_basic_selection(selection, fields=fields)
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/core.py", line 798, in get_basic_selection
+    return self._get_basic_selection_nd(selection=selection, out=out,
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/core.py", line 841, in _get_basic_selection_nd
+    return self._get_selection(indexer=indexer, out=out, fields=fields)
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/core.py", line 1131, in _get_selection
+    self._chunk_getitem(chunk_coords, chunk_selection, out, out_selection,
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/zarr/core.py", line 1801, in _chunk_getitem
+    cdata = self.chunk_store[ckey]
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/tifffile/tifffile.py", line 12782, in __getitem__
+    return self._getitem(key)
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/tifffile/tifffile.py", line 13513, in _getitem
+    chunk = keyframe.decode(
+  File "/jhpce/shared/libd/core/xeniumranger/3.1.1/xeniumranger-3.1.1/external/anaconda/lib/python3.10/site-packages/tifffile/tifffile.py", line 8530, in decode_image
+    data_array = decompress(data)  # type: ignore[misc]
+  File "imagecodecs/_jpeg2k.pyx", line 471, in imagecodecs._jpeg2k.jpeg2k_decode
+imagecodecs._jpeg2k.Jpeg2kError: not a J2K or JP2 data stream
+
+
+2025-07-09 13:13:02 Shutting down.
+Could not get disk stats for /run/user/41354/doc: permission denied
+Saving pipestance info to "/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/code/xenium_imageProcessing/xenium_ranger/xeniumranger_NM_DAPI/xeniumranger_NM_DAPI.mri.tgz"
+tar: Removing leading `/' from member names
+tar: Removing leading `/' from hard link targets
+For assistance, upload this file to 10x Genomics by running:
+
+xeniumranger upload <your_email> "/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/code/xenium_imageProcessing/xenium_ranger/xeniumranger_NM_DAPI/xeniumranger_NM_DAPI.mri.tgz"
+
+**** Job ends ****
+Wed Jul  9 01:13:09 PM EDT 2025

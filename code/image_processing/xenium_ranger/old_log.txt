@@ -1,0 +1,48 @@
+**** Job starts ****
+Tue Jul  8 01:57:48 PM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 19774001
+Job name: 01_xeniumranger_NM_DAPI.sh
+Hostname: 
+Task id: 1
+Loading LIBD SLURM module for xeniumranger/2.0.0
+Reference files, for use with the '--transcriptome' argument, can be accessed
+or downloaded into /dcs04/lieber/lcolladotor/annotationFiles_LIBD001/10x. 
+Martian Runtime - v4.0.12
+Running preflight checks (please wait)...
+
+[error] Pipestance failed. Error log at:
+xeniumranger_NM_DAPI/XENIUM_RANGER_CS/XR_PREFLIGHT/fork0/join-u737a6d5c1d/_errors
+
+Log message:
+Traceback (most recent call last):
+  File "/jhpce/shared/libd/core/xeniumranger/2.0.0/xeniumranger-2.0.0/external/martian/adapters/python/martian_shell.py", line 648, in _main
+    stage.main()
+  File "/jhpce/shared/libd/core/xeniumranger/2.0.0/xeniumranger-2.0.0/external/martian/adapters/python/martian_shell.py", line 617, in main
+    self._run(
+  File "/jhpce/shared/libd/core/xeniumranger/2.0.0/xeniumranger-2.0.0/external/martian/adapters/python/martian_shell.py", line 564, in _run
+    cmd()
+  File "/jhpce/shared/libd/core/xeniumranger/2.0.0/xeniumranger-2.0.0/external/martian/adapters/python/martian_shell.py", line 618, in <lambda>
+    lambda: self._module.join(args, outs, chunk_defs, chunk_outs)
+  File "/jhpce/shared/libd/core/xeniumranger/2.0.0/xeniumranger-2.0.0/mro/insitu/stages/xr_preflight/__init__.py", line 50, in join
+    run_xenium_ranger_preflight_checks(
+  File "/jhpce/shared/libd/core/xeniumranger/2.0.0/xeniumranger-2.0.0/lib/python/turing/engine/xenium_ranger/xr_preflight.py", line 67, in run_xenium_ranger_preflight_checks
+    experiment_xenium = load_experiment_xenium(output_bundle_path)
+  File "/jhpce/shared/libd/core/xeniumranger/2.0.0/xeniumranger-2.0.0/lib/python/turing/engine/xenium_ranger/xr_preflight.py", line 587, in load_experiment_xenium
+    experiment_xenium = PAFinalizeExperimentXenium.deserialize(json.load(in_file))
+  File "/jhpce/shared/libd/core/xeniumranger/2.0.0/xeniumranger-2.0.0/lib/python/turing/engine/infra/input/schema.py", line 445, in deserialize
+    assert len(invalid_keys) == 0, "unrecognized keys {} in json for {}".format(
+AssertionError: unrecognized keys {'chemistry_version', 'segmented_cell_nuc_expansion_frac', 'segmented_cell_stain_frac', 'nuclear_transcripts_per_100um', 'region_area', 'non_zero_matrix_entries', 'num_transcripts_high_quality', 'segmented_cell_boundary_frac', 'imported_cell_frac', 'fraction_transcripts_assigned', 'panel_type', 'total_cell_area', 'thickness_of_high_quality_decoded_transcripts', 'segmented_cell_interior_frac', 'num_transcripts', 'panel_designer_version'} in json for PAFinalizeExperimentXenium
+
+
+2025-07-08 13:58:19 Shutting down.
+Saving pipestance info to "/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/code/xenium_imageProcessing/xenium_ranger/xeniumranger_NM_DAPI/xeniumranger_NM_DAPI.mri.tgz"
+tar: Removing leading /' from member names
+tar: Removing leading /' from hard link targets
+For assistance, upload this file to 10x Genomics by running:
+
+xeniumranger upload <your_email> "/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/code/xenium_imageProcessing/xenium_ranger/xeniumranger_NM_DAPI/xeniumranger_NM_DAPI.mri.tgz"
+
+**** Job ends ****
+Tue Jul  8 01:58:20 PM EDT 2025

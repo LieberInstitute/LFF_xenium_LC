@@ -1,0 +1,22 @@
+**** Job starts ****
+Tue Jul  1 10:20:16 AM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 19329575
+Job name: NMseg_xenium
+Hostname: 
+Task id: 
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2023 The MathWorks, Inc.
+             R2023b Update 4 (23.2.0.2428915) 64-bit (glnxa64)
+                              October 23, 2023
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Br6297_Kmeans.mat
+**** Job ends ****
+Tue Jul  1 10:21:34 AM EDT 2025
