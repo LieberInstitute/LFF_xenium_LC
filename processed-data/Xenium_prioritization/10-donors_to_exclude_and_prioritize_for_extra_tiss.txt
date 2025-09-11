@@ -1,0 +1,12 @@
+brnum	rankForExtraSections_or_dontXenatall
+Br5426	1
+Br6263	2
+Br0942	2
+Br5415	3
+Br1105	4
+Br5529	5
+Br5367	6
+Br2582	6
+Br5712	exclude_unknownAnat
+Br5276	exclude_depleted
+Br5517	exclude_unclearAnat

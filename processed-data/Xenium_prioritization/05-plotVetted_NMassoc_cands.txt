@@ -1,0 +1,16 @@
+gene_name	gene_notes
+ARL8B	regulates lysosome fusion and transport
+HPCAL1	is an autophagy regulator
+KIF1A	kinesin for + end-directed transport along actin
+LONRF2	“neuronal protein quality control”; involved in targeted ubiquitination of tdp43 https://www.nature.com/articles/s43587-023-00464-4
+MAP1LC3B	autophagosome biogenesis
+NAPB	ER-> golgi transport
+NDRG4	maintenance of BDNF level
+PCSK1N	inhibitor of prohormone convertase, therefore inhibiting processing of POMC and PENK into their active signaling peptides
+PGRMC1	Putative membrane progesterone receptor; intracellular heme chaperone; Regulates heme synthesis via interactions with FECH and acts as a heme donor for at least some hemoproteins (PubMed:27599036). Forms a ternary complex with TMEM97 receptor and low density lipid receptor/LDLR, which increases LDLR-mediated LDL lipoprotein internalization (PubMed:30443021).
+PLEKHB2	retrograde transport of recycling endosomes
+RAB6B	neuronal retrograde vesicle transport
+SARAF	Negative regulator of store-operated Ca(2+) entry (SOCE) involved in protecting cells from Ca(2+) overfilling. In response to cytosolic Ca(2+) elevation after endoplasmic reticulum Ca(2+) refilling, promotes a slow inactivation of STIM (STIM1 or STIM2)-dependent SOCE activity: possibly act by facilitating the deoligomerization of STIM to efficiently turn off ORAI when the endoplasmic reticulum lumen is filled with the appropriate Ca(2+) levels, and thus preventing the overload of the cell with excessive Ca(2+) ions.
+SCOC	ER-golgi retrograde transport and starvation autophagy
+GPX3	glutathione peroxidase; another family member, GPX4, previously assoc w NM in substantia nigra in the literature
+HSP90AB1	part of phosphotau clearance, with aid of ptau-recognizing chaperones https://www.nature.com/articles/s41467-022-31396-z

@@ -1,0 +1,390 @@
+---
+title: "05b-escheRs_of_selected_LCNMassoc_genes"
+author: "Bernie Mulvey"
+date: "2025-03-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+library(escheR)
+library(ComplexHeatmap)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 9), axis.title.x = element_text(size = 8), axis.text.y = element_text(size = 8), axis.title.y = element_text(size =9), plot.title = element_markdown(size = 11,hjust=0.5), strip.text = element_text(size=11), legend.text = element_text(size=8), legend.title = element_text(size=9,hjust=0.5)))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+
+read in spe, subset to NM+ cells in LC cluster
+```{r}
+lc3 <- readRDS("processed-data/06-countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+
+## calculate log counts
+lc3 <- scater::computeLibraryFactors(lc3)
+lc3 <- scater::logNormCounts(lc3)
+
+## read in nm subclusterings
+lcnm <- fread("processed-data/10_subclustering/04-LCsubclus-by-NM_otherclusts-by-LCorLCNMadjacency.txt")
+lcnm <- lcnm[,.(rn,NMseg_subclus)]
+lcnm[!(NMseg_subclus %in% c("LC.1_NMpos","LC.1_NMneg")),NMseg_subclus:="Other"]
+lcnm <- DataFrame(lcnm,row.names=lcnm$rn)[colnames(lc3),]
+
+## assign
+colLabels(lc3) <- lcnm$NMseg_subclus
+
+# make rownames symbols
+rownames(lc3) <- rowData(lc3)$gene_name
+rm(lcnm)
+gc()
+```
+
+read in genes prioritized after examining NM metric-logcounts plots
+```{r}
+plotg <- fread("processed-data/Xenium_prioritization/05-plotVetted_NMassoc_cands.txt")
+plotg <- plotg$gene_name
+
+## subset spatial data to these
+lc3 <- lc3[plotg,]
+```
+
+
+```{r}
+setDTthreads(1,restore_after_fork = FALSE)
+
+pal <- c("LC.1_NMpos"="red","LC.1_NMneg"="pink","Other"="grey")
+lapply(rownames(lc3),FUN=function(g){
+    tmpspe <- lc3[g,]
+   
+   samps <- lapply(unique(tmpspe$sample_id),FUN=function(s){
+      tmp <- tmpspe[,tmpspe$sample_id==s]
+      return(tmp)
+   })
+   names(samps) <- unique(tmpspe$sample_id)
+   
+   rm(tmpspe)
+   gc(full=T)
+   
+   plts <- mapply(s=samps,n=names(samps),SIMPLIFY=FALSE,FUN=function(s,n){
+       s$`log counts` <- as.numeric(logcounts(s)[g,])
+       s$pltalph <- ifelse(s$label=="LC.1_NMpos",yes=1,no=0.5)
+       
+       p <- make_escheR(s)
+       p <- p |> add_ground("label",stroke=0.8,point_size=2)
+       p <- p |> add_fill("log counts",size=2,point_size = 2)
+       p <- p+aes(alpha=pltalph)
+       
+       
+       p <- p+
+           scale_alpha_continuous(range = c(0.5,1),guide="none")+
+           scale_fill_continuous(type = "viridis")+
+           scale_color_manual(values=pal,na.value = NA)+
+           guides(color="none",fill=guide_colorbar(override.aes=list(size=1.5,alpha=1)))+
+           ggtitle(label=paste0(n," ",g))+
+           theme(plot.title.position = "plot",plot.title = element_text(size=9,hjust=0.5),legend.key.size = ggplot2::unit(0.075,"in"),legend.title=element_text(size=7,hjust=0.5),legend.text=element_text(size=6))
+           
+       
+   })
+    
+    pdf(paste0("plots/Xenium_prioritization/05b-topNMcands_spatial/",g,".pdf"),height=5*ceiling(length(plts)/2),width=12)
+    suppressWarnings(do.call("grid.arrange",c(plts,ncol=2)))
+    dev.off()
+})
+```
+
+do the same with raw counts (i think the low total counts in most nonLC spots is skewing all the logcount plots)
+```{r}
+setDTthreads(1,restore_after_fork = FALSE)
+
+pal <- c("LC.1_NMpos"="red","LC.1_NMneg"="pink","Other"="grey")
+lapply(rownames(lc3),FUN=function(g){
+    tmpspe <- lc3[g,]
+   
+   samps <- lapply(unique(tmpspe$sample_id),FUN=function(s){
+      tmp <- tmpspe[,tmpspe$sample_id==s]
+      return(tmp)
+   })
+   names(samps) <- unique(tmpspe$sample_id)
+   
+   rm(tmpspe)
+   gc(full=T)
+   
+   plts <- mapply(s=samps,n=names(samps),SIMPLIFY=FALSE,FUN=function(s,n){
+       s$counts <- as.numeric(counts(s)[g,])
+       s$pltalph <- ifelse(s$label=="LC.1_NMpos",yes=1,no=0.5)
+       
+       p <- make_escheR(s)
+       p <- p |> add_ground("label",stroke=0.8,point_size=2)
+       p <- p |> add_fill("counts",size=2,point_size = 2)
+       p <- p+aes(alpha=pltalph)
+       
+       
+       p <- p+
+           scale_alpha_continuous(range = c(0.5,1),guide="none")+
+           scale_fill_continuous(type = "viridis")+
+           scale_color_manual(values=pal,na.value = NA)+
+           guides(color="none",fill=guide_colorbar(override.aes=list(size=1.5,alpha=1)))+
+           ggtitle(label=paste0(n," ",g))+
+           theme(plot.title.position = "plot",plot.title = element_text(size=9,hjust=0.5),legend.key.size = ggplot2::unit(0.075,"in"),legend.title=element_text(size=7,hjust=0.5),legend.text=element_text(size=6))
+           
+       
+   })
+    
+    pdf(paste0("plots/Xenium_prioritization/05b-topNMcands_spatial/",g,"_rawcount.pdf"),height=5*ceiling(length(plts)/2),width=12)
+    suppressWarnings(do.call("grid.arrange",c(plts,ncol=2)))
+    dev.off()
+})
+```
+
+## ok, yeah it's way more obvious that these are indeed all genes that are LC-enriched (which was a filter criterion for NM-assoc candidates) when plotting straight counts.
+
+## all of these except NDRG4 look very promising in terms of LC expr; also make an coexp heatmap to help narrow down to nonredundant genes.
+## see robert phillips' script: 
+
+```{r}
+#Pull the logcounts for the genes that we care about. 
+xpr.mat <- as.matrix(logcounts(lc3[plotg[plotg!="NDRG4"],lc3$label=="LC.1_NMpos"]))
+
+#Create gene-gene correlation matrix. 
+gene_gene_cor <- cor(t(xpr.mat),method = "pearson")
+## here, none of the genes have a PCC of >0.23 making things hard to read with the self-correls of 1 contributing to the color range. so set those to NA
+gene_gene_cor[gene_gene_cor==1] <- NA
+
+hm <- Heatmap(gene_gene_cor, 
+              name = "PCC",
+              cluster_columns=FALSE,
+              cluster_rows=T,
+              row_names_gp = gpar(fontsize = 10),
+              column_names_gp = gpar(fontsize = 10))
+
+pdf("plots/Xenium_prioritization/05c-Top14_NMassoc_coexp_heatmap.pdf",height = 10, width = 12)
+draw(hm,
+     column_title = "Correlation of LCNM+ spot logcounts:\nCandidate NM-correl genes",
+     column_title_gp = gpar(fontsize = 12))
+dev.off()
+```
+
+## based on the plot, PGRMC1 has PCC > median with about half the genes (most strongly with SARAF). HSP90AB1 is among the PGRMC1-correlated, but it also has v weak correls to a couple of genes that PGRMC1 doesn't. SARAF is the most pgrmc1-correld, but has < median correls to all others except HSP90AB1 and (barely)  MAP1LC3B (plus, SARAF is interesting w/r/t LC overexcitation). ARL8B LONRF2, and KIF1A each have correls < median against all other genes, but KIF1A seems the least functionally interesting. MAP1LC3B is not correlated above median to many either, and is especially functionally relevant (only gene of these 14 for which NCBI/genecards/uniprot summaries explicitly mention autophagosomes). So, the final list:
+
+PGRMC1
+HSP90AB1
+ARL8B
+SARAF
+LONRF2
+MAP1LC3B
+GPX3 (based on GPX4 and lit)
+GPX4 (lit)
+
+These genes and some key annots have been assembled into a table in processed-data/Xenium_prioritization/05c-Selected_NMassoc_genes.txt
+
+## rep inf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.4.2 (2024-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.7.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] grid      stats4    stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] BiocParallel_1.40.0         parallelly_1.42.0          
+ [3] colorout_1.3-0.2            ComplexHeatmap_2.22.0      
+ [5] escheR_1.6.0                SpatialExperiment_1.16.0   
+ [7] SingleCellExperiment_1.28.1 SummarizedExperiment_1.36.0
+ [9] Biobase_2.66.0              GenomicRanges_1.58.0       
+[11] GenomeInfoDb_1.42.1         IRanges_2.40.1             
+[13] S4Vectors_0.44.0            BiocGenerics_0.52.0        
+[15] MatrixGenerics_1.18.0       matrixStats_1.5.0          
+[17] gridExtra_2.3               ggtext_0.1.2               
+[19] ggplot2_3.5.1               data.table_1.16.4          
+[21] rlang_1.1.4                
+
+loaded via a namespace (and not attached):
+ [1] magrittr_2.0.3          clue_0.3-66             GetoptLong_1.0.5       
+ [4] scater_1.34.0           compiler_4.4.2          png_0.1-8              
+ [7] vctrs_0.6.5             pkgconfig_2.0.3         shape_1.4.6.1          
+[10] crayon_1.5.3            fastmap_1.2.0           magick_2.8.5           
+[13] XVector_0.46.0          labeling_0.4.3          scuttle_1.16.0         
+[16] rmarkdown_2.29          UCSC.utils_1.2.0        ggbeeswarm_0.7.2       
+[19] xfun_0.50               zlibbioc_1.52.0         beachmat_2.22.0        
+[22] jsonlite_1.8.9          DelayedArray_0.32.0     irlba_2.3.5.1          
+[25] parallel_4.4.2          cluster_2.1.6           R6_2.5.1               
+[28] RColorBrewer_1.1-3      Rcpp_1.0.14             iterators_1.0.14       
+[31] knitr_1.49              Matrix_1.7-1            tidyselect_1.2.1       
+[34] rstudioapi_0.17.1       abind_1.4-8             yaml_2.3.10            
+[37] viridis_0.6.5           doParallel_1.0.17       codetools_0.2-20       
+[40] lattice_0.22-6          tibble_3.2.1            withr_3.0.2            
+[43] evaluate_1.0.3          xml2_1.3.6              circlize_0.4.16        
+[46] pillar_1.10.1           foreach_1.5.2           generics_0.1.3         
+[49] rprojroot_2.0.4         munsell_0.5.1           scales_1.3.0           
+[52] glue_1.8.0              tools_4.4.2             BiocNeighbors_2.0.1    
+[55] ScaledMatrix_1.14.0     Cairo_1.6-2             colorspace_2.1-1       
+[58] GenomeInfoDbData_1.2.13 beeswarm_0.4.0          BiocSingular_1.22.0    
+[61] vipor_0.4.7             cli_3.6.3               rsvd_1.0.5             
+[64] S4Arrays_1.6.0          viridisLite_0.4.2       dplyr_1.1.4            
+[67] gtable_0.3.6            digest_0.6.37           SparseArray_1.6.0      
+[70] ggrepel_0.9.6           rjson_0.2.23            farver_2.1.2           
+[73] htmltools_0.5.8.1       lifecycle_1.0.4         httr_1.4.7             
+[76] here_1.0.1              GlobalOptions_0.1.2     gridtext_0.1.5         
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.4.2 (2024-10-31)
+ os       macOS Sonoma 14.7.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2025-03-02
+ rstudio  2024.07.0-daily+219 Cranberry Hibiscus (desktop)
+ pandoc   3.1.11 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+
+─ Packages ─────────────────────────────────────────────────────────────────────────
+ !  package              * version date (UTC) lib source
+    abind                  1.4-8   2024-09-12 [1] CRAN (R 4.4.1)
+    beachmat               2.22.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    beeswarm               0.4.0   2021-06-01 [1] CRAN (R 4.4.0)
+    Biobase              * 2.66.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    BiocGenerics         * 0.52.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    BiocNeighbors          2.0.1   2024-11-28 [1] Bioconductor 3.20 (R 4.4.2)
+    BiocParallel         * 1.40.0  2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+    BiocSingular           1.22.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    Cairo                  1.6-2   2023-11-28 [1] CRAN (R 4.4.0)
+    circlize               0.4.16  2024-02-20 [1] CRAN (R 4.4.0)
+ P  cli                    3.6.3   2024-06-21 [2] CRAN (R 4.4.0)
+    clue                   0.3-66  2024-11-13 [1] CRAN (R 4.4.1)
+    cluster                2.1.6   2023-12-01 [1] CRAN (R 4.4.2)
+    codetools              0.2-20  2024-03-31 [1] CRAN (R 4.4.2)
+    colorout             * 1.3-0.2 2024-05-01 [1] Github (jalvesaq/colorout@c6113a2)
+    colorspace             2.1-1   2024-07-26 [1] CRAN (R 4.4.0)
+    ComplexHeatmap       * 2.22.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    crayon                 1.5.3   2024-06-20 [1] CRAN (R 4.4.0)
+    data.table           * 1.16.4  2024-12-06 [1] CRAN (R 4.4.1)
+    DelayedArray           0.32.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    digest                 0.6.37  2024-08-19 [1] CRAN (R 4.4.1)
+    doParallel             1.0.17  2022-02-07 [1] CRAN (R 4.4.1)
+    dplyr                  1.1.4   2023-11-17 [1] CRAN (R 4.4.0)
+    escheR               * 1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    evaluate               1.0.3   2025-01-10 [1] CRAN (R 4.4.1)
+    farver                 2.1.2   2024-05-13 [1] CRAN (R 4.4.0)
+    fastmap                1.2.0   2024-05-15 [1] CRAN (R 4.4.0)
+    foreach                1.5.2   2022-02-02 [1] CRAN (R 4.4.0)
+    generics               0.1.3   2022-07-05 [1] CRAN (R 4.4.0)
+    GenomeInfoDb         * 1.42.1  2024-11-28 [1] Bioconductor 3.20 (R 4.4.2)
+    GenomeInfoDbData       1.2.13  2024-12-12 [1] Bioconductor
+    GenomicRanges        * 1.58.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    GetoptLong             1.0.5   2020-12-15 [1] CRAN (R 4.4.0)
+    ggbeeswarm             0.7.2   2023-04-29 [1] CRAN (R 4.4.0)
+    ggplot2              * 3.5.1   2024-04-23 [1] CRAN (R 4.4.0)
+    ggrepel                0.9.6   2024-09-07 [1] CRAN (R 4.4.1)
+    ggtext               * 0.1.2   2022-09-16 [1] CRAN (R 4.4.0)
+    GlobalOptions          0.1.2   2020-06-10 [1] CRAN (R 4.4.0)
+    glue                   1.8.0   2024-09-30 [1] CRAN (R 4.4.1)
+    gridExtra            * 2.3     2017-09-09 [1] CRAN (R 4.4.0)
+    gridtext               0.1.5   2022-09-16 [1] CRAN (R 4.4.0)
+    gtable                 0.3.6   2024-10-25 [1] CRAN (R 4.4.1)
+    here                   1.0.1   2020-12-13 [1] CRAN (R 4.4.0)
+    htmltools              0.5.8.1 2024-04-04 [1] CRAN (R 4.4.0)
+    httr                   1.4.7   2023-08-15 [1] CRAN (R 4.4.0)
+    IRanges              * 2.40.1  2024-12-05 [1] Bioconductor 3.20 (R 4.4.2)
+    irlba                  2.3.5.1 2022-10-03 [1] CRAN (R 4.4.0)
+    iterators              1.0.14  2022-02-05 [1] CRAN (R 4.4.0)
+    jsonlite               1.8.9   2024-09-20 [1] CRAN (R 4.4.1)
+    knitr                  1.49    2024-11-08 [1] CRAN (R 4.4.1)
+    labeling               0.4.3   2023-08-29 [1] CRAN (R 4.4.0)
+    lattice                0.22-6  2024-03-20 [1] CRAN (R 4.4.2)
+    lifecycle              1.0.4   2023-11-07 [1] CRAN (R 4.4.0)
+    magick                 2.8.5   2024-09-20 [1] CRAN (R 4.4.1)
+    magrittr               2.0.3   2022-03-30 [1] CRAN (R 4.4.0)
+    Matrix                 1.7-1   2024-10-18 [1] CRAN (R 4.4.2)
+    MatrixGenerics       * 1.18.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    matrixStats          * 1.5.0   2025-01-07 [1] CRAN (R 4.4.1)
+    munsell                0.5.1   2024-04-01 [1] CRAN (R 4.4.0)
+    parallelly           * 1.42.0  2025-01-30 [1] CRAN (R 4.4.1)
+    pillar                 1.10.1  2025-01-07 [1] CRAN (R 4.4.1)
+    pkgconfig              2.0.3   2019-09-22 [1] CRAN (R 4.4.0)
+    png                    0.1-8   2022-11-29 [1] CRAN (R 4.4.0)
+    R6                     2.5.1   2021-08-19 [1] CRAN (R 4.4.0)
+    RColorBrewer           1.1-3   2022-04-03 [1] CRAN (R 4.4.0)
+    Rcpp                   1.0.14  2025-01-12 [1] CRAN (R 4.4.1)
+    rjson                  0.2.23  2024-09-16 [1] CRAN (R 4.4.1)
+ VP rlang                * 1.1.4   2025-01-17 [2] CRAN (R 4.4.1) (on disk 1.1.5)
+    rmarkdown              2.29    2024-11-04 [1] CRAN (R 4.4.1)
+    rprojroot              2.0.4   2023-11-05 [1] CRAN (R 4.4.0)
+    rstudioapi             0.17.1  2024-10-22 [1] CRAN (R 4.4.1)
+    rsvd                   1.0.5   2021-04-16 [1] CRAN (R 4.4.0)
+    S4Arrays               1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    S4Vectors            * 0.44.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    ScaledMatrix           1.14.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    scales                 1.3.0   2023-11-28 [1] CRAN (R 4.4.0)
+    scater                 1.34.0  2024-10-29 [1] Bioconductor 3.20 (R 4.4.1)
+    scuttle                1.16.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    sessioninfo            1.2.2   2021-12-06 [1] CRAN (R 4.4.0)
+    shape                  1.4.6.1 2024-02-23 [1] CRAN (R 4.4.0)
+    SingleCellExperiment * 1.28.1  2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+    SparseArray            1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    SpatialExperiment    * 1.16.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    SummarizedExperiment * 1.36.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    tibble                 3.2.1   2023-03-20 [1] CRAN (R 4.4.0)
+    tidyselect             1.2.1   2024-03-11 [1] CRAN (R 4.4.0)
+    UCSC.utils             1.2.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    vctrs                  0.6.5   2023-12-01 [1] CRAN (R 4.4.0)
+    vipor                  0.4.7   2023-12-18 [1] CRAN (R 4.4.0)
+    viridis                0.6.5   2024-01-29 [1] CRAN (R 4.4.0)
+    viridisLite            0.4.2   2023-05-02 [1] CRAN (R 4.4.0)
+    withr                  3.0.2   2024-10-28 [1] CRAN (R 4.4.1)
+    xfun                   0.50    2025-01-07 [1] CRAN (R 4.4.1)
+    xml2                   1.3.6   2023-12-04 [1] CRAN (R 4.4.0)
+    XVector                0.46.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    yaml                   2.3.10  2024-07-26 [1] CRAN (R 4.4.0)
+    zlibbioc               1.52.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.4/library
+
+ V ── Loaded and on-disk version mismatch.
+ P ── Loaded and on-disk path mismatch.
+
+────────────────────────────────────────────────────────────────────────────────────

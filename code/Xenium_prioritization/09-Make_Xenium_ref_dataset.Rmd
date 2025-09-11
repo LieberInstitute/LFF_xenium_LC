@@ -1,0 +1,306 @@
+---
+title: "09-Make_Xenium_ref_dataset"
+author: "Bernie Mulvey"
+date: "2025-03-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(gridExtra)
+library(SpatialExperiment)
+library(SingleCellExperiment)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+```
+
+Identify one CAPTURE area each with solid mix of clusters among:
+Male E4 carrier/homozyg
+Female " " 
+Male E3 carrier/homozyg
+Fem " "
+Any E2 homozyg
+```{r}
+# load coldata and cluster assignments / LC NM+- subassignments
+louvs <- readRDS("processed-data/07_featureSelection_dimred_harmony_clustering/04-Initial_louvLeid_res0.5-1-2_clusterings.RDS")
+louvs <- louvs$HARMONYlmbna_HDG_SVG_2575[,.(rn,snnHARMONYlmbna_HDG_SVG_2575_louv_res1)]
+setnames(louvs,2,"clusid")
+anno <- fread("processed-data/08_validitycheck_25hdg75svg_louv1/10-25hdg75svg_louv1_annots.txt")
+louvs <- merge.data.table(louvs,anno,"clusid")
+
+## LC NM+/- subassignments
+nmclus <- fread("processed-data/10_subclustering/04-LCsubclus-by-NM_otherclusts-by-LCorLCNMadjacency.txt")
+louvs <- merge.data.table(louvs,nmclus[,.(rn,NMseg_subclus)],by="rn")
+louvs[anno=="LC.1",anno:=NMseg_subclus] # assign LC NM+/-
+# check: unique(louvs$anno)
+
+# load colData
+tmpcd <- fread("processed-data/06-QCed_SPE_splitToTissSect_colData.txt")
+tmpcd <- merge.data.table(tmpcd,louvs[,.(rn,anno)],by.x="rowname",by.y="rn")
+
+# get table of spots per clust in capture area
+ans <- unique(tmpcd[,.(Sex,APOE,.N),by=c("capture_id","anno")])
+# get median number of spots per capture area
+medn <- ans[,median(N,na.rm=T),by="anno"]
+# drop samples that don't have every cluster
+dropsamp <- ans[,.N,by="capture_id"][N!=10,capture_id]
+ans <- ans[!(capture_id %in% dropsamp)]
+
+## identify samples by most spots overall--retain those w/ over 3500 total
+keepsamp <- tmpcd[,.N,by="capture_id"][N>3500,capture_id]
+ans <- ans[capture_id %in% keepsamp]
+
+## make a plot of n spots with a median line
+plts <- lapply(unique(ans$anno),FUN=function(x){
+    p <- ggplot(ans[anno==x],aes(y=capture_id,x=N))+
+        geom_col()+
+        ggtitle(x)+
+        geom_vline(xintercept=medn[anno==x,V1])
+    return(p)
+})
+
+do.call("grid.arrange",plts)
+
+# 404_D1 and 286_B1 are disproportionately vascular
+ans <- ans[!(capture_id %in% c("V13M06-404_D1","V13B23-286_B1"))]
+
+## what sex-geno groups do we still have multiple caps for
+ans[,.N,by=c("Sex","APOE")]
+# only female E4/E4s; others we have just one set of values for:
+# F E2 hom: V13M06-333_A1
+# M E2/E3: V13M06-333_C1 
+# F E2/E3: V13M06-402_A1 
+# M E4/E4: V13M06-331_A1
+
+ans <- ans[Sex=="F"&APOE=="E4/ E4"]
+
+## plot and check again for the 3 female E4 homozygotes
+plts <- lapply(unique(ans$anno),FUN=function(x){
+    p <- ggplot(ans[anno==x],aes(y=capture_id,x=N))+
+        geom_col()+
+        ggtitle(x)+
+        geom_vline(xintercept=medn[anno==x,V1])
+    return(p)
+})
+
+do.call("grid.arrange",plts)
+# V13B23-248_A1 is the best balanced overall (D1 is very short of LC; A1 is overrep'd for Astro clusters)
+dev.off()
+```
+
+now make an SCE from a subsetted SPE only with our chosen capture areas. previously made a gist as a guide for this: https://gist.github.com/berniejmulvey/098f21bfaff76ac36b4e82957ec04a6e 
+```{r}
+spe <- readRDS("processed-data/06-countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+spe <- spe[,spe$capture_id %in% c("V13M06-333_A1",
+                                  "V13M06-333_C1",
+                                  "V13M06-402_A1",
+                                  "V13M06-331_A1",
+                                  "V13B23-248_A1")]
+
+
+# switch colnames back to their original capture area-based identifiers
+colnames(spe) <- spe$original_spot_id
+
+## subset the annotations table from before to our samples and append as collabels
+louvs <- as.data.table(louvs,keep.rownames=T)
+## match the tissue section spot ids to their capture ids
+louvs <- merge.data.table(louvs,tmpcd[,.(rowname,original_spot_id)],by.x="rn",by.y="rowname")
+louvs <- louvs[louvs$original_spot_id %in% colnames(spe)]
+louvs <- DataFrame(louvs,row.names=louvs$original_spot_id)[colnames(spe),]
+colLabels(spe) <- louvs$anno # we previously swapped LC.1 to the LC NM+/NM- designations here.
+
+## make a table of the xenium targets--sarah will have to add the info for the XBP1u/s isoforms separately
+xeniumtargs <- fread("processed-data/Xenium_prioritization/Xenium panel selections minus XBP1u and XBP1s.txt") # this already has ensembl ids and gene names, except for XBP1 which we'll include the pan-isoform count data for.
+
+# they require the format col1: symbol; col2: ensembl
+xeniumtargs <- xeniumtargs[,.(`Gene symbol`,`Ensembl ID`)]
+setnames(xeniumtargs,c("symbol","ensembl"))
+
+# get XBP1 ens ID and append
+xbpens <- rownames(rowData(spe)[rowData(spe)$gene_name=="XBP1",])
+plustarg <- as.data.frame(matrix(c("XBP1",xbpens),nrow=1,ncol=2))
+colnames(plustarg) <- c("symbol","ensembl")
+xeniumtargs <- as.data.table(rbind(xeniumtargs,plustarg))
+
+fwrite(xeniumtargs,"processed-data/Xenium_prioritization/Panel_ref_dataset/xenium_targs_uploadfile_NOXBP1ISOFORMSLISTED.txt")
+```
+
+```{r}
+write.table(colnames(spe),
+            "processed-data/Xenium_prioritization/Panel_ref_dataset/barcodes.tsv",
+            sep='\t',
+            quote=F,
+            row.names=F,
+            col.names=F)
+
+# per the gist # next, we want to make the features file, which is the ENSEMBL identifier, the gene symbol, 
+# and the type of feature (which is going to be "Gene Expression", even though we're going to export count data).
+# this is count data for ALL genes, not just our panel!
+
+feats <- as.data.frame(rowData(spe)[,c("gene_id","gene_name")])
+feats$type <- "Gene Expression"
+write.table(feats,
+            "processed-data/Xenium_prioritization/Panel_ref_dataset/features.tsv",
+            sep='\t',
+            row.names=F,
+            col.names=F,
+            quote=F)
+
+# the last core component, the actual count data, is to be stored in a sparse matrix as a .mtx file. 
+# the Matrix package has functions to do this for us.
+ct <- counts(spe)
+Matrix::writeMM(ct,"processed-data/Xenium_prioritization/Panel_ref_dataset/matrix.mtx")
+
+# finally, the clustering assignments
+anno <- as.data.table(colData(spe),keep.rownames=T)
+anno <- anno[,.(rn,label)]
+setnames(anno,c("barcode","annotation"))
+fwrite(anno,"processed-data/Xenium_prioritization/Panel_ref_dataset/clusters.tsv",sep='\t',quote=F)
+
+# you should now have a directory with four files: barcodes.tsv, features.tsv, matrix.mtx, and clusters.tsv 
+# from the command line, run gzip on features.tsv, barcodes.tsv, and matrix.mtx . don't compress clusters.tsv
+# then zip the entire directory. 
+# hopefully the site accepts your reference data upload and now you can get on with your day.
+```
+
+rep inf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.4.2 (2024-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.7.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] colorout_1.3-0.2            SpatialExperiment_1.16.0   
+ [3] SingleCellExperiment_1.28.1 SummarizedExperiment_1.36.0
+ [5] Biobase_2.66.0              GenomicRanges_1.58.0       
+ [7] GenomeInfoDb_1.42.1         IRanges_2.40.1             
+ [9] S4Vectors_0.44.0            BiocGenerics_0.52.0        
+[11] MatrixGenerics_1.18.0       matrixStats_1.5.0          
+[13] gridExtra_2.3               ggplot2_3.5.1              
+[15] data.table_1.16.4           rlang_1.1.4                
+
+loaded via a namespace (and not attached):
+ [1] generics_0.1.3          SparseArray_1.6.0       lattice_0.22-6         
+ [4] magrittr_2.0.3          evaluate_1.0.3          grid_4.4.2             
+ [7] rprojroot_2.0.4         jsonlite_1.8.9          Matrix_1.7-1           
+[10] sessioninfo_1.2.2       httr_1.4.7              UCSC.utils_1.2.0       
+[13] scales_1.3.0            abind_1.4-8             cli_3.6.3              
+[16] crayon_1.5.3            XVector_0.46.0          munsell_0.5.1          
+[19] withr_3.0.2             DelayedArray_0.32.0     S4Arrays_1.6.0         
+[22] tools_4.4.2             dplyr_1.1.4             colorspace_2.1-1       
+[25] GenomeInfoDbData_1.2.13 here_1.0.1              vctrs_0.6.5            
+[28] R6_2.5.1                magick_2.8.5            lifecycle_1.0.4        
+[31] zlibbioc_1.52.0         pkgconfig_2.0.3         pillar_1.10.1          
+[34] gtable_0.3.6            Rcpp_1.0.14             glue_1.8.0             
+[37] xfun_0.50               tibble_3.2.1            tidyselect_1.2.1       
+[40] rstudioapi_0.17.1       knitr_1.49              farver_2.1.2           
+[43] rjson_0.2.23            labeling_0.4.3          compiler_4.4.2         
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.4.2 (2024-10-31)
+ os       macOS Sonoma 14.7.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2025-03-13
+ rstudio  2024.07.0-daily+219 Cranberry Hibiscus (desktop)
+ pandoc   NA
+
+─ Packages ─────────────────────────────────────────────────────────────────────────
+ !  package              * version date (UTC) lib source
+    abind                  1.4-8   2024-09-12 [1] CRAN (R 4.4.1)
+    Biobase              * 2.66.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    BiocGenerics         * 0.52.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ P  cli                    3.6.3   2024-06-21 [2] CRAN (R 4.4.0)
+    colorout             * 1.3-0.2 2024-05-01 [1] Github (jalvesaq/colorout@c6113a2)
+    colorspace             2.1-1   2024-07-26 [1] CRAN (R 4.4.0)
+    crayon                 1.5.3   2024-06-20 [1] CRAN (R 4.4.0)
+    data.table           * 1.16.4  2024-12-06 [1] CRAN (R 4.4.1)
+    DelayedArray           0.32.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    dplyr                  1.1.4   2023-11-17 [1] CRAN (R 4.4.0)
+    evaluate               1.0.3   2025-01-10 [1] CRAN (R 4.4.1)
+    farver                 2.1.2   2024-05-13 [1] CRAN (R 4.4.0)
+    generics               0.1.3   2022-07-05 [1] CRAN (R 4.4.0)
+    GenomeInfoDb         * 1.42.1  2024-11-28 [1] Bioconductor 3.20 (R 4.4.2)
+    GenomeInfoDbData       1.2.13  2024-12-12 [1] Bioconductor
+    GenomicRanges        * 1.58.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    ggplot2              * 3.5.1   2024-04-23 [1] CRAN (R 4.4.0)
+    glue                   1.8.0   2024-09-30 [1] CRAN (R 4.4.1)
+    gridExtra            * 2.3     2017-09-09 [1] CRAN (R 4.4.0)
+    gtable                 0.3.6   2024-10-25 [1] CRAN (R 4.4.1)
+    here                   1.0.1   2020-12-13 [1] CRAN (R 4.4.0)
+    httr                   1.4.7   2023-08-15 [1] CRAN (R 4.4.0)
+    IRanges              * 2.40.1  2024-12-05 [1] Bioconductor 3.20 (R 4.4.2)
+    jsonlite               1.8.9   2024-09-20 [1] CRAN (R 4.4.1)
+    knitr                  1.49    2024-11-08 [1] CRAN (R 4.4.1)
+    labeling               0.4.3   2023-08-29 [1] CRAN (R 4.4.0)
+    lattice                0.22-6  2024-03-20 [1] CRAN (R 4.4.2)
+    lifecycle              1.0.4   2023-11-07 [1] CRAN (R 4.4.0)
+    magick                 2.8.5   2024-09-20 [1] CRAN (R 4.4.1)
+    magrittr               2.0.3   2022-03-30 [1] CRAN (R 4.4.0)
+    Matrix                 1.7-1   2024-10-18 [1] CRAN (R 4.4.2)
+    MatrixGenerics       * 1.18.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    matrixStats          * 1.5.0   2025-01-07 [1] CRAN (R 4.4.1)
+    munsell                0.5.1   2024-04-01 [1] CRAN (R 4.4.0)
+    pillar                 1.10.1  2025-01-07 [1] CRAN (R 4.4.1)
+    pkgconfig              2.0.3   2019-09-22 [1] CRAN (R 4.4.0)
+    R6                     2.5.1   2021-08-19 [1] CRAN (R 4.4.0)
+    Rcpp                   1.0.14  2025-01-12 [1] CRAN (R 4.4.2)
+    rjson                  0.2.23  2024-09-16 [1] CRAN (R 4.4.1)
+ VP rlang                * 1.1.4   2025-01-17 [2] CRAN (R 4.4.1) (on disk 1.1.5)
+    rprojroot              2.0.4   2023-11-05 [1] CRAN (R 4.4.0)
+    rstudioapi             0.17.1  2024-10-22 [1] CRAN (R 4.4.1)
+    S4Arrays               1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    S4Vectors            * 0.44.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    scales                 1.3.0   2023-11-28 [1] CRAN (R 4.4.0)
+    sessioninfo            1.2.2   2021-12-06 [1] CRAN (R 4.4.0)
+    SingleCellExperiment * 1.28.1  2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+    SparseArray            1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    SpatialExperiment    * 1.16.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    SummarizedExperiment * 1.36.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    tibble                 3.2.1   2023-03-20 [1] CRAN (R 4.4.0)
+    tidyselect             1.2.1   2024-03-11 [1] CRAN (R 4.4.0)
+    UCSC.utils             1.2.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    vctrs                  0.6.5   2023-12-01 [1] CRAN (R 4.4.0)
+    withr                  3.0.2   2024-10-28 [1] CRAN (R 4.4.1)
+    xfun                   0.50    2025-01-07 [1] CRAN (R 4.4.1)
+    XVector                0.46.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    zlibbioc               1.52.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.4/library
+
+ V ── Loaded and on-disk version mismatch.
+ P ── Loaded and on-disk path mismatch.
+
+────────────────────────────────────────────────────────────────────────────────────

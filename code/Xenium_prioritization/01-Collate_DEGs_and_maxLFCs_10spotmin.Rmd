@@ -1,0 +1,292 @@
+---
+title: "01-Collate_DEGs_and_maxLFCs_10spotmin"
+author: "Bernie Mulvey"
+date: "2025-02-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+apocarry <- fread("processed-data/11_DEanalyses/02b-APOE4_DE_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+apocount <- fread("processed-data/11_DEanalyses/03b-E4alleleCount_DE_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+
+sexcarry <- fread("processed-data/11_DEanalyses/02d-Sex_DE_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+sexcount <- fread("processed-data/11_DEanalyses/03d-Sex_DE_E4alleleCountCovar_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+
+ceucount <- fread("processed-data/11_DEanalyses/05b-GlobalCEUprop_DE_with_e4alleleCountModel_FDR0.2_byGene_byNmodelsOf2max_byCluster_10spotmin.txt")
+```
+
+Subset to genes DE in at least N models for a given approach/variable of interest
+APO count, APO carrier: 3/4
+Sex ", sex ", : 4/4
+global ancestry: 2/2
+
+These are already filtered for effect sizes (at least in the case of sex DE).
+```{r}
+apocarry <- apocarry[Nsigmodels_forCluster>=3]
+apocount <- apocount[Nsigmodels_forCluster>=3]
+
+sexcarry <- sexcarry[Nsigmodels_forCluster>=4]
+sexcount <- sexcount[Nsigmodels_forCluster>=4]
+
+ceucount <- ceucount[Nsigmodels_forCluster>=2]
+
+### concatenate into a named list to reassemble these into a table
+detabs <- list(apocarry,apocount,sexcarry,sexcount,ceucount)
+names(detabs) <- c("E4carrier_DE","E4copies_DE","SexDE_E4carrierCov","SexDE_E4copiesCov","GlobAncDE_E4copiescov")
+
+detabs <- mapply(dt=detabs,n=names(detabs),SIMPLIFY=FALSE,FUN=function(dt,n){
+    setnames(dt,"Nsigmodels_forCluster",paste0("Nmodel_",n))
+    dt[,DEtest_FDRunder0.2_forCluster:=NULL]
+    dt <- unique(dt)
+    return(dt)
+})
+```
+
+merge out of list
+```{r}
+i<-1
+for (i in c(1:length(detabs))){
+    if(i==1){
+        DEtabul <- copy(detabs[[i]])
+    } else{
+      DEtabul <- merge(DEtabul,copy(detabs[[i]]),by=c("louvCluster","gene_name"),all=T)  
+    }
+}
+
+setnafill(DEtabul,cols=c(3:7),fill=0)
+DEtabul[,totalTests_FDRpt2:=rowSums(DEtabul[,c(3:7),with=F])]
+```
+
+## load in and append gene notes that were manually gathered for some of these genes previously
+```{r}
+genemine <- fread("processed-data/Xenium_prioritization/00-manually_ided_genesandnotes_pre022425.txt")
+genemine <- genemine[gene_notes!=""]
+
+DEtabul <- merge.data.table(DEtabul,genemine,by="gene_name",all.x=T)
+```
+
+now to get the max LFCs, we need the full topTable outputs
+```{r}
+apocarry.tt <- readRDS("processed-data/11_DEanalyses/02a-DEtoptabs_testsWithandWithout_RINandorAncestry_10spotmin.RDS")
+
+apocount.tt <- readRDS("processed-data/11_DEanalyses/03a-E4andSexDE_with_e4alleleCountModel_toptabs_testsWithandWithout_RINandorAncestry_10spotmin.RDS")
+
+anc.tt <- readRDS("processed-data/11_DEanalyses/05a-GlobalCEUprop_DE_with_e4alleleCountModel_toptabs_testsWithandWithout_RIN_10spotmin.RDS")
+```
+
+## get largest abs effect size per gene
+```{r}
+maxfx <- as.data.frame(DEtabul[,.(gene_name,louvCluster)])
+maxfx$maxAbsLFC <- 0
+
+
+i<-1
+for (i in c(1:nrow(maxfx))){
+    curclus <- maxfx$louvCluster[i]
+    curgene <- maxfx$gene_name[i]
+    
+    lfcs <- c(0,0)
+    
+    if(DEtabul[gene_name==curgene&louvCluster==curclus,Nmodel_E4carrier_DE]>0){
+        lfcs <- c(lfcs,unlist(
+            lapply(apocarry.tt,function(x){
+            y <- as.data.table(x[[curclus]]$apo)
+            z <- ifelse(y[gene_name==curgene,adj.P.Val]<0.2,
+                   yes=y[gene_name==curgene,logFC],
+                   no=0)
+            return(z)
+        })))
+    }
+    
+    if(DEtabul[gene_name==curgene&louvCluster==curclus,Nmodel_E4copies_DE]>0){
+        lfcs <- c(lfcs,unlist(
+            lapply(apocount.tt,function(x){
+            y <- as.data.table(x[[curclus]]$apo)
+            z <- ifelse(y[gene_name==curgene,adj.P.Val]<0.2,
+                   yes=y[gene_name==curgene,logFC],
+                   no=0)
+            return(z)
+        })))
+    }
+    
+    if(DEtabul[gene_name==curgene&louvCluster==curclus,Nmodel_SexDE_E4carrierCov]>0){
+        lfcs <- c(lfcs,unlist(
+            lapply(apocarry.tt,function(x){
+            y <- as.data.table(x[[curclus]]$sex)
+            z <- ifelse(y[gene_name==curgene,adj.P.Val]<0.2,
+                   yes=y[gene_name==curgene,logFC],
+                   no=0)
+            return(z)
+        })))
+    }
+    
+    if(DEtabul[gene_name==curgene&louvCluster==curclus,Nmodel_SexDE_E4copiesCov]>0){
+        lfcs <- c(lfcs,unlist(
+            lapply(apocount.tt,function(x){
+            y <- as.data.table(x[[curclus]]$sex)
+            z <- ifelse(y[gene_name==curgene,adj.P.Val]<0.2,
+                   yes=y[gene_name==curgene,logFC],
+                   no=0)
+            return(z)
+        })))
+    }
+    
+    if(DEtabul[gene_name==curgene&louvCluster==curclus,Nmodel_GlobAncDE_E4copiescov]>0){
+        lfcs <- c(lfcs,unlist(
+            lapply(anc.tt,function(x){
+            y <- as.data.table(x[[curclus]])
+            z <- ifelse(y[gene_name==curgene,adj.P.Val]<0.2,
+                   yes=y[gene_name==curgene,logFC],
+                   no=0)
+            return(z)
+        })))
+    }
+    
+    maxfx[i,3] <- max(abs(lfcs))
+    rm(lfcs,curgene,curclus)
+}
+
+maxfx <- as.data.table(maxfx)
+
+DEtabul <- merge.data.table(DEtabul,maxfx,by=c("louvCluster","gene_name"))
+```
+
+## save this table before addnl filtering ##
+```{r}
+fwrite(DEtabul,"processed-data/Xenium_prioritization/01a-DEGs_byCluster_andNModels_FDR0.2_unfilt_10spotmin.txt",quote=F,row.names=F,sep='\t')
+```
+
+additional filtering: remove gene-cluster pairs with a max effect size <0.5; remove sex chromosomal genes.
+```{r}
+DEtabul <- DEtabul[maxAbsLFC>=0.5]
+
+## get sex chr info
+ensglut <- fread("raw-data/USEFOR10X_ensg_lut_hg38_fromEns98_111123.txt")
+ensglut <- unique(ensglut[,.(external_gene_name,chromosome_name)])
+ensglut <- ensglut[external_gene_name %in% DEtabul$gene_name]
+
+ensglut <- ensglut[!(chromosome_name %in% c("X","Y"))]
+
+DEtabul <- DEtabul[gene_name %in% ensglut$external_gene_name]
+
+rm(ensglut)
+
+## save
+fwrite(DEtabul,"processed-data/Xenium_prioritization/01a-DEGs_byCluster_andNModels_FDR0.2_noXY_maxAbsLFC0.5_10spotmin.txt",quote=F,row.names=F,sep='\t')
+```
+
+### how many unique genes now?
+```{r}
+length(unique(DEtabul$gene_name))
+#1192
+
+## how many with absLFC > 1
+length(unique(DEtabul[maxAbsLFC>1,gene_name]))
+
+## 184, nice!
+```
+
+save a table of LFC>1
+```{r}
+fwrite(DEtabul[maxAbsLFC>1],"processed-data/Xenium_prioritization/01a-DEGs_byCluster_andNModels_FDR0.2_noXY_maxAbsLFC1_10spotmin.txt",quote=F,row.names=F,sep='\t')
+```
+
+rep inf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.4.2 (2024-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.7.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+[1] BiocParallel_1.40.0 parallelly_1.42.0   colorout_1.3-0.2    edgeR_4.4.1        
+[5] limma_3.62.1        data.table_1.16.4   rlang_1.1.4        
+
+loaded via a namespace (and not attached):
+ [1] digest_0.6.37     codetools_0.2-20  fastmap_1.2.0     xfun_0.50        
+ [5] lattice_0.22-6    knitr_1.49        htmltools_0.5.8.1 rmarkdown_2.29   
+ [9] cli_3.6.3         sessioninfo_1.2.2 grid_4.4.2        statmod_1.5.0    
+[13] compiler_4.4.2    rprojroot_2.0.4   here_1.0.1        rstudioapi_0.17.1
+[17] tools_4.4.2       evaluate_1.0.3    yaml_2.3.10       locfit_1.5-9.10  
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.4.2 (2024-10-31)
+ os       macOS Sonoma 14.7.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2025-02-26
+ rstudio  2024.07.0-daily+219 Cranberry Hibiscus (desktop)
+ pandoc   3.1.11 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+
+─ Packages ─────────────────────────────────────────────────────────────────────────
+ !  package      * version  date (UTC) lib source
+    BiocParallel * 1.40.0   2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+ P  cli            3.6.3    2024-06-21 [2] CRAN (R 4.4.0)
+    codetools      0.2-20   2024-03-31 [1] CRAN (R 4.4.2)
+    colorout     * 1.3-0.2  2024-05-01 [1] Github (jalvesaq/colorout@c6113a2)
+    data.table   * 1.16.4   2024-12-06 [1] CRAN (R 4.4.1)
+    digest         0.6.37   2024-08-19 [1] CRAN (R 4.4.1)
+    edgeR        * 4.4.1    2024-12-02 [1] Bioconductor 3.20 (R 4.4.2)
+    evaluate       1.0.3    2025-01-10 [1] CRAN (R 4.4.1)
+    fastmap        1.2.0    2024-05-15 [1] CRAN (R 4.4.0)
+    here           1.0.1    2020-12-13 [1] CRAN (R 4.4.0)
+    htmltools      0.5.8.1  2024-04-04 [1] CRAN (R 4.4.0)
+    knitr          1.49     2024-11-08 [1] CRAN (R 4.4.1)
+    lattice        0.22-6   2024-03-20 [1] CRAN (R 4.4.2)
+    limma        * 3.62.1   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    locfit         1.5-9.10 2024-06-24 [1] CRAN (R 4.4.0)
+    parallelly   * 1.42.0   2025-01-30 [1] CRAN (R 4.4.1)
+ VP rlang        * 1.1.4    2025-01-17 [2] CRAN (R 4.4.1) (on disk 1.1.5)
+    rmarkdown      2.29     2024-11-04 [1] CRAN (R 4.4.1)
+    rprojroot      2.0.4    2023-11-05 [1] CRAN (R 4.4.0)
+    rstudioapi     0.17.1   2024-10-22 [1] CRAN (R 4.4.1)
+    sessioninfo    1.2.2    2021-12-06 [1] CRAN (R 4.4.0)
+    statmod        1.5.0    2023-01-06 [1] CRAN (R 4.4.0)
+    xfun           0.50     2025-01-07 [1] CRAN (R 4.4.1)
+    yaml           2.3.10   2024-07-26 [1] CRAN (R 4.4.0)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.4/library
+
+ V ── Loaded and on-disk version mismatch.
+ P ── Loaded and on-disk path mismatch.
+
+────────────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,50 @@
+---
+title: "02-collate_spotplot_candidates_and_gene_notes"
+author: "Bernie Mulvey"
+date: "2025-02-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+read in exported excel sheet
+```{r}
+gn <- fread("processed-data/Xenium_prioritization/01b-xenium_boxplot_selected_genes.txt")
+
+## get genes where any notes were taken
+gnnote <- gn[gene_notes!=""]
+
+## find genes where multiple notes were taken and concat
+gnnote <- unique(gnnote[,.(gene,gene_notes)])
+
+gnnote[,.N,by="gene"][N>1,gene]
+# only 1 gene with multiple notes: NSG1
+gnnote[gene=="NSG1"]
+# keep the first note, way more informative
+
+gnnote[gene=="NSG1",gene_notes:="Uniprot Plays a role in the recycling mechanism in neurons of multiple receptors, including AMPAR, APP and L1CAM and acts at the level of early endosomes to promote sorting of receptors toward a recycling pathway."]
+gnnote <- unique(gnnote)
+
+## append notes to a new copy
+gn <- gn[,.(gene,clust,test)]
+gn <- merge.data.table(gn,gnnote,by="gene",all.x=T)
+
+# save
+fwrite(gn,"processed-data/Xenium_prioritization/02-Boxplot_candidates_andnotes_cleaned.txt",sep='\t',quote=F,row.names=F)
+```

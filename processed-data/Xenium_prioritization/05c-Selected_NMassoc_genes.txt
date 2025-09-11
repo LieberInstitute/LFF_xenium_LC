@@ -1,0 +1,9 @@
+gene_name	gene_notes
+PGRMC1	LCNM LMM: Intensity coef -1.4 (p 2e-14), propNM coef 1.8 (p 3e-13), sex signif covariate for both NM measures (min p 1.4e-3). Iron (heme) chaperone; complexes with LDLR to facilitate LDL uptake [iron being what makes NM MRI-able; NM having unique lipid composition relative to cell in DA neurons, and LDLs/lipid trafficking being under the broad-scope control of APO proteins, at least 2-3 of which are affected by APOE variants (APOE, C1, C2)]
+HSP90AB1	LCNM LMM: Intensity coef -0.55 (p 1.1e-3), propNM coef 1.1 (p 1.6e-6). clears pTau as part of a multiprotein complex
+ARL8B	LCNM LMM: Intensity coef -0.37 (p 6.3e-3), propNM coef 0.95 (p 2.8e-7). lysosome fusion, transport [NM bodies being autophagosomes/autolysosomes]
+SARAF	LCNM LMM: Intensity coef -0.96 (p 4e-7), propNM coef 1.2 (p 5e-6). Watches cytosolic calcium influx during restoration of ER calcium stores and off Ca inflow once ER is repleted. [interesting re: model, patient evidence of LC overactivation during early LC degen]
+LONRF2	LCNM LMM: Intensity coef -0.63 (p 1.5e-6), propNM coef 0.9 (p 4.4e-7). “neuronal protein quality control”, including clearance of a non-AD aggregate, TDP43
+MAP1LC3B	LCNM LMM: Intensity coef -1.05 (p 4e-10), propNM coef 1.7 (p 1.2e-13). Covaries by sex in both models (min p 3.3e-3) and age in one (p 0.043). autophagosome biogenesis
+GPX3	LCNM LMM: Intensity coef -1.5 (p 2e-15), propNM coef 2.5 (p 9e-25). (based on GPX4 and lit). glutathione peroxidase; involved in peroxide neutralization.
+GPX4	LCNM LMM: Intensity coef -0.44 (p 0.012), propNM coef 0.8 (p 8e-4).

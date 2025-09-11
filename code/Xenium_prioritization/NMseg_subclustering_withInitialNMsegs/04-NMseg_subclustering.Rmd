@@ -1,0 +1,388 @@
+---
+title: "04-NMseg_subclustering"
+author: "Bernie Mulvey"
+date: "2025-02-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+library(parallel)
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 9), axis.title.x = element_text(size = 8), axis.text.y = element_text(size = 8), axis.title.y = element_text(size =9), plot.title = element_markdown(size = 11,hjust=0.5), strip.text = element_text(size=11), legend.text = element_text(size=8), legend.title = element_text(size=9,hjust=0.5)))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+## load SPE (NM segmentation results are already embedded); set (prop_NM<=0.003 & prop_NM>0) to 0. values in the 0.002-0.003 range are the most frequent spot value for prop_NM in all clusters, so anything at or below this is noise or background.
+
+```{r}
+lc3 <- readRDS("processed-data/06-countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+
+tmpcd <- as.data.table(colData(lc3),keep.rownames=T)
+tmpcd[Prop_NM>0&Prop_NM<=0.003,Prop_NM:=0]
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(lc3),]
+# DO retain the rownames (copied to column rn above) for ease of retrieving neighbor spots downstream
+
+colData(lc3) <- tmpcd
+
+rm(tmpcd)
+```
+
+
+assign hdg_svg_2575_louv_res1 clusterings as autoannotated
+```{r}
+louvs <- readRDS("processed-data/07_featureSelection_dimred_harmony_clustering/04-Initial_louvLeid_res0.5-1-2_clusterings.RDS")
+louvs <- louvs[["HARMONYlmbna_HDG_SVG_2575"]][,.(rn,snnHARMONYlmbna_HDG_SVG_2575_louv_res1)]
+setnames(louvs,2,"clusid")
+
+autoan <- readRDS("processed-data/07_featureSelection_dimred_harmony_clustering/05b-init_clusterings_autoannoLCrapheAndGABAergic.RDS")
+autoan <- autoan[["snnHARMONYlmbna_HDG_SVG_2575_louv_res1"]]
+
+louvs <- merge.data.table(louvs,autoan,by="clusid")
+louvs <- DataFrame(louvs,row.names=louvs$rn)[colnames(lc3),]
+
+colLabels(lc3) <- louvs$autoanno
+
+rm(louvs,autoan)
+```
+
+### for the lc cluster, make an NM+ and NM- designation
+```{r}
+colData(lc3) <- cbind(colData(lc3),spatialCoords(lc3))
+
+tmpcd <- as.data.table(colData(lc3)) # rownames are already in a column now, no need to keep propagating them
+tmpcd[label=="LC.1"&Prop_NM>0,NMseg_subclus:="LC.1_NMpos"]
+tmpcd[label=="LC.1"&Prop_NM==0,NMseg_subclus:="LC.1_NMneg"]
+
+## append
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(lc3),]
+colData(lc3) <- tmpcd
+rm(tmpcd)
+```
+
+
+for non-LC clusters--astrocyte and microglia clusters (X2 , X4; for lack of an outright mglia cluster, let's do X9, likely blood-vasc) especially--make NM-adjacent and non-adjacent and LC adjacent/nonadjacent label sets.
+### adapt a block from Michael Totty's spotsweeper package to identify immediately neighboring spots in glial clusters. this uses spatial coordinates in full pixel resolution, so append those to the coldata so we can do this without lugging around the whole SPE.
+```{r}
+unique_sample_ids <- unique(lc3$sample_id)
+
+## break apart coldata per sample, find neighbors, annotate accordingly, return the sample coldata with the additional columns
+newcds <- lapply(unique_sample_ids,function(s){
+    spe_subset <- lc3[, lc3$sample_id == s]
+    dnn <- BiocNeighbors::findKNN(spatialCoords(spe_subset), 
+        k = 6, warn.ties = FALSE)$index
+    rownames(dnn) <- colnames(spe_subset)
+    neighborhoods <- mclapply(seq_len(nrow(dnn)),mc.cores=8,FUN=function(i) {
+        setDTthreads(1,restore_after_fork=FALSE)
+        indices <- dnn[i, ]
+        indices <- indices[indices != 0]
+        as.data.table(colData(spe_subset)[indices, c("label","rn")]) # return the neighbors' spot ids (as "rn") and cluster labels
+    })
+    ## add the center spot id as the names of the list output
+    names(neighborhoods) <- rownames(dnn)
+    
+    ## collapse into a data table with the center spot's id propagated in
+    neighborhoods <- rbindlist(neighborhoods,idcol="centerspot_rn")
+
+    neighborhoods[,centerspot_type:=colData(spe_subset)[neighborhoods$centerspot_rn,"NMseg_subclus"]]
+    
+    ## annotate any form of LC-adjacency for the non-LC spots
+    neighborhoods[label!="LC.1" & centerspot_type %in% c("LC.1_NMpos","LC.1_NMneg"),LCadjacent:=paste0(label,"_LCadj")]
+    
+    neighborhoods[label!="LC.1" & !(centerspot_type %in% c("LC.1_NMpos","LC.1_NMneg")),LCadjacent:=paste0(label,"_LCnonadj")]
+    
+    ## further annotate NM+ LC adjacency/nonadjacency 
+    neighborhoods[!is.na(LCadjacent) & centerspot_type=="LC.1_NMpos",nonLC_NMseg_subclus:=paste0(label,"_LCNMadj")]
+    neighborhoods[!is.na(LCadjacent) & centerspot_type=="LC.1_NMneg",nonLC_NMseg_subclus:=paste0(label,"_LCnonNMadj")]
+    
+    ## among spots with >1 LC neighbor, there could be NM+ and NM- neighbors. if all are NM-, keep that label. if there are both, keep the NM+ label.
+    
+    newcdout <- unique(
+        neighborhoods[LCadjacent %in% grep(LCadjacent,pattern="_LCadj",value=T) &
+                          nonLC_NMseg_subclus %in% grep(nonLC_NMseg_subclus,pattern="_LCNMadj",value=T),
+                      .(rn,LCadjacent,nonLC_NMseg_subclus)])
+    
+    stopifnot(nrow(newcdout)==length(unique(newcdout$rn)))
+    
+    ## get remaining lc adjacents
+    newcdout <- rbind(newcdout,
+                      unique(neighborhoods[LCadjacent %in% grep(LCadjacent,pattern="_LCadj",value=T) & !(rn %in% newcdout$rn),
+                                           .(rn,LCadjacent,nonLC_NMseg_subclus)]))
+    
+    stopifnot(nrow(newcdout)==length(unique(newcdout$rn)))
+
+    
+    ## get everything else
+    newcdout <- rbind(newcdout,
+                      unique(neighborhoods[!(rn %in% newcdout$rn),
+                                           .(rn,LCadjacent,nonLC_NMseg_subclus)]))
+    
+    ## finally, set the nonLC_NMseg_subclus to be blah_LCnonadj for totally LC-non-neighboring spots
+    newcdout[is.na(nonLC_NMseg_subclus),nonLC_NMseg_subclus:=LCadjacent]
+    
+    stopifnot(nrow(newcdout)==length(unique(newcdout$rn)))
+
+    return(newcdout)
+})
+
+## collapse it all back together and check for any neighborless spots that weren't accounted for here ^
+newcdout <- rbindlist(newcds)
+
+stopifnot(nrow(newcdout)==ncol(lc3))
+# nrow(newcdout)
+# 132479 -- so we're a few spots short. nothing we can't address with an all.x=T in the merge
+tmpcd <- as.data.table(colData(lc3))
+
+tmpcd <- merge.data.table(tmpcd,newcdout,by="rn",all.x=T)
+stopifnot(all(colnames(lc3) %in% tmpcd$rn))
+
+rm(newcdout,newcds)
+## make the NMseg subclusters for LC and nonLC into one joint column
+tmpcd[!is.na(NMseg_subclus),NMseg_subclus2:=NMseg_subclus]
+tmpcd[!is.na(nonLC_NMseg_subclus),NMseg_subclus2:=nonLC_NMseg_subclus]
+
+tmpcd[,NMseg_subclus:=NULL]
+tmpcd[,nonLC_NMseg_subclus:=NULL]
+setnames(tmpcd,"NMseg_subclus2","NMseg_subclus")
+
+### 
+
+stopifnot(length(unique(tmpcd$rn))==ncol(lc3))
+stopifnot(all(tmpcd$rn %in% colnames(lc3)))
+```
+
+## save a spot id / main cluster / NM seg / LCadjacency labels table
+```{r}
+# how many spots are in each LCadjacent group and each LCNMadjacent group for the astrocytic clusters and vascular cluster?
+
+cdout <- tmpcd[,.(rn,label,LCadjacent,NMseg_subclus)]
+# cdout[,.N,by="LCadjacent"]
+# 5HT.1_LCadj  2787
+# 5HT.2_LCadj  1712
+# X7_LCadj   751
+# X4_LCadj  3171
+# X2_LCadj  1010
+# X9_LCadj   296
+# X1_LCadj  1665
+# X8_LCadj   250
+
+# cdout[,.N,by="NMseg_subclus"]
+#  2:    5HT.1_LCNMadj  1208
+#  3: 5HT.1_LCnonNMadj  1579
+#  4:   5HT.1_LCnonadj 11494
+
+#  5:    5HT.2_LCNMadj   893
+#  6: 5HT.2_LCnonNMadj   819
+#  7:   5HT.2_LCnonadj  8444
+
+#  8:       LC.1_NMneg  4763
+#  9:       LC.1_NMpos  3152
+
+# 10:       X1_LCNMadj   789
+# 11:    X1_LCnonNMadj   876
+# 12:      X1_LCnonadj 36181
+
+# 13:       X2_LCNMadj   467
+# 14:    X2_LCnonNMadj   543
+# 15:      X2_LCnonadj  9801
+
+# 16:       X4_LCNMadj  1474
+# 17:    X4_LCnonNMadj  1697
+# 18:      X4_LCnonadj 20999
+
+# 19:       X7_LCNMadj   311
+# 20:    X7_LCnonNMadj   440
+# 21:      X7_LCnonadj 16127
+
+# 22:       X8_LCNMadj   116
+# 23:    X8_LCnonNMadj   134
+# 24:      X8_LCnonadj  5580
+
+# 25:       X9_LCNMadj   153
+# 26:    X9_LCnonNMadj   143
+# 27:      X9_LCnonadj  4296
+ 
+# 1:             <NA>     5 <-- spots without any immediate neighbors whatsoever
+
+fwrite(cdout,"processed-data/10_subclustering/04-LCsubclus-by-NM_otherclusts-by-LCorLCNMadjacency.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
+
+rep inf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.4.2 (2024-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.7.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] BiocParallel_1.40.0         parallelly_1.42.0          
+ [3] SpotSweeper_1.2.0           colorout_1.3-0.2           
+ [5] SpatialExperiment_1.16.0    SingleCellExperiment_1.28.1
+ [7] SummarizedExperiment_1.36.0 Biobase_2.66.0             
+ [9] GenomicRanges_1.58.0        GenomeInfoDb_1.42.1        
+[11] IRanges_2.40.1              S4Vectors_0.44.0           
+[13] BiocGenerics_0.52.0         MatrixGenerics_1.18.0      
+[15] matrixStats_1.5.0           gridExtra_2.3              
+[17] ggtext_0.1.2                ggplot2_3.5.1              
+[19] data.table_1.16.4           rlang_1.1.4                
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6            rjson_0.2.23            xfun_0.50              
+ [4] lattice_0.22-6          vctrs_0.6.5             tools_4.4.2            
+ [7] generics_0.1.3          tibble_3.2.1            pkgconfig_2.0.3        
+[10] BiocNeighbors_2.0.1     Matrix_1.7-1            lifecycle_1.0.4        
+[13] GenomeInfoDbData_1.2.13 compiler_4.4.2          munsell_0.5.1          
+[16] terra_1.7-78            codetools_0.2-20        htmltools_0.5.8.1      
+[19] yaml_2.3.10             pillar_1.10.1           crayon_1.5.3           
+[22] MASS_7.3-61             DelayedArray_0.32.0     sessioninfo_1.2.2      
+[25] magick_2.8.5            abind_1.4-8             tidyselect_1.2.1       
+[28] digest_0.6.37           dplyr_1.1.4             rprojroot_2.0.4        
+[31] fastmap_1.2.0           grid_4.4.2              here_1.0.1             
+[34] colorspace_2.1-1        cli_3.6.3               SparseArray_1.6.0      
+[37] magrittr_2.0.3          S4Arrays_1.6.0          withr_3.0.2            
+[40] spatialEco_2.0-2        scales_1.3.0            UCSC.utils_1.2.0       
+[43] rmarkdown_2.29          XVector_0.46.0          httr_1.4.7             
+[46] evaluate_1.0.3          knitr_1.49              escheR_1.6.0           
+[49] gridtext_0.1.5          Rcpp_1.0.14             glue_1.8.0             
+[52] xml2_1.3.6              rstudioapi_0.17.1       jsonlite_1.8.9         
+[55] R6_2.5.1                zlibbioc_1.52.0        
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.4.2 (2024-10-31)
+ os       macOS Sonoma 14.7.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2025-02-16
+ rstudio  2024.07.0-daily+219 Cranberry Hibiscus (desktop)
+ pandoc   3.1.11 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+
+─ Packages ─────────────────────────────────────────────────────────────────────────
+ !  package              * version date (UTC) lib source
+    abind                  1.4-8   2024-09-12 [1] CRAN (R 4.4.1)
+    Biobase              * 2.66.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    BiocGenerics         * 0.52.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    BiocNeighbors          2.0.1   2024-11-28 [1] Bioconductor 3.20 (R 4.4.2)
+    BiocParallel         * 1.40.0  2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+ P  cli                    3.6.3   2024-06-21 [2] CRAN (R 4.4.0)
+    codetools              0.2-20  2024-03-31 [1] CRAN (R 4.4.2)
+    colorout             * 1.3-0.2 2024-05-01 [1] Github (jalvesaq/colorout@c6113a2)
+    colorspace             2.1-1   2024-07-26 [1] CRAN (R 4.4.0)
+    crayon                 1.5.3   2024-06-20 [1] CRAN (R 4.4.0)
+    data.table           * 1.16.4  2024-12-06 [1] CRAN (R 4.4.1)
+    DelayedArray           0.32.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    digest                 0.6.37  2024-08-19 [1] CRAN (R 4.4.1)
+    dplyr                  1.1.4   2023-11-17 [1] CRAN (R 4.4.0)
+    escheR                 1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    evaluate               1.0.3   2025-01-10 [1] CRAN (R 4.4.1)
+    fastmap                1.2.0   2024-05-15 [1] CRAN (R 4.4.0)
+    generics               0.1.3   2022-07-05 [1] CRAN (R 4.4.0)
+    GenomeInfoDb         * 1.42.1  2024-11-28 [1] Bioconductor 3.20 (R 4.4.2)
+    GenomeInfoDbData       1.2.13  2024-12-12 [1] Bioconductor
+    GenomicRanges        * 1.58.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    ggplot2              * 3.5.1   2024-04-23 [1] CRAN (R 4.4.0)
+    ggtext               * 0.1.2   2022-09-16 [1] CRAN (R 4.4.0)
+    glue                   1.8.0   2024-09-30 [1] CRAN (R 4.4.1)
+    gridExtra            * 2.3     2017-09-09 [1] CRAN (R 4.4.0)
+    gridtext               0.1.5   2022-09-16 [1] CRAN (R 4.4.0)
+    gtable                 0.3.6   2024-10-25 [1] CRAN (R 4.4.1)
+    here                   1.0.1   2020-12-13 [1] CRAN (R 4.4.0)
+    htmltools              0.5.8.1 2024-04-04 [1] CRAN (R 4.4.0)
+    httr                   1.4.7   2023-08-15 [1] CRAN (R 4.4.0)
+    IRanges              * 2.40.1  2024-12-05 [1] Bioconductor 3.20 (R 4.4.2)
+    jsonlite               1.8.9   2024-09-20 [1] CRAN (R 4.4.1)
+    knitr                  1.49    2024-11-08 [1] CRAN (R 4.4.1)
+    lattice                0.22-6  2024-03-20 [1] CRAN (R 4.4.2)
+    lifecycle              1.0.4   2023-11-07 [1] CRAN (R 4.4.0)
+    magick                 2.8.5   2024-09-20 [1] CRAN (R 4.4.1)
+    magrittr               2.0.3   2022-03-30 [1] CRAN (R 4.4.0)
+    MASS                   7.3-61  2024-06-13 [1] CRAN (R 4.4.2)
+    Matrix                 1.7-1   2024-10-18 [1] CRAN (R 4.4.2)
+    MatrixGenerics       * 1.18.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    matrixStats          * 1.5.0   2025-01-07 [1] CRAN (R 4.4.1)
+    munsell                0.5.1   2024-04-01 [1] CRAN (R 4.4.0)
+    parallelly           * 1.42.0  2025-01-30 [1] CRAN (R 4.4.1)
+    pillar                 1.10.1  2025-01-07 [1] CRAN (R 4.4.1)
+    pkgconfig              2.0.3   2019-09-22 [1] CRAN (R 4.4.0)
+    R6                     2.5.1   2021-08-19 [1] CRAN (R 4.4.0)
+    Rcpp                   1.0.14  2025-01-12 [1] CRAN (R 4.4.1)
+    rjson                  0.2.23  2024-09-16 [1] CRAN (R 4.4.1)
+ VP rlang                * 1.1.4   2025-01-17 [2] CRAN (R 4.4.1) (on disk 1.1.5)
+    rmarkdown              2.29    2024-11-04 [1] CRAN (R 4.4.1)
+    rprojroot              2.0.4   2023-11-05 [1] CRAN (R 4.4.0)
+    rstudioapi             0.17.1  2024-10-22 [1] CRAN (R 4.4.1)
+    S4Arrays               1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    S4Vectors            * 0.44.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    scales                 1.3.0   2023-11-28 [1] CRAN (R 4.4.0)
+    sessioninfo            1.2.2   2021-12-06 [1] CRAN (R 4.4.0)
+    SingleCellExperiment * 1.28.1  2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+    SparseArray            1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    spatialEco             2.0-2   2023-11-17 [1] CRAN (R 4.4.0)
+    SpatialExperiment    * 1.16.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    SpotSweeper          * 1.2.0   2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+    SummarizedExperiment * 1.36.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    terra                  1.7-78  2024-05-22 [1] CRAN (R 4.4.0)
+    tibble                 3.2.1   2023-03-20 [1] CRAN (R 4.4.0)
+    tidyselect             1.2.1   2024-03-11 [1] CRAN (R 4.4.0)
+    UCSC.utils             1.2.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    vctrs                  0.6.5   2023-12-01 [1] CRAN (R 4.4.0)
+    withr                  3.0.2   2024-10-28 [1] CRAN (R 4.4.1)
+    xfun                   0.50    2025-01-07 [1] CRAN (R 4.4.1)
+    xml2                   1.3.6   2023-12-04 [1] CRAN (R 4.4.0)
+    XVector                0.46.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    yaml                   2.3.10  2024-07-26 [1] CRAN (R 4.4.0)
+    zlibbioc               1.52.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.4/library
+
+ V ── Loaded and on-disk version mismatch.
+ P ── Loaded and on-disk path mismatch.
+
+────────────────────────────────────────────────────────────────────────────────────

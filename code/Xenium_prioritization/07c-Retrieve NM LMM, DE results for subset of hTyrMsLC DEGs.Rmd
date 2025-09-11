@@ -1,0 +1,80 @@
+---
+title: "07c-Retrieve NM LMM, DE results for subset of hTyrMsLC DEGs"
+author: "Bernie Mulvey"
+date: "2025-03-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+## load LMM, DE results
+```{r}
+lmmg <- readRDS("processed-data/Xenium_prioritization/05-LCNMspots_geneLogcounts_LMMed_by_NMmetric.RDS")
+
+e4binde <- fread("processed-data/11_DEanalyses/02b-APOE4_DE_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+sexe4bin <- fread("processed-data/11_DEanalyses/02d-Sex_DE_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+
+e4copyde <- fread("processed-data/11_DEanalyses/03b-E4alleleCount_DE_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+sexe4copy <- fread("processed-data/11_DEanalyses/03d-Sex_DE_E4alleleCountCovar_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+
+globancde <- fread("processed-data/11_DEanalyses/05b-GlobalCEUprop_DE_with_e4alleleCountModel_FDR0.2_byGene_byNmodelsOf2max_byCluster_10spotmin.txt")
+
+restabs <- list(e4binde,sexe4bin,e4copyde,sexe4copy,globancde,lmmg$Intensity_NM,lmmg$Prop_NM)
+
+names(restabs) <- c("E4_carrier_DE","Sex_E4carriercov","E4_copynum_DE","Sex_E4copycov","globAncest_DE","NMIntensity_LMM","PropNM_LMM")
+```
+
+genes we want to check:
+ddit3
+sdf2l1
+hmox1
+ppp1r15a
+cstb
+creld2
+sec22b
+dok5
+ep400
+nucb1
+ptrh1
+chac1
+
+```{r}
+checkg <- toupper(c("ddit3",
+"sdf2l1",
+"hmox1",
+"ppp1r15a",
+"cstb",
+"creld2",
+"sec22b",
+"dok5",
+"ep400",
+"nucb1",
+"ptrh1",
+"chac1"))
+
+restabs <- lapply(restabs,function(x){
+    y <- x[gene_name %in% checkg]
+    return(y)
+})
+```
+
+###
+PPP1R15A: sex DE in all tests (LC cluster), E4 carrier and copy number DE in some tests (LC cluster)
+CSTB: sex DE in all tests when covarying for E4 copy number (LC, 5HT.2 clusters)
+CHAC1, DDIT3: lmm positive assoc w prop NM (raw p 0.001, 0.008 respectively); for DDIT3, also pos assoc (neg coef--lower is darker) w intensity NM (raw p 0.03)

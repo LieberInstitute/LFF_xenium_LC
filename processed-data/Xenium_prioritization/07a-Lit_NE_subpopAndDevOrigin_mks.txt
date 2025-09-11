@@ -1,0 +1,38 @@
+gene_name	notes_and_source
+ASCL1 	previously CASH1 in chick and MASH1 in other spp; induced by BMP signaling in sympathetic NS development along with Phox2 genes
+HAND2	previously dHand; induced by BMPs in sympathetic NS dev along with ASCL1 and PHOX2s
+BMP2	Bmp2a in zebrafish; loss results in loss of LC dev
+BMP5	Demonstrated to be dorsal roof plate expressed in chick r1 to specify LC (Vogel-Hopker 2002)
+BMP7	Bmp7a,b in zebrafish; loss results in loss of LC dev
+PAX6	in chick is expressed in dorsal and ventral rhomobomere 1, including LC-generating zone (Vogel-Hopker 2002)
+PAX3	in chick, is marker of dorsal rhombomere 1 (LC-generating) neural progenitors (Vogel-Hopker 2002)
+LHX2	in chick, marks interneurons initially intermingled with r1 Phox2+ neurons, but Lhx2a cells later migrate dorsal to Phox2 cells (Vogel-Hopker 2002)
+HOXA2	r2-derived NE populations (Robertson Patricia Jensen 13)
+EGR2	aka KROX20; r3/r5-derived NE pops (Robertson P Jensen 13)
+HOXB1	Ventral subcoeruleus (Robertson P Jensen 13)
+EN1	r1-derived LC-NE, dorsal subC, and A7 (Robertson P Jensen 13)
+PAX7	Coexpressed with en1 during development of most but not all of subC and A7 (Plummer, P Jensen 17)
+ESR1	estrogen receptor alpha (just because)
+ESR2	estrogen receptor beta (doi 10.1210/en.2002-221120)
+NPY	mostly in posterodorsal rodent LC per Schwarz 15 cur bio minireview
+ADRA1A	alpha1 binding sites by radioligand anterior/rostral in rodent LC per schwarz 15 minireview
+ADRA1B	alpha1 binding sites by radioligand anterior/rostral in rodent LC per schwarz 15 minireview
+ADRA1D	alpha1 binding sites by radioligand anterior/rostral bias in rodent LC per schwarz 15 minireview
+ADRA2A	alpha2 binding sites by radioligand posterior/caudal bias in rodent LC per schwarz 15 minireview
+ADRA2B	alpha2 binding sites by radioligand anterior/caudal bias in rodent LC per schwarz 15 minireview
+ADRA2C	alpha2 binding sites by radioligand anterior/caudal bias in rodent LC per schwarz 15 minireview
+CHRNA3	physically smaller LC neurons per schwarz 15 minireview
+CHRNB4	physically smaller LC neurons per schwarz 15 minireview
+CHRNA6	physically larger LC neurons per schwarz 15 minireview
+CHRNB3	physically larger LC neurons per schwarz 15 minireview
+HOXB4	found in A5 group but not LC in human protein atlas rnaseq
+HOXB5	found in A5 group but not LC in human protein atlas rnaseq
+HOXC5	found in A5 group but not LC in human protein atlas rnaseq
+HOXA4	found in A5 group but not LC in human protein atlas rnaseq
+HOXA3	found in A5 group but not LC in human protein atlas rnaseq
+HOXA5	found in A5 group but not LC in human protein atlas rnaseq
+HOXB2	found in A5 group but not LC in human protein atlas rnaseq
+HOXD3	found in A5 group but not LC in human protein atlas rnaseq
+HOXD4	found in A5 group but not LC in human protein atlas rnaseq
+HOXC4	found in A5 group but not LC in human protein atlas rnaseq
+HOXC6	found in A5 group but not LC in human protein atlas rnaseq

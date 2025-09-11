@@ -1,0 +1,128 @@
+---
+title: "03-Filter spotplot selections to genes still DE in 10spotmin models"
+author: "Bernie Mulvey"
+date: "2025-02-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+
+```{r}
+## read in the genes that were selected after viewing their spotplots
+spotchecked <- fread("processed-data/Xenium_prioritization/02-spotplot_selections.txt",header=F)
+setnames(spotchecked,c("gene_name","louvCluster","detest"))
+
+## read in the tabulations sheet that was filtered to the same lfc threshold (0.5) but dropping pseudobulk samples with fewer than 10 spots
+min10 <- fread("processed-data/Xenium_prioritization/01a-DEGs_byCluster_andNModels_FDR0.2_noXY_maxAbsLFC0.5_10spotmin.txt")
+
+min10 <- unique(min10[,.(louvCluster,gene_name)])
+
+spotcheckfilt <- merge.data.table(spotchecked,min10,by=c("louvCluster","gene_name"))
+```
+
+append all extant notes
+```{r}
+min10 <- fread("processed-data/Xenium_prioritization/01a-DEGs_byCluster_andNModels_FDR0.2_noXY_maxAbsLFC0.5_10spotmin.txt")
+notes1 <- min10[,.(gene_name,gene_notes)]
+notes1 <- unique(notes1[gene_notes!=""])
+
+notes2 <- fread("processed-data/Xenium_prioritization/00-manually_ided_genesandnotes_pre022425.txt")
+notes2 <- notes2[gene_notes!=""]
+
+notes2 <- notes2[!(gene_name %in% notes1$gene_name)]
+
+allnotes <- rbind(notes1,notes2)
+
+spotcheckfilt <- merge.data.table(spotcheckfilt,allnotes,by="gene_name",all.x=T)
+
+fwrite(spotcheckfilt,"processed-data/Xenium_prioritization/03-DEGs_byCluster_andNModels_FDR0.2_noXY_maxAbsLFC0.5_stillPassIn10spotmin.txt",quote=F,sep="\t")
+```
+
+rep inf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.4.2 (2024-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.7.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+[1] colorout_1.3-0.2  data.table_1.16.4 rlang_1.1.4      
+
+loaded via a namespace (and not attached):
+ [1] compiler_4.4.2    here_1.0.1        fastmap_1.2.0     rprojroot_2.0.4  
+ [5] cli_3.6.3         htmltools_0.5.8.1 tools_4.4.2       rstudioapi_0.17.1
+ [9] yaml_2.3.10       rmarkdown_2.29    knitr_1.49        digest_0.6.37    
+[13] xfun_0.50         evaluate_1.0.3    sessioninfo_1.2.2
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.4.2 (2024-10-31)
+ os       macOS Sonoma 14.7.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2025-02-26
+ rstudio  2024.07.0-daily+219 Cranberry Hibiscus (desktop)
+ pandoc   3.1.11 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+
+─ Packages ─────────────────────────────────────────────────────────────────────────
+ !  package     * version date (UTC) lib source
+ P  cli           3.6.3   2024-06-21 [2] CRAN (R 4.4.0)
+    colorout    * 1.3-0.2 2024-05-01 [1] Github (jalvesaq/colorout@c6113a2)
+    data.table  * 1.16.4  2024-12-06 [1] CRAN (R 4.4.1)
+    digest        0.6.37  2024-08-19 [1] CRAN (R 4.4.1)
+    evaluate      1.0.3   2025-01-10 [1] CRAN (R 4.4.1)
+    fastmap       1.2.0   2024-05-15 [1] CRAN (R 4.4.0)
+    here          1.0.1   2020-12-13 [1] CRAN (R 4.4.0)
+    htmltools     0.5.8.1 2024-04-04 [1] CRAN (R 4.4.0)
+    knitr         1.49    2024-11-08 [1] CRAN (R 4.4.1)
+ VP rlang       * 1.1.4   2025-01-17 [2] CRAN (R 4.4.1) (on disk 1.1.5)
+    rmarkdown     2.29    2024-11-04 [1] CRAN (R 4.4.1)
+    rprojroot     2.0.4   2023-11-05 [1] CRAN (R 4.4.0)
+    rstudioapi    0.17.1  2024-10-22 [1] CRAN (R 4.4.1)
+    sessioninfo   1.2.2   2021-12-06 [1] CRAN (R 4.4.0)
+    xfun          0.50    2025-01-07 [1] CRAN (R 4.4.1)
+    yaml          2.3.10  2024-07-26 [1] CRAN (R 4.4.0)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.4/library
+
+ V ── Loaded and on-disk version mismatch.
+ P ── Loaded and on-disk path mismatch.
+
+────────────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,151 @@
+gene	clust	test	gene_notes
+ADCYAP1	X4	sex	neuropeptide
+AGT	LC.1	apo_carrier	
+ALKBH7	LC.1	sex	
+ALKBH7	LC.1_Nmpos	sex	
+APC2	X1	sex	ncbi This gene has its highest expression in the central nervous system and is involved in brain development through cytoskeletal regulation in neurons. Alternative splicing produces multiple transcript variants encoding distinct isoforms
+APOC1	5HT.2	CEU	
+APOC1	X1	CEU	
+APOC1	X2	CEU	
+APOLD1	X4	sex	Uniprot: may affect BBB permeability
+APOLD1	X7	sex	Uniprot: may affect BBB permeability
+ASTN1	5HT.2	CEU	
+ASTN1	X2	CEU	
+ATN1	X1	sex	
+ATN1	X4	sex	
+C1QA	X4	sex	hi lfc
+C1QB	X4	sex	hi lfc
+C1QTNF4	LC.1	apo_copies	
+C3	5HT.1	sex	
+C3	LC.1	sex	
+C3	X2	sex	
+C3	X4	sex	
+C3	X7	sex	
+C3	X9	sex	
+CABLES1	X2	sex	astrocyte state marker in sadick 22 neuron
+CABLES1	X2	CEU	astrocyte state marker in sadick 22 neuron
+CACYBP	X1	CEU	uniprot May be involved in calcium-dependent ubiquitination and subsequent proteasomal degradation of target proteins. Probably serves as a molecular bridge in ubiquitin E3 complexes. Participates in the ubiquitin-mediated degradation of beta-catenin
+CARTPT	LC.1_NMneg	apo_copies	
+CD74	5HT.1	sex	
+CD74	5HT.2	sex	
+CD74	LC.1	sex	
+CD74	LC.1_NMneg	sex	
+CD74	LC.1_Nmpos	sex	
+CD74	X1	sex	
+CD74	X2	sex	
+CD74	X7	sex	
+CD74	X8	sex	
+CD74	X9	sex	
+CELF5	X1	CEU	RNA binding protein
+CHGB	5HT.1	sex	
+CHGB	5HT.2	sex	
+CHGB	LC.1	sex	
+CHGB	LC.1_NMneg	sex	
+CHGB	LC.1_Nmpos	sex	
+CHGB	X2	sex	
+CRHBP	5HT.1	CEU	
+CX3CR1	X4	apo_carrier	
+CX3CR1	X4	sex	
+DMWD	X2	CEU	regulates deubiquitanase complexes
+DNM3	X1	sex	Microtubule-associated transport
+DNM3	X2	sex	Microtubule-associated transport
+DUSP1	5HT.1	sex	astrocyte state marker in sadick 22 neuron
+DUSP1	5HT.2	sex	astrocyte state marker in sadick 22 neuron
+DUSP1	LC.1	sex	astrocyte state marker in sadick 22 neuron
+DUSP1	LC.1_NMneg	sex	astrocyte state marker in sadick 22 neuron
+DUSP1	LC.1_Nmpos	sex	astrocyte state marker in sadick 22 neuron
+EDNRB	LC.1	apo_carrier	
+EFEMP1	LC.1	apo_carrier	
+ENHO	LC.1	apo_carrier	
+ENHO	LC.1	apo_copies	
+ESD	LC.1_Nmpos	sex	
+ETNPPL	LC.1	apo_carrier	
+FGF12	X2	CEU	
+FGFR3	LC.1	apo_carrier	
+FGFR3	LC.1	apo_copies	
+FGFR3	X2	sex	
+FITM2	LC.1_Nmpos	sex	
+FKBP2	LC.1	sex	
+FUT9	LC.1	apo_carrier	
+GABRG1	LC.1	apo_carrier	
+GABRG1	LC.1	apo_copies	
+GASK1B	X2	sex	golgi-localized kinase, limited characterization
+GLUD1	X2	sex	glutamate to alpha ketoglut
+GLUL	X1	sex	inactivates glutamate by attaching ammonia
+GPAA1	5HT.2	sex	
+GPAA1	LC.1	sex	
+GPAA1	LC.1_Nmpos	sex	
+GSKIP	LC.1_NMneg	sex	
+HIBCH	LC.1_Nmpos	sex	
+HLA-DPA1	5HT.1	sex	
+HLA-DPA1	X4	sex	
+HLA-DRA	X8	apo_carrier	
+HLA-DRA	5HT.1	sex	
+HLA-DRA	LC.1	sex	
+HLA-DRA	LC.1_NMneg	sex	
+HLA-DRA	X4	sex	
+HLA-DRA	X7	sex	
+HLA-DRA	X8	sex	
+HLA-DRA	X9	sex	
+HSPA1A	LC.1_NMpos	apo_copies	
+HPSE2	X2	sex	co-marker of same astrocyte state as CABLES1 in sadick 22
+HSPH1	X1	sex	
+ITGB8	X1	sex	beta integrin
+LAPTM5	X4	sex	lysosomal transmembrane protein
+LINC00844	5HT.1	apo_carrier	
+LINC00844	LC.1	apo_carrier	
+LINC00844	X8	apo_carrier	
+LINC00844	X9	apo_carrier	
+LINC00844	LC.1	apo_copies	
+LIPA	LC.1	sex	
+MT1E	X1	sex	metallotheienineneine-heavy metal binding
+MT1E	X2	sex	metallotheienineneine-heavy metal binding
+NACC1	LC.1_Nmpos	sex	Required for recruiting the proteasome from the nucleus to the cytoplasm and dendritic spines.
+NPTN	X1	sex	uniprot Probable homophilic and heterophilic cell adhesion molecule involved in long term potentiation at hippocampal excitatory synapses through activation of p38MAPK. May also regulate neurite outgrowth by activating the FGFR1 signaling pathway.
+NRN1	5HT.1	sex	
+NSF	X1	sex	ER-Golgi vesicle transport; GRIA2 insertion and removal cycling
+NSG1	X1	sex	Uniprot Plays a role in the recycling mechanism in neurons of multiple receptors, including AMPAR, APP and L1CAM and acts at the level of early endosomes to promote sorting of receptors toward a recycling pathway.
+NSG1	X2	sex	Uniprot Plays a role in the recycling mechanism in neurons of multiple receptors, including AMPAR, APP and L1CAM and acts at the level of early endosomes to promote sorting of receptors toward a recycling pathway.
+NTM	X1	CEU	neural adhesion molecule. Ncbi IgLON (LAMP, OBCAM, Ntm) family of immunoglobulin (Ig) domain-containing glycosylphosphatidylinositol (GPI)-anchored cell adhesion molecules. The encoded protein may promote neurite outgrowth and adhesion via a homophilic mechanism. This gene is closely linked to a related family member, opioid binding protein/cell adhesion molecule-like (OPCML)
+NTRK2	X1	sex	
+NTSR2	X1	sex	low affinity neurotensin receptor
+PCMT1	X2	sex	NCBI The encoded enzyme plays a role in protein repair by recognizing and converting D-aspartyl and L-isoaspartyl residues resulting from spontaneous deamidation back to the normal L-aspartyl form. The encoded protein may play a protective role in the pathogenesis of Alzheimer's disease, 
+PENK	5HT.1	sex	
+PENK	X1	sex	
+PHGDH	LC.1	apo_carrier	
+PLPP3	LC.1	apo_carrier	Part of Serrano-Pozo 24 astrocyte gene set 2 which quote peaked at the intermediate ADNC stage (sparse/moderate NPs and Braak NFT stage II/III) and then returned to baseline at late and end stages
+PLPP3	5HT.1	sex	Part of Serrano-Pozo 24 astrocyte gene set 2 which quote peaked at the intermediate ADNC stage (sparse/moderate NPs and Braak NFT stage II/III) and then returned to baseline at late and end stages
+PLPP3	X1	sex	Part of Serrano-Pozo 24 astrocyte gene set 2 which quote peaked at the intermediate ADNC stage (sparse/moderate NPs and Braak NFT stage II/III) and then returned to baseline at late and end stages
+PLPP3	X2	sex	Part of Serrano-Pozo 24 astrocyte gene set 2 which quote peaked at the intermediate ADNC stage (sparse/moderate NPs and Braak NFT stage II/III) and then returned to baseline at late and end stages
+PLPP3	X4	sex	Part of Serrano-Pozo 24 astrocyte gene set 2 which quote peaked at the intermediate ADNC stage (sparse/moderate NPs and Braak NFT stage II/III) and then returned to baseline at late and end stages
+PON2	LC.1	apo_carrier	
+PPFIA4	LC.1	sex	
+PRCP	LC.1	sex	Cleaves AGT into bradykinin and others
+PRCP	LC.1_Nmpos	sex	Cleaves AGT into bradykinin and others
+PRRC2C	X1	CEU	stress granule formation
+PSMD1	X1	sex	26S proteasome lid involved in substrate recognition and binding
+PSMD1	X1	CEU	26S proteasome lid involved in substrate recognition and binding
+RALA	5HT.2	sex	
+RGMA	X2	sex	suppresses neurite outgrowth
+RUSC2	5HT.2	sex	
+SDC2	LC.1	apo_carrier	
+SELENOH	X1	CEU	nucleolar protein protective against UVB, other dna damage
+SLC24A2	X1	CEU	NCBI mediate the extrusion of one Ca2+ ion and one K+ ion in exchange for four Na+ ions.
+SLC6A11	LC.1	apo_carrier	protoplasmic (homeostatic) astrocytes
+SLC6A11	LC.1	apo_copies	protoplasmic (homeostatic) astrocytes
+SLC6A11	X2	sex	protoplasmic (homeostatic) astrocytes
+SLC7A5	X1	CEU	may play a role in L-DOPA uptake in coop with SLC3A2
+SNCB	X1	sex	synuclein beta
+SNCG	X1	CEU	synuclein gamma
+SNTA1	X1	sex	uniprot Adapter protein that binds to and probably organizes the subcellular localization of a variety of membrane proteins. May link various receptors to the actin cytoskeleton and the extracellular matrix via the dystrophin glycoprotein complex. Plays an important role in synapse formation and in the organization of UTRN and acetylcholine receptors at the neuromuscular synapse.
+SPARC	X4	sex	possibly upregulated in healthily aging astrocytes (see citations in sadick 22 neuron)
+SREBF1	X1	sex	Uniprot: Key transcription factor that regulates expression of genes involved in cholesterol biosynthesis and lipid homeostasis
+SST	5HT.2	sex	
+STMN4	5HT.2	sex	
+STXBP1	X1	sex	Syntaxin binding protein
+SV2A	X1	sex	synaptic vesicle glycoprotein involved in membrane fusion
+TAGLN3	X1	CEU	actin binding
+TMEM165	X1	sex	Golgi-localized Mn2+ transporter with potential roles in glycosylation
+TOMM70	X1	CEU	APOE LD
+TUBB2A	X1	sex	tubulin
+UBE2N	X2	CEU	ubiquitin conjugating E2 N

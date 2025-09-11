@@ -1,0 +1,89 @@
+gene_name	gene_notes
+C5orf63	
+CHGB	"chromogranin b, integral to of catecholamine vesicles formation. Kd depletes vesicle pool/oe increases it https://pmc.ncbi.nlm.nih.gov/articles/PMC3992281/"
+C3	
+CD74	mhc ii invariant chain
+ACTR10	genecards: predicted to be involved in anterograde transport of neuronal mitochondria
+FAM131A	
+PRCP	"lysosomal prolylcarboxypeptidase. This enzyme cleaves C-terminal amino acids linked to proline in peptides such as angiotension II, III and des-Arg9-bradykinin."
+LANCL1	glutathione s transferase
+PNMA3	"paraneoplastic antigen MA, shares homology with retroviral Gag protein, brain is the main tissue"
+DNM3	dynamin (vesicular transport)
+RUSC2	"hi brain xpr, possible RAB interactions and vesicle transport fxn https://omim.org/entry/611053"
+GPAA1	putatively facilitates GPI anchoring bond formation for membrane inserted proteins
+HSPH1	heat shock
+AQP1	
+ALKBH7	rna demethylase w role in mitochondrial regulation https://www.nature.com/articles/s41556-021-00709-7
+FKBP2	ER chaperone/folding assistant; induced by protein misfolding stress
+DNAJC12	
+WDTC1	"adipogenesis inhibitor, e3 ligase complex component."
+PPFIA4	"PTPRF interactor inferred involvement in neurotransmission, esp via excit neurons; monogenic ndd/epilepsy?"
+GPM6A	"uniprot: Involved in neuronal differentiation, including differentiation and migration of neuronal stem cells. Plays a role in neuronal plasticity and is involved in neurite and filopodia outgrowth, filopodia motility and probably synapse formation; possibly hipoocampal bias (hellooo lc erc). Also https://www.creative-biolabs.com/gpm6a-membrane-protein-introduction.html"
+UNC119	
+CD99	
+ESYT2	tethers ER to membrane; involvement in FGF signaling; ca2+ channel opening in t cells
+PCMT1	The encoded enzyme plays a role in protein repair by recognizing and converting D-aspartyl and L-isoaspartyl residues resulting from spontaneous deamidation back to the normal L-aspartyl form. The encoded protein may play a protective role in the pathogenesis of Alzheimer's disease.
+NME1	"melanoma, PD associated; necessary for gdf5 stimulation of dopaminergic, sy5y neurite outgrowth https://www.sciencedirect.com/science/article/pii/S2589004220306490"
+TCP1	"forms chaperone folding-assistant complex that helps fold actin, tubulin!! https://www.genecards.org/cgi-bin/carddisp.pl?gene=TCP1"
+SCN3A	sodium channel
+ACOT7	"acetyl coa thioesterase (lipid metab), neuron hi xpr"
+NLRP1	
+BSG	
+LZTS3	"uniprot May be involved in promoting the maturation of dendritic spines, probably via regulating SIPA1L1 levels at the postsynaptic density of synapses"
+RIT2	"ntrk signal transduction, modulates POU4F1's transcriptional upregulatory action"
+ATN1	repeat expansion associated ndd; synthetic polyq expansion induces autophagy and neurodegen
+MAGEH1	"ncbi  encoded protein is likely associated with apoptosis, cell cycle arrest, growth inhibition or cell differentiation. The protein may be involved in the atRA (all-trans retinoic acid) signaling through the STAT1-alpha pathway"
+NSG1	neuron specific gene 1; vesicle trafficking amd endosomal recycling of neurotransmitter receps including gria2
+HSPA1A	heatshock
+ARHGEF11	
+RASD1	"dex, prolactin induced ras gene"
+ADGRB1	aka BAI1; brain specificish angiogenesis inhibitor induced by p53
+MFGE8	phagocytic cell receptor that binds apoptotic cells
+SLC10A4	"vesicular amine transporter; kd results in reduced ne, da, ach, 5ht vesicular loading; exclusively found on vmat2+ vesicles (ie aminergic transmitter vesiclss)"
+KIF1C	a kinesin (microtubule-riding transport) in golgi to er retrograde transport and vesicular transport
+COTL1	"binds f actin without affecting polymerization, interacts with lipoxygenase a (first enzymatic step in leukotriene synth)"
+PPP1R15A	cell stress/dna damage induced member of integrated stress response pathway. Causes g2 arrest. Primarily comes up in the context of immune cells
+NNAT	"neuronatin; in brain dev expressed by neurons and opens calcium channels to facilitate neuronal fate commitment. Uniprot: May participate in the maintenance of segment identity in the hindbrain and pituitary development, and maturation or maintenance of the overall structure of the nervous system. Imprinted - only paternal copy is expressed."
+NEFM	
+SPTBN2	
+LIPA	
+IL34	
+FGFR3	
+EDEM3	
+TFRC	
+C1QTNF4	
+IFI27	
+B3GAT2	
+RND2	
+NACC2	"uniprot Functions as a transcriptional repressor through its association with the NuRD complex. [cite: 2] Recruits the NuRD complex to the promoter of MDM2, leading to the repression of MDM2 transcription and subsequent stability of p53/TP53"
+AGPAT4	
+PCDH7	
+PLPP3	uniprot Magnesium-independent phospholipid phosphatase of the plasma membrane that catalyzes the dephosphorylation of a variety of glycerolipid and sphingolipid phosphate esters. [cite: 3] Performs this activity both on extracellular lipids and intracellular lipids. [cite: 3] Also involved in phopholipase D signaling.
+PCSK1	
+GLUD1	catabolizes glutamate to alphaketoglutarate and ammonia. [cite: 5] Mitochondria localized.
+CPNE3	
+SLC6A11	gaba reuptake transporter
+CST3	
+SLC1A3	
+MLC1	
+TMSB10	
+NSMF	
+ABCG2	
+ZNF24	
+LINC0844	
+PON2	
+NTSR2	
+AGT	angiotensinogen
+TSC22D4	
+CNR1	cannabinoid receptor 1
+GABRG1	
+ETNPPL	vit b6 dependent degradation of phosphoethanolamine (membrane lipid polar head group) to ammonia + Pi + acetalehyde
+EFEMP1	
+TRIL	putatively modulates activity of tlr4--shown in one paper in an astrocyte line and indirectly w lps challenge in ko mice in hypothal
+EDNRB	involved in neural crest (which gives rise to peripheral autonomic ganglia and melanocytes--ie found in lc cousin cell types) migration in development
+ADD3	"brain-restricted adducin, involved in spectrin-actin cytoskeletal remodeling and actin capping"
+PDRX6	a peroxiredoxin (reduces lipid peroxides with GSH to prevent oxidative damage)
+SDC2	
+FUT9	involved in the synthesis of lewis x antigen (an oligosaccharide) in brain
+ACER3	"ncbi: Enables N-acylsphingosine amidohydrolase activity; calcium ion binding activity; and zinc ion binding activity. [cite: 7] Involved in several processes, including myelination; positive regulation of cell population proliferation; and sphingolipid metabolic process. Located in Golgi membrane and endoplasmic reticulum membrane."
+DHCR24	

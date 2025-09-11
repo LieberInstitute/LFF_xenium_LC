@@ -1,0 +1,201 @@
+---
+title: "08c-Search_Ostero22_York21_NFT_DEGs_inDEandNM_results"
+author: "Bernie Mulvey"
+date: "2025-03-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(readxl)
+```
+
+a subset of ostero/york genes to follow up was grabbed by manually examining spot proportion expression plots for genes that predominate in LC spots in the LFF data. XBP1 i'm going for regardless so that's not in this list.
+```{r}
+checkg <- fread("processed-data/Xenium_prioritization/08b-LCxpressedAndSemispecific_osterogarcia22_york21_NFTDEGs.txt")
+```
+
+load DE results (E4-copy DE, glob ancestry, sex) and NM LMM results
+```{r}
+e4de <- fread("processed-data/11_DEanalyses/03b-E4alleleCount_DE_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+sexde <- fread("processed-data/11_DEanalyses/03d-Sex_DE_E4alleleCountCovar_FDRunder0.2_byGene_byNmodelsOf4max_byCluster_10spotmin.txt")
+ancde <- fread("processed-data/11_DEanalyses/05b-GlobalCEUprop_DE_with_e4alleleCountModel_FDR0.2_byGene_byNmodelsOf2max_byCluster_10spotmin.txt")
+
+nmlmm <- readRDS("processed-data/Xenium_prioritization/05-LCNMspots_geneLogcounts_LMMed_by_NMmetric.RDS")
+```
+
+subset each to genes of interest and model robustness
+```{r}
+e4de <- e4de[gene_name %in% checkg$gene_name & Nsigmodels_forCluster>=3]
+# nada
+rm(e4de)
+
+sexde <- sexde[gene_name %in% checkg$gene_name & Nsigmodels_forCluster>=3]
+# some here
+
+ancde <- ancde[gene_name %in% checkg$gene_name & Nsigmodels_forCluster>=3]
+# nada
+rm(ancde)
+
+nmlmm <- lapply(nmlmm,FUN=function(x){
+    y <- x[rn %in% c("Intensity_NM","Prop_NM")&p<0.001&gene_name %in% checkg$gene_name]
+    return(y)
+})
+nmlmm <- rbindlist(nmlmm)
+```
+
+for the york genes, there were a variety of comparisons at play, so get that info and determine whether we're in agreement with their finding (e.g. sex DE, APOE de)
+```{r}
+yorkanno <- fread("raw-data/ref_data/York21_AT8neuron_DEGs.txt")
+# fix some AI'd up gene names from making this table out of the manuscript text
+yorkanno[gene=="SLC7A2 (CAT2)",gene:="SLC7A2"]
+yorkanno[gene=="SLC3A2 (LAT1)",gene:="SLC3A2"]
+yorkanno[gene=="TIM (Timeless)",gene:="TIM"]
+yorkanno[gene=="GATM (AGAT)",gene:="GATM"]
+yorkanno[gene=="delta-CTNND2",gene:="CTNND2"]
+yorkanno[gene=="DMP4/FAM20C",gene:="FAM20C"] # hgnc symbol is fam20c
+yorkanno[gene=="eEF1a1",gene:="EEF1A1"]
+yorkanno[gene=="GNMT-3",gene:="GNMT"] # why they call this "-3" in the paper is beyond me, no such gene in humans. the citation on its function in mice also uses the symbol GNMT.
+
+# check for DEGs (which were only sex DEGs after filtering to genes we're currently checking)
+yorkanno[gene %in% sexde$gene_name]
+## neither of these were identified in their sex DE comparisons.
+#      gene                           comparison   upreg_group            src
+#    <char>                               <char>        <char>         <char>
+# 1:  DDAH1             AT8+ AD vs. NeuN+ Normal       AT8+ AD York21ASNNeuro
+# 2:  PPME1                 AT8+ AD vs. AD NeuN+       AT8+ AD York21ASNNeuro
+# 3:  PPME1 APOE4 AT8+ AD vs. APOE4 NeuN+ Normal APOE4 AT8+ AD York21ASNNeuro
+
+yorknm <- yorkanno[gene %in% nmlmm$gene_name]
+## 
+#      gene                           comparison   upreg_group            src
+#    <char>                               <char>        <char>         <char>
+# 1:  AZIN1             AT8+ AD vs. NeuN+ Normal       AT8+ AD York21ASNNeuro
+# 2:  AZIN1 APOE3 AT8+ AD vs. APOE3 NeuN+ Normal APOE3 AT8+ AD York21ASNNeuro
+# 3:    INA      APOE4 AT8+ AD vs. APOE3 AT8+ AD APOE3 AT8+ AD York21ASNNeuro
+# 4:    INA      Normal Females vs. Normal Males  Normal Males York21ASNNeuro
+
+nmlmm[gene_name %in% yorkanno$gene]
+#    gene_name      rn    Chisq    Df            p      coef   gene
+#       <char>  <char>    <num> <num>        <num>     <num> <char>
+# 1:     AZIN1 Prop_NM 28.64665     1 8.686397e-08 0.8929606  AZIN1
+# 2:       INA Prop_NM 12.07178     1 5.119084e-04 0.7576771    INA
+```
+so we'll include these 3 (not DDAH1 since that's the least informative comparison of their DE analyses) from the york part of the data.
+
+for ostero, let's focus on the ones that were DE (ie sex de) in LC specifically since thats where the AT8 is
+```{r}
+ost_sexde <- sexde[louvCluster=="LC.1"&!(gene_name %in% yorkanno$gene)]
+# several here, so let's subset to those that were significant in all 4 DE models
+ost_sexde <- ost_sexde[Nsigmodels_forCluster==4]
+unique(ost_sexde$gene_name)
+#[1] "BNIP3" "UGP2"
+# BNIP3 is a hypoxia response factor so not great for postmortem tissue
+# UGP2 has to do with glycogen (which would be astrocytic?) and galactose/lactose conversion. which could be interesting w/r/t energetics of AD
+
+# then for the NM genes, let's use our p-value threshold of ~1e-7 as before (5 non-york genes)
+nmlmm[!(gene_name %in% yorkanno$gene)&p<1E-7]
+#    gene_name      rn    Chisq    Df            p     coef    gene
+#       <char>  <char>    <num> <num>        <num>    <num>  <char>
+# 1:    DNAJC6 Prop_NM 32.09283     1 1.469789e-08 1.309046  DNAJC6
+# 2:     REEP1 Prop_NM 28.60055     1 8.895680e-08 1.193065   REEP1
+# 3:      ENC1 Prop_NM 39.54134     1 3.211874e-10 1.433833    ENC1
+# 4:      RHEB Prop_NM 44.29769     1 2.820486e-11 1.386523    RHEB
+# 5:   TMEM35A Prop_NM 35.99571     1 1.977525e-09 1.095377 TMEM35A
+```
+
+picks (based on ontology):
+DNAJC6 (chaperone)
+ENC1 (NRF2 regulator, actin binding)
+REEP1 (membrane receptor transport; interesting that canonical function is wrt olfact receptors given loss of smell in prodromal lewy body/parkinsons etc)
+TMEM35A (chaperone, acetylcholine receptor interactions, ER local)
+UGP2
+AZIN1
+INA
+PPME1
+
+rep inf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.4.2 (2024-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.7.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] readxl_1.4.4      data.table_1.16.4 rlang_1.1.4      
+
+loaded via a namespace (and not attached):
+ [1] digest_0.6.37     fastmap_1.2.0     xfun_0.50         cellranger_1.1.0 
+ [5] magrittr_2.0.3    glue_1.8.0        tibble_3.2.1      knitr_1.49       
+ [9] pkgconfig_2.0.3   htmltools_0.5.8.1 rmarkdown_2.29    lifecycle_1.0.4  
+[13] cli_3.6.3         sessioninfo_1.2.2 vctrs_0.6.5       compiler_4.4.2   
+[17] rprojroot_2.0.4   here_1.0.1        rstudioapi_0.17.1 tools_4.4.2      
+[21] pillar_1.10.1     evaluate_1.0.3    yaml_2.3.10      
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.4.2 (2024-10-31)
+ os       macOS Sonoma 14.7.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2025-03-13
+ rstudio  2024.07.0-daily+219 Cranberry Hibiscus (desktop)
+ pandoc   3.1.11 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+
+─ Packages ─────────────────────────────────────────────────────────────────────────
+ !  package     * version date (UTC) lib source
+    cellranger    1.1.0   2016-07-27 [1] CRAN (R 4.4.0)
+ P  cli           3.6.3   2024-06-21 [2] CRAN (R 4.4.0)
+    data.table  * 1.16.4  2024-12-06 [1] CRAN (R 4.4.1)
+    digest        0.6.37  2024-08-19 [1] CRAN (R 4.4.1)
+    evaluate      1.0.3   2025-01-10 [1] CRAN (R 4.4.1)
+    fastmap       1.2.0   2024-05-15 [1] CRAN (R 4.4.0)
+    glue          1.8.0   2024-09-30 [1] CRAN (R 4.4.1)
+    here          1.0.1   2020-12-13 [1] CRAN (R 4.4.0)
+    htmltools     0.5.8.1 2024-04-04 [1] CRAN (R 4.4.0)
+    knitr         1.49    2024-11-08 [1] CRAN (R 4.4.1)
+    lifecycle     1.0.4   2023-11-07 [1] CRAN (R 4.4.0)
+    magrittr      2.0.3   2022-03-30 [1] CRAN (R 4.4.0)
+    pillar        1.10.1  2025-01-07 [1] CRAN (R 4.4.1)
+    pkgconfig     2.0.3   2019-09-22 [1] CRAN (R 4.4.0)
+    readxl      * 1.4.4   2025-02-27 [1] CRAN (R 4.4.1)
+ VP rlang       * 1.1.4   2025-01-17 [2] CRAN (R 4.4.1) (on disk 1.1.5)
+    rmarkdown     2.29    2024-11-04 [1] CRAN (R 4.4.1)
+    rprojroot     2.0.4   2023-11-05 [1] CRAN (R 4.4.0)
+    rstudioapi    0.17.1  2024-10-22 [1] CRAN (R 4.4.1)
+    sessioninfo   1.2.2   2021-12-06 [1] CRAN (R 4.4.0)
+    tibble        3.2.1   2023-03-20 [1] CRAN (R 4.4.0)
+    vctrs         0.6.5   2023-12-01 [1] CRAN (R 4.4.0)
+    xfun          0.50    2025-01-07 [1] CRAN (R 4.4.1)
+    yaml          2.3.10  2024-07-26 [1] CRAN (R 4.4.0)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.4/library
+
+ V ── Loaded and on-disk version mismatch.
+ P ── Loaded and on-disk path mismatch.
+
+────────────────────────────────────────────────────────────────────────────────────

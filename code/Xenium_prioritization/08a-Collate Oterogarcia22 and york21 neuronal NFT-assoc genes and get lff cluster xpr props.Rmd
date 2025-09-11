@@ -1,0 +1,343 @@
+---
+title: "08a-Collate Oterogarcia22 and York21 NFT-assoc neuronal genes genes and get lff cluster xpr props"
+author: "Bernie Mulvey"
+date: "2025-03-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(SpatialExperiment)
+library(readxl)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+## Otero-Garcia 2022: the full DE results comparing AD donor AT8+ to AD AT8-, AD AT8+ to ctrl AT8-, and AD AT8- to ctrl AT8- are in a spreadsheet, sheet per cluster.
+
+## to get the NFT-SPECIFIC DEGs from their tables, we want those genes that are DE between AD AT8+ and AD AT8- (AT8 signature) and NOT de between AD AT8- and ctrl AT8- (NOT broader disease state signature).
+```{r}
+otg2 <- lapply(c(2:21),function(i){
+    y <- read_xlsx(path = "raw-data/ref_data/oterogarcia22_tabS6-AT8_DE_by_cluster.xlsx",sheet=i,)
+    as.data.table(y)}
+)
+names(otg2) <- c(paste0("Ex",c(1:13)),paste0("In",c(1:7)))
+
+otg2 <- rbindlist(otg2,idcol = "otero_clust")
+setnames(otg2,
+         c("AD-AT8- vs non-AD avg_log2FC",
+           "AD-AT8- vs non-AD p_val_adj",
+           "AD-AT8+ vs AD-AT8- avg_log2FC",
+           "AD-AT8+ vs AD-AT8- p_val_adj")
+         ,c("AD_AT8neg_v_ctrl_lfc",
+            "AD_AT8neg_v_ctrl_fdr",
+            "AD_AT8pos_v_AD8_AT8neg_lfc",
+            "AD_AT8pos_v_AD8_AT8neg_fdr"))
+
+otg2 <- otg2[,.(otero_clust,Gene,AD_AT8neg_v_ctrl_lfc,AD_AT8neg_v_ctrl_fdr,AD_AT8pos_v_AD8_AT8neg_lfc,AD_AT8pos_v_AD8_AT8neg_fdr)]
+## table only has significant DEGs for each test, so we want NAs for AT8neg_v_ctrl
+otg2sub <- otg2[AD_AT8pos_v_AD8_AT8neg_fdr<0.1&is.na(AD_AT8neg_v_ctrl_fdr)]
+
+## find recurring genes 
+otg2rec <- otg2sub[,.N,by="Gene"]
+setorderv(otg2rec,"N",-1)
+
+## get genes DE in at least 4 clusters
+keepg <- otg2rec[N>=4,Gene]
+
+## get clusters with DE for each
+otg2sub <- otg2sub[Gene %in% keepg]
+otg2sub[,DEclusts:=paste0(otero_clust,collapse="_"),by="Gene"]
+otg2genes <- unique(otg2sub[,.(Gene,DEclusts)])
+```
+
+
+## York 2021: their RNAseq was performed with nanostring and only covered 200 genes. Gemini was used to extract all mentioned DE comparisons/hit genes/direction of effect into a table. There are several comparisons here that could be of interest (sex, APOE3/E4). Note that "AD NeuN+" signifies negativity for AT8 and is NOT simply all neurons regardless of AT8. So, as before, we don't want genes that are part of an AT8- vs. control signature.
+```{r}
+york <- fread("raw-data/ref_data/York21_AT8neuron_DEGs.txt")
+
+## 
+# unique(york$comparison)
+# 
+#  [1] "NeuN+ AD vs. NeuN+ Normal"            "AT8+ AD vs. NeuN+ Normal"            
+#  [3] "AT8+ AD vs. AD NeuN+"                 "APOE4 AT8+ AD vs. APOE3 AT8+ AD"     
+#  [5] "APOE3 AT8+ AD vs. APOE3 NeuN+ Normal" "APOE4 AT8+ AD vs. APOE4 NeuN+ Normal"
+#  [7] "NeuN+ AD Females vs. NeuN+ AD Males"  "AT8+ AD Females vs. AT8+ AD Males"   
+#  [9] "Normal Females vs. Normal Males"      "AD vs. Control (Protein IHC)" 
+
+## get genes that are in one of the uniques above (2,3,4,5,6) and not in 1, plus all in 8
+yorka <- york[comparison %in% c("AT8+ AD vs. NeuN+ Normal",
+                                "AT8+ AD vs. AD NeuN+",
+                                "APOE4 AT8+ AD vs. APOE3 AT8+ AD",
+                                "APOE3 AT8+ AD vs. APOE3 NeuN+ Normal",
+                                "APOE4 AT8+ AD vs. APOE4 NeuN+ Normal")&!(comparison=="NeuN+ AD vs. NeuN+ Normal"),]
+yorkb <- york[comparison=="AT8+ AD Females vs. AT8+ AD Males"]
+york <- rbind(yorka,yorkb)
+rm(yorka,yorkb)
+
+## get the gene symbols
+yorkg <- unique(york$gene)
+## a couple of these have parenthetical AKAs we want to get rid of for rowname matching
+yorkg[yorkg=="SLC7A2 (CAT2)"] <- "SLC7A2"
+yorkg[yorkg=="SLC3A2 (LAT1)"] <- "SLC3A2"
+yorkg[yorkg=="TIM (Timeless)"] <- "TIM"
+yorkg[yorkg=="GATM (AGAT)"] <- "GATM"
+yorkg[yorkg=="delta-CTNND2"] <- "CTNND2"
+yorkg[yorkg=="DMP4/FAM20C"] <- "FAM20C" # hgnc symbol is fam20c
+yorkg[yorkg=="eEF1a1"] <- "EEF1A1"
+yorkg[yorkg=="GNMT-3"] <- "GNMT" # why they call this "-3" in the paper is beyond me, no such gene in humans. the citation on its function in mice also uses the symbol GNMT.
+
+## reuniquify
+yorkg <- unique(yorkg)
+```
+
+## join the two sets of AT8 genes into a lookup table
+```{r}
+gtab <- as.data.table(cbind(c(keepg,yorkg),
+              c(rep("Otero22",length(keepg)),rep("York21",length(yorkg)))))
+
+## check if any genes are in both
+gtab[,.N,by="V1"][N>1]
+gtab[V1 %in% c("EEF1A1","AZIN1"),V2:="Otero22_York21"]
+gtab <- unique(gtab)
+setnames(gtab,c("gene","source"))
+
+rm(otg2,otg2genes,otg2rec,otg2sub,york,keepg,yorkg)
+```
+
+## finally, add a couple miscellaneous genes:
+XBP1 (pathway in weinshenker htyr mouse)
+EN2 (protective against oxidative stress in dopaminergic populations, https://doi.org/10.3389/fnmol.2021.699562
+
+```{r}
+nutab <- as.data.frame(matrix(nrow=2,ncol=2))
+nutab$V1 <- c("XBP1","EN2")
+nutab$V2 <- c("hTyrMs","Aguila21")
+colnames(nutab) <- c("gene","source")
+gtab <- rbind(gtab,nutab)
+gtab <- as.data.table(gtab)
+```
+
+## now load SPE and annots
+```{r}
+lc3 <- readRDS("processed-data/06-countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+
+## calculate log counts
+lc3 <- scater::computeLibraryFactors(lc3)
+lc3 <- scater::logNormCounts(lc3)
+
+## read in clustering and annots
+louvs <- readRDS("processed-data/07_featureSelection_dimred_harmony_clustering/04-Initial_louvLeid_res0.5-1-2_clusterings.RDS")
+louvs <- louvs$HARMONYlmbna_HDG_SVG_2575[,.(rn,snnHARMONYlmbna_HDG_SVG_2575_louv_res1)]
+setnames(louvs,2,"clusid")
+
+anno <- fread("processed-data/08_validitycheck_25hdg75svg_louv1/10-25hdg75svg_louv1_annots.txt")
+louvs <- merge.data.table(louvs,anno,by="clusid")
+louvs <- DataFrame(louvs,row.names=louvs$rn)[colnames(lc3),]
+
+## assign
+colLabels(lc3) <- louvs$anno
+
+## rownames to symbols
+rownames(lc3) <- rowData(lc3)$gene_name
+```
+
+### tabulate and save
+```{r}
+lc3sub <- lc3[rownames(lc3) %in% gtab$gene,]
+
+xprprops <- lapply(rownames(lc3sub),FUN=function(g){
+    ans <- lapply(unique(lc3sub$label),FUN=function(a){
+        subans <- sum(counts(lc3sub[g,lc3sub$label==a])>0)/ncol(lc3sub[g,lc3sub$label==a])
+        return(subans)
+    })
+    names(ans) <- unique(lc3sub$label)
+    return(ans)
+})
+names(xprprops) <- rownames(lc3sub)
+
+anstab <- lapply(xprprops,FUN=function(x){
+    y <- cbind(as.numeric(x),names(x))
+    y <- as.data.table(y)
+    setnames(y,c("prop_nonzero","cluster"))
+    return(y)
+})
+anstab <- rbindlist(anstab,idcol="gene")
+
+anstab <- merge.data.table(anstab,gtab,by="gene",all.x=T)
+
+# save
+fwrite(anstab,"processed-data/Xenium_prioritization/08a-ProportionSpots_per_clus_w_Oterogarcia22_multiclust_or_York21_AT8DEGs.txt",sep='\t',quote=F,row.names=F)
+```
+
+rep info
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.4.2 (2024-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.7.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] colorout_1.3-0.2            readxl_1.4.4               
+ [3] SpatialExperiment_1.16.0    SingleCellExperiment_1.28.1
+ [5] SummarizedExperiment_1.36.0 Biobase_2.66.0             
+ [7] GenomicRanges_1.58.0        GenomeInfoDb_1.42.1        
+ [9] IRanges_2.40.1              S4Vectors_0.44.0           
+[11] BiocGenerics_0.52.0         MatrixGenerics_1.18.0      
+[13] matrixStats_1.5.0           data.table_1.16.4          
+[15] rlang_1.1.4                
+
+loaded via a namespace (and not attached):
+ [1] beeswarm_0.4.0          gtable_0.3.6            rjson_0.2.23           
+ [4] xfun_0.50               ggplot2_3.5.1           ggrepel_0.9.6          
+ [7] lattice_0.22-6          generics_0.1.3          vctrs_0.6.5            
+[10] tools_4.4.2             parallel_4.4.2          tibble_3.2.1           
+[13] pkgconfig_2.0.3         BiocNeighbors_2.0.1     Matrix_1.7-1           
+[16] lifecycle_1.0.4         GenomeInfoDbData_1.2.13 compiler_4.4.2         
+[19] munsell_0.5.1           codetools_0.2-20        vipor_0.4.7            
+[22] htmltools_0.5.8.1       yaml_2.3.10             pillar_1.10.1          
+[25] crayon_1.5.3            rsconnect_1.3.3         BiocParallel_1.40.0    
+[28] DelayedArray_0.32.0     viridis_0.6.5           magick_2.8.5           
+[31] abind_1.4-8             tidyselect_1.2.1        rsvd_1.0.5             
+[34] digest_0.6.37           dplyr_1.1.4             BiocSingular_1.22.0    
+[37] rprojroot_2.0.4         fastmap_1.2.0           grid_4.4.2             
+[40] colorspace_2.1-1        here_1.0.1              cli_3.6.3              
+[43] SparseArray_1.6.0       scater_1.34.0           magrittr_2.0.3         
+[46] S4Arrays_1.6.0          UCSC.utils_1.2.0        scales_1.3.0           
+[49] ggbeeswarm_0.7.2        rmarkdown_2.29          XVector_0.46.0         
+[52] httr_1.4.7              gridExtra_2.3           cellranger_1.1.0       
+[55] ScaledMatrix_1.14.0     beachmat_2.22.0         evaluate_1.0.3         
+[58] knitr_1.49              viridisLite_0.4.2       irlba_2.3.5.1          
+[61] Rcpp_1.0.14             glue_1.8.0              scuttle_1.16.0         
+[64] rstudioapi_0.17.1       jsonlite_1.8.9          R6_2.5.1               
+[67] zlibbioc_1.52.0        
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.4.2 (2024-10-31)
+ os       macOS Sonoma 14.7.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2025-03-12
+ rstudio  2024.12.1+563 Kousa Dogwood (desktop)
+ pandoc   3.2 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+
+─ Packages ─────────────────────────────────────────────────────────────────────────
+ !  package              * version date (UTC) lib source
+    abind                  1.4-8   2024-09-12 [1] CRAN (R 4.4.1)
+    beachmat               2.22.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    beeswarm               0.4.0   2021-06-01 [1] CRAN (R 4.4.0)
+    Biobase              * 2.66.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    BiocGenerics         * 0.52.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    BiocNeighbors          2.0.1   2024-11-28 [1] Bioconductor 3.20 (R 4.4.2)
+    BiocParallel           1.40.0  2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+    BiocSingular           1.22.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    cellranger             1.1.0   2016-07-27 [1] CRAN (R 4.4.0)
+ P  cli                    3.6.3   2024-06-21 [2] CRAN (R 4.4.0)
+    codetools              0.2-20  2024-03-31 [1] CRAN (R 4.4.2)
+    colorout             * 1.3-0.2 2024-05-01 [1] Github (jalvesaq/colorout@c6113a2)
+    colorspace             2.1-1   2024-07-26 [1] CRAN (R 4.4.0)
+    crayon                 1.5.3   2024-06-20 [1] CRAN (R 4.4.0)
+    data.table           * 1.16.4  2024-12-06 [1] CRAN (R 4.4.1)
+    DelayedArray           0.32.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    digest                 0.6.37  2024-08-19 [1] CRAN (R 4.4.1)
+    dplyr                  1.1.4   2023-11-17 [1] CRAN (R 4.4.0)
+    evaluate               1.0.3   2025-01-10 [1] CRAN (R 4.4.1)
+    fastmap                1.2.0   2024-05-15 [1] CRAN (R 4.4.0)
+    generics               0.1.3   2022-07-05 [1] CRAN (R 4.4.0)
+    GenomeInfoDb         * 1.42.1  2024-11-28 [1] Bioconductor 3.20 (R 4.4.2)
+    GenomeInfoDbData       1.2.13  2024-12-12 [1] Bioconductor
+    GenomicRanges        * 1.58.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    ggbeeswarm             0.7.2   2023-04-29 [1] CRAN (R 4.4.0)
+    ggplot2                3.5.1   2024-04-23 [1] CRAN (R 4.4.0)
+    ggrepel                0.9.6   2024-09-07 [1] CRAN (R 4.4.1)
+    glue                   1.8.0   2024-09-30 [1] CRAN (R 4.4.1)
+    gridExtra              2.3     2017-09-09 [1] CRAN (R 4.4.0)
+    gtable                 0.3.6   2024-10-25 [1] CRAN (R 4.4.1)
+    here                   1.0.1   2020-12-13 [1] CRAN (R 4.4.0)
+    htmltools              0.5.8.1 2024-04-04 [1] CRAN (R 4.4.0)
+    httr                   1.4.7   2023-08-15 [1] CRAN (R 4.4.0)
+    IRanges              * 2.40.1  2024-12-05 [1] Bioconductor 3.20 (R 4.4.2)
+    irlba                  2.3.5.1 2022-10-03 [1] CRAN (R 4.4.0)
+    jsonlite               1.8.9   2024-09-20 [1] CRAN (R 4.4.1)
+    knitr                  1.49    2024-11-08 [1] CRAN (R 4.4.1)
+    lattice                0.22-6  2024-03-20 [1] CRAN (R 4.4.2)
+    lifecycle              1.0.4   2023-11-07 [1] CRAN (R 4.4.0)
+    magick                 2.8.5   2024-09-20 [1] CRAN (R 4.4.1)
+    magrittr               2.0.3   2022-03-30 [1] CRAN (R 4.4.0)
+    Matrix                 1.7-1   2024-10-18 [1] CRAN (R 4.4.2)
+    MatrixGenerics       * 1.18.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    matrixStats          * 1.5.0   2025-01-07 [1] CRAN (R 4.4.1)
+    munsell                0.5.1   2024-04-01 [1] CRAN (R 4.4.0)
+    pillar                 1.10.1  2025-01-07 [1] CRAN (R 4.4.1)
+    pkgconfig              2.0.3   2019-09-22 [1] CRAN (R 4.4.0)
+    R6                     2.5.1   2021-08-19 [1] CRAN (R 4.4.0)
+    Rcpp                   1.0.14  2025-01-12 [1] CRAN (R 4.4.2)
+    readxl               * 1.4.4   2025-02-27 [1] CRAN (R 4.4.1)
+    rjson                  0.2.23  2024-09-16 [1] CRAN (R 4.4.1)
+ VP rlang                * 1.1.4   2025-01-17 [2] CRAN (R 4.4.1) (on disk 1.1.5)
+    rmarkdown              2.29    2024-11-04 [1] CRAN (R 4.4.1)
+    rprojroot              2.0.4   2023-11-05 [1] CRAN (R 4.4.0)
+    rsconnect              1.3.3   2024-11-19 [1] CRAN (R 4.4.1)
+    rstudioapi             0.17.1  2024-10-22 [1] CRAN (R 4.4.1)
+    rsvd                   1.0.5   2021-04-16 [1] CRAN (R 4.4.0)
+    S4Arrays               1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    S4Vectors            * 0.44.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    ScaledMatrix           1.14.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    scales                 1.3.0   2023-11-28 [1] CRAN (R 4.4.0)
+    scater                 1.34.0  2024-10-29 [1] Bioconductor 3.20 (R 4.4.1)
+    scuttle                1.16.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    sessioninfo            1.2.2   2021-12-06 [1] CRAN (R 4.4.0)
+    SingleCellExperiment * 1.28.1  2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+    SparseArray            1.6.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    SpatialExperiment    * 1.16.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    SummarizedExperiment * 1.36.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    tibble                 3.2.1   2023-03-20 [1] CRAN (R 4.4.0)
+    tidyselect             1.2.1   2024-03-11 [1] CRAN (R 4.4.0)
+    UCSC.utils             1.2.0   2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    vctrs                  0.6.5   2023-12-01 [1] CRAN (R 4.4.0)
+    vipor                  0.4.7   2023-12-18 [1] CRAN (R 4.4.0)
+    viridis                0.6.5   2024-01-29 [1] CRAN (R 4.4.0)
+    viridisLite            0.4.2   2023-05-02 [1] CRAN (R 4.4.0)
+    xfun                   0.50    2025-01-07 [1] CRAN (R 4.4.1)
+    XVector                0.46.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+    yaml                   2.3.10  2024-07-26 [1] CRAN (R 4.4.0)
+    zlibbioc               1.52.0  2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.4/library
+
+ V ── Loaded and on-disk version mismatch.
+ P ── Loaded and on-disk path mismatch.
+
+────────────────────────────────────────────────────────────────────────────────────
