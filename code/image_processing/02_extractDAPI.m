@@ -51,7 +51,6 @@ for i =  [9 18]
        
         % Output dir per brain
         out_dir = fullfile(Md, od, br);
-        if ~exist(out_dir, 'dir'), mkdir(out_dir); end
 
         % Save TIFFs (LZW compression; widely supported)
         imwrite(cellmask,  fullfile(out_dir, 'cellmask_binary.tif'));
