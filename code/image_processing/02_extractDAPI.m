@@ -66,6 +66,8 @@ for i =  [4 6 9 19 30]
         store.close();
     catch
     end
+		
+		disp(br)
 end
 
 fprintf('[done]\n');
