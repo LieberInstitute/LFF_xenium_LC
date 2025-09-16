@@ -27,7 +27,7 @@ Br6423	0068968_Slide5	sample_01_y14881_x9092_h14339_w17472.tif
 Br1039	0068968_Slide5	sample_06_y11642_x68697_h13277_w20100.tif
 Br6119	0068968_Slide5	sample_02_y35511_x9862_h9586_w18216.tif
 Br6263	0068968_Slide5	sample_03_y11057_x37660_h16410_w18295.tif
-Br5854	0068968_Slide5	sample_05_y30678_x63732_h18481_w30561.tif	rerun DAPI extraction as the sample doesnt match
+Br5854_L	0068968_Slide5	sample_05_y30678_x63732_h18481_w30561.tif	rerun DAPI extraction as the sample doesnt match
 Br1691_L	0032707_Slide1	sample_07_y27334_x87064_h20349_w10660.tif	rerun extract DAPI with Br1691_L folder
 Br2305_L	0032704_Slide2	sample_04_y36694_x42842_h15690_w15689.tif	rerun extract DAPI with Br1691_L folder
 Br2582	0068641_Slide3	sample_03_y37717_x31093_h11217_w15909.tif	rerun splitting, missed a lot off tissue for this sample
