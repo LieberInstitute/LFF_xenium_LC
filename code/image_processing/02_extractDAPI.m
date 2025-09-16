@@ -12,13 +12,13 @@ d = d([d.isdir]);              % keep only directories
 names = {d.name};
 names = names(~ismember(names, {'.','..'}));
 
-i = 4,5,8,18,30
-for i = 1:numel(names)
+for i =  [4 6 9 19 30] 
+%for i = 1:numel(names)
     name = names{i};
     if startsWith(name, 'old_corrupt'), continue; end
 
     % Extract Br number (works for BrXXXX-L, BrXXXX_re-dis, etc.)
-    tok = regexp(name, '(Br\d+)', 'tokens', 'once');
+    tok = regexp(name, '(Br\d+(?:-[A-Za-z]+)?)', 'tokens', 'once');
     if isempty(tok), continue; end
     br = tok{1};
 
