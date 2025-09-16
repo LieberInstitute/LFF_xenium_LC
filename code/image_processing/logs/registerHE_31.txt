@@ -1,0 +1,32 @@
+**** Job starts ****
+Tue Sep 16 11:08:38 AM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 22492541
+Job name: registerHE
+Node name: compute-127
+Task id: 31
+Loading LIBD SLURM module for visium_hd/1.0
+Loading LIBD SLURM module for htslib/1.18
+
+Currently Loaded Modules:
+  1) JHPCE_ROCKY9_DEFAULT_ENV   3) conda/3-24.3.0   5) visium_hd/1.0
+  2) JHPCE_tools/3.0            4) htslib/1.18
+
+ 
+
+Br1691_L
+0032707_Slide1
+sample_07_y27334_x87064_h20349_w10660.tif
+Traceback (most recent call last):
+  File "/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/03_registerHE.py", line 34, in <module>
+    dapi = imread(DAPIPath) # 2D mask (cells)
+  File "/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/tifffile/tifffile.py", line 1248, in imread
+    with TiffFile(
+  File "/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/tifffile/tifffile.py", line 4259, in __init__
+    fh = FileHandle(file, mode=mode, name=name, offset=offset, size=size)
+  File "/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/tifffile/tifffile.py", line 14644, in __init__
+    self.open()
+  File "/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/tifffile/tifffile.py", line 14663, in open
+    self._fh = open(
+FileNotFoundError: [Errno 2] No such file or directory: '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1691_L/nucmask_binary.tif'
