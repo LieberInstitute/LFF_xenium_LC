@@ -18,3 +18,12 @@ Currently Loaded Modules:
 Br1039-L
 0068654_Slide4
 sample_01_y10579_x10287_h15454_w20047.tif
+HE: (18398, 23865, 3) uint8  DAPI: (23973, 17168) uint8
+Best angle ≈ 90.40° (score=0.0034)
+Saved overlay
+Translation: dy=-231.00, dx=-1561.00 (err=nan)
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1039-L/HE_nuclei_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1039-L/HE_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1039-L/overlay_on_dapi.png
+**** Job ends ****
+Tue Sep 16 11:30:30 AM EDT 2025

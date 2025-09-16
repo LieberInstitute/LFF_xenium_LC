@@ -1,10 +1,10 @@
 **** Job starts ****
-Tue Sep 16 11:08:59 AM EDT 2025
+Tue Sep 16 11:51:02 AM EDT 2025
 **** JHPCE info ****
 User: mtippani
-Job id: 22492544
+Job id: 22492643
 Job name: registerHE
-Node name: compute-176
+Node name: compute-129
 Task id: 32
 Loading LIBD SLURM module for visium_hd/1.0
 Loading LIBD SLURM module for htslib/1.18
@@ -15,18 +15,15 @@ Currently Loaded Modules:
 
  
 
-Br2305_L
-0032704_Slide2
-sample_04_y36694_x42842_h15690_w15689.tif
-Traceback (most recent call last):
-  File "/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/03_registerHE.py", line 34, in <module>
-    dapi = imread(DAPIPath) # 2D mask (cells)
-  File "/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/tifffile/tifffile.py", line 1248, in imread
-    with TiffFile(
-  File "/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/tifffile/tifffile.py", line 4259, in __init__
-    fh = FileHandle(file, mode=mode, name=name, offset=offset, size=size)
-  File "/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/tifffile/tifffile.py", line 14644, in __init__
-    self.open()
-  File "/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/tifffile/tifffile.py", line 14663, in open
-    self._fh = open(
-FileNotFoundError: [Errno 2] No such file or directory: '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br2305_L/nucmask_binary.tif'
+Br2582
+0068641_Slide3
+sample_03_y37717_x31093_h11217_w15909.tif
+HE: (13354, 18939, 3) uint8  DAPI: (20579, 20046) uint8
+Best angle ≈ 90.10° (score=0.0227)
+Saved overlay
+Translation: dy=1320.00, dx=2238.00 (err=nan)
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br2582/HE_nuclei_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br2582/HE_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br2582/overlay_on_dapi.png
+**** Job ends ****
+Tue Sep 16 12:01:42 PM EDT 2025
