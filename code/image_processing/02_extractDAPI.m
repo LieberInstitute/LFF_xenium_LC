@@ -12,7 +12,8 @@ d = d([d.isdir]);              % keep only directories
 names = {d.name};
 names = names(~ismember(names, {'.','..'}));
 
-for i =  [4 6 9 19 30] 
+%for i =  [4 6 9 19 30] 
+for i =  [9 18] 
 %for i = 1:numel(names)
     name = names{i};
     if startsWith(name, 'old_corrupt'), continue; end
