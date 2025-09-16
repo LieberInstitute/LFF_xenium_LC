@@ -12,9 +12,7 @@ d = d([d.isdir]);              % keep only directories
 names = {d.name};
 names = names(~ismember(names, {'.','..'}));
 
-%for i =  [4 6 9 19 30] 
-for i =  [9 18] 
-%for i = 1:numel(names)
+for i = 1:numel(names)
     name = names{i};
     if startsWith(name, 'old_corrupt'), continue; end
 
@@ -53,8 +51,8 @@ for i =  [9 18]
         out_dir = fullfile(Md, od, br);
 
         % Save TIFFs (LZW compression; widely supported)
-        imwrite(cellmask,  fullfile(out_dir, 'cellmask_binary.tif'));
-        imwrite(nucmask, fullfile(out_dir, 'nucmask_binary.tif'));
+        imwrite(uint8(cellmask),  fullfile(out_dir, 'cellmask_binary.tif'));
+        imwrite(uint8(nucmask), fullfile(out_dir, 'nucmask_binary.tif'));
 
         fprintf('[ok] %s -> %s\n', name, br);
     catch ME
