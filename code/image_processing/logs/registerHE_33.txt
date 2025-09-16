@@ -1,10 +1,10 @@
 **** Job starts ****
-Tue Sep 16 11:09:11 AM EDT 2025
+Tue Sep 16 01:50:23 PM EDT 2025
 **** JHPCE info ****
 User: mtippani
-Job id: 22492545
+Job id: 22506524
 Job name: registerHE
-Node name: compute-177
+Node name: compute-163
 Task id: 33
 Loading LIBD SLURM module for visium_hd/1.0
 Loading LIBD SLURM module for htslib/1.18
@@ -15,15 +15,15 @@ Currently Loaded Modules:
 
  
 
-Br2582
-0068641_Slide3
-sample_03_y37717_x31093_h11217_w15909.tif
-HE: (13354, 18939, 3) uint8  DAPI: (20579, 20046) uint8
-Best angle ≈ 90.10° (score=0.0227)
+Br1039
+0068654_Slide4
+sample_01_y10579_x10287_h15454_w20047.tif
+HE: (18398, 23865, 3) uint8  DAPI: (27331, 17265) uint8
+Best angle ≈ 90.20° (score=0.0004)
 Saved overlay
-Translation: dy=1320.00, dx=2238.00 (err=nan)
-Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br2582/HE_nuclei_registered_to_DAPI.tif
-Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br2582/HE_registered_to_DAPI.tif
-Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br2582/overlay_on_dapi.png
+Translation: dy=567.00, dx=1557.00 (err=nan)
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1039/HE_nuclei_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1039/HE_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1039/overlay_on_dapi.png
 **** Job ends ****
-Tue Sep 16 11:16:36 AM EDT 2025
+Tue Sep 16 02:02:28 PM EDT 2025
