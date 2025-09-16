@@ -54,8 +54,8 @@ for i =  [9 18]
         if ~exist(out_dir, 'dir'), mkdir(out_dir); end
 
         % Save TIFFs (LZW compression; widely supported)
-        imwrite(cellmask,  fullfile(out_dir, 'nucmask_binary.tif'));
-        imwrite(nucmask, fullfile(out_dir, 'cellmask_binary.tif'));
+        imwrite(cellmask,  fullfile(out_dir, 'cellmask_binary.tif'));
+        imwrite(nucmask, fullfile(out_dir, 'nucmask_binary.tif'));
 
         fprintf('[ok] %s -> %s\n', name, br);
     catch ME
