@@ -5,7 +5,7 @@
 #SBATCH -t 1-00:00:00
 #SBATCH -o logs/registerHE_%a.txt
 #SBATCH -e logs/registerHE_%a.txt
-#SBATCH --array=30-34%1
+#SBATCH --array=30-32%1
 
 set -e
 
