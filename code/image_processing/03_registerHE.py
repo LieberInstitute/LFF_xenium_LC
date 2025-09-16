@@ -21,12 +21,12 @@ brnum_arg = sys.argv[1]
 slide_arg = sys.argv[2]
 sample_arg = sys.argv[3]
 
-HEPath   = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/split_samples/{slide_arg}/{sample_arg}'
-DAPIPath = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/{brnum_arg}/nucmask_binary.tif'
-out_he       = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/{brnum_arg}/HE_registered_to_DAPI.tif'
-out_henuc    = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/{brnum_arg}/HE_nuclei_registered_to_DAPI.tif'
-out_overlay  = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/{brnum_arg}/overlay_on_dapi.png'
-out_overlay1  = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/processed-data/xenium_imageProcessing/{brnum_arg}/overlay_on_dapi1.png'
+HEPath   = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/split_samples/{slide_arg}/{sample_arg}'
+DAPIPath = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/{brnum_arg}/nucmask_binary.tif'
+out_he       = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/{brnum_arg}/HE_registered_to_DAPI.tif'
+out_henuc    = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/{brnum_arg}/HE_nuclei_registered_to_DAPI.tif'
+out_overlay  = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/{brnum_arg}/overlay_on_dapi.png'
+out_overlay1  = f'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/{brnum_arg}/overlay_on_dapi1.png'
 
 
 # ---------------- load ----------------
