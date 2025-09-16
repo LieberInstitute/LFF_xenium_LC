@@ -24,11 +24,11 @@ Br6423	0068968_Slide5	sample_01_y14881_x9092_h14339_w17472.tif
 Br6119	0068968_Slide5	sample_02_y35511_x9862_h9586_w18216.tif
 Br6263	0068968_Slide5	sample_03_y11057_x37660_h16410_w18295.tif
 Br5854-L	0032704_Slide2	sample_01_y12098_x12070_h14510_w13549.tif
-Br5854	0068968_Slide5	sample_05_y30678_x63732_h18481_w30561.tif	rerun DAPI extraction as the sample doesnt match
-Br1691	0068641_Slide3	sample_07_y36097_x76468_h13908_w21427.tif	realign
-Br1691-L	0032707_Slide1	sample_07_y27334_x87064_h20349_w10660.tif	rerun extract DAPI with Br1691_L folder
-Br2305	0068654_Slide4	sample_04_y9358_x36997_h14046_w24029.tif	realign
-Br2305-L	0032704_Slide2	sample_04_y36694_x42842_h15690_w15689.tif	rerun extract DAPI with Br1691_L folder
-Br2582	0068641_Slide3	sample_03_y37717_x31093_h11217_w15909.tif	rerun splitting, missed a lot off tissue for this sample
+Br5854	0068968_Slide5	sample_05_y30678_x63732_h18481_w30561.tif	realign
+Br1691	0068641_Slide3	sample_07_y36097_x76468_h13908_w21427.tif	
+Br1691-L	0032707_Slide1	sample_07_y27334_x87064_h20349_w10660.tif	
+Br2305	0068654_Slide4	sample_04_y9358_x36997_h14046_w24029.tif	
+Br2305-L	0032704_Slide2	sample_04_y36694_x42842_h15690_w15689.tif	
+Br2582	0068641_Slide3	sample_03_y37717_x31093_h11217_w15909.tif	
 Br1039	0068654_Slide4	sample_01_y10579_x10287_h15454_w20047.tif
-Br1039-L	0068968_Slide5	sample_06_y11642_x68697_h13277_w20100.tif	rerun extract DAPI with Br1039_L folder
+Br1039-L	0068968_Slide5	sample_06_y11642_x68697_h13277_w20100.tif	
