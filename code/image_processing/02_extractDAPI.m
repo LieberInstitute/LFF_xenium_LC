@@ -1,5 +1,5 @@
 % Loop over all xenium-instrument folders, extract masks, save binary TIFFs
-Md = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC';
+Md = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC';
 od = '/processed-data/xenium_imageProcessing/';
 in_dir = fullfile(Md, 'raw-data', 'xenium', 'xenium-instrument');
 
