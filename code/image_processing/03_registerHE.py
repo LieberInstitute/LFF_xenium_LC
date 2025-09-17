@@ -159,6 +159,20 @@ henuc_reg = cv2.warpAffine(henuc_can, M, (W, H),
                            borderMode=cv2.BORDER_CONSTANT, borderValue=0.0)
 henuc_reg = (henuc_reg > 0.5).astype(np.uint8)  # keep binary
 
+    ######## code to translate using scikit image ###########
+# Build translation transform (note: (tx, ty) is (dx, dy))
+tform = AffineTransform(translation=(dx, dy))
+
+# 1) Translate nuclei mask (nearest-neighbor)
+henuc_reg = warp(
+    henuc_can, tform.inverse,
+    order=0,  # nearest
+    mode='constant', cval=0.0,
+    preserve_range=True
+).astype(np.uint8) > 0.5
+henuc_reg = henuc_reg.astype(np.uint8)
+
+
 # 2) RGB H&E (bilinear)
 he_f   = img_as_float32(he)
 he_rot = rotate(he_f, angle=best_angle, resize=True,
