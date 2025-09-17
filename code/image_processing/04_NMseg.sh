@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=NMseg
-#SBATCH --mem=60G
-#SBATCH -o /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/code/xenium_imageProcessing/logs/NMseg_%a.txt
-#SBATCH -e /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/code/xenium_imageProcessing/logs/NMseg_%a.txt
-#SBATCH --array=1-29%5
+#SBATCH --mem=80G
+#SBATCH -o logs/NMseg_%a.txt
+#SBATCH -e logs/NMseg_%a.txt
+#SBATCH --array=4
 
 echo "**** Job starts ****"
 date
@@ -19,7 +19,10 @@ echo "Task id: ${SLURM_ARRAY_TASK_ID}"
 ## load MATLAB
 module load matlab
 
-matlab -nodesktop -nosplash -r "NMseg"
+brnum=$(awk -v n="$SLURM_ARRAY_TASK_ID" 'BEGIN{FS="\t"} NR==n {print $1}' inputs.txt | awk '{print $1}')
+echo "$brnum"
+
+matlab -nodesktop -nosplash -r "NMseg('$brnum')"
 
 echo "**** Job ends ****"
 date
