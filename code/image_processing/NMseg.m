@@ -22,7 +22,7 @@ disp('saving ...')
 	
 parfor ic = 1:N
 mask{ic} = pixel_labels==ic;
-cluster{ic} = he .* uint8(mask{ic});
+cluster{ic} = he .* uint16(mask{ic});
 imwrite(cluster{ic}, fullfile(Md, brnum, ['Kmeans_cluster', num2str(ic),'.png']))
 end
 
