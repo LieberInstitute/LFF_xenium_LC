@@ -188,6 +188,17 @@ for ch in range(he_can.shape[2]):
                                      flags=cv2.INTER_LINEAR,
                                      borderMode=cv2.BORDER_CONSTANT, borderValue=0.0)
 
+####### code to translate HE image using scikit image
+# 2) Translate RGB H&E (bilinear)
+he_reg = np.empty_like(he_can, dtype=np.float32)
+for ch in range(he_can.shape[2]):
+    he_reg[..., ch] = warp(
+        he_can[..., ch], tform.inverse,
+        order=1,  # bilinear
+        mode='constant', cval=0.0,
+        preserve_range=True
+    ).astype(np.float32)
+    
 # ---------------- save outputs ----------------
 imwrite(out_henuc, henuc_reg.astype(np.uint8))
 imwrite(out_he, (np.clip(he_reg, 0, 1) * 65535).astype(np.uint16))
