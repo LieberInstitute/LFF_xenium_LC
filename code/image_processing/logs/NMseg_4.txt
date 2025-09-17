@@ -1,0 +1,79 @@
+**** Job starts ****
+Wed Sep 17 11:57:23 AM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 22572030
+Job name: NMseg
+Hostname: 
+Task id: 4
+Br5854
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2023 The MathWorks, Inc.
+             R2023b Update 4 (23.2.0.2428915) 64-bit (glnxa64)
+                              October 23, 2023
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Br5854
+
+Md =
+
+    '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/'
+
+
+fname =
+
+    '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5854/HE_registered_to_DAPI.tif'
+
+Performing rgb to Lab color space conversion
+Elapsed time is 234.893438 seconds.
+Applying Kmeans
+Elapsed time is 237.189802 seconds.
+saving ...
+Starting parallel pool (parpool) using the 'Processes' profile ...
+[Warning: The system time zone setting, 'US/Eastern', does not specify a single
+time zone unambiguously. It will be treated as 'America/New_York'. See the <a
+href="matlab:doc('datetime.TimeZone')">datetime.TimeZone property</a> for
+details about specifying time zones.] 
+[> In verifyTimeZone (line 38)
+In datetime (line 565)
+In parallel.internal.cluster.DefaultProperties.getNewJobPropStruct (line 17)
+In parallel.internal.types.JobProp>iGetDefaults (line 63)
+In parallel.internal.types.JobProp (line 57)
+In parallel.internal.cluster/FileStorage/getSortedJobIDsFromDisk
+In parallel.internal.cluster/FileStorage/getJobSIds (line 590)
+In parallel.internal.cluster/CJSSupport/getJobsForCluster (line 283)
+In parallel.internal.cluster.CJSSupport>@(x,y)obj.getJobsForCluster(x,y{1})
+(line 72)
+In parallel.internal.cluster/CJSSupport/getJobs (line 72)
+In parallel.cluster/CJSCluster/getJobs (line 556)
+In parallel/Cluster/hGetJobs (line 904)
+In parallel.internal.cluster.hetfun (line 54)
+In parallel.Cluster/findJob (line 64)
+In parallel.internal.pool/AbstractInteractiveClient/findJobsOnCluster (line 31)
+In parallel.internal.pool/AbstractInteractiveClient/pRemoveOldJobs (line 191)
+In parallel.internal.pool/AbstractInteractiveClient/start (line 96)
+In parallel.internal.pool.AbstractClusterPool>iStartClient (line 831)
+In parallel.internal.pool.AbstractClusterPool.hBuildPool (line 626)
+In parallel.internal.pool.doParpool (line 22)
+In parpool (line 118)
+In parallel.internal.parpool.getOrCreateCurrentPool (line 13)
+In parallel.internal.pool.PoolArrayManager.getOrAutoCreateWithCleanup (line 44)
+In pctTryCreatePoolIfNecessary (line 28)
+In parallel_function (line 423)
+In NMseg (line 23)
+] 
+Fontconfig warning: "/usr/share/fontconfig/conf.avail/05-reset-dirs-sample.conf", line 6: unknown element "reset-dirs"
+Fontconfig warning: "/usr/share/fontconfig/conf.avail/05-reset-dirs-sample.conf", line 6: unknown element "reset-dirs"
+Connected to parallel pool with 2 workers.
+{Error using NMseg
+Integers can only be combined with integers of the same class, or scalar
+doubles.
+} 
+Parallel pool using the 'Processes' profile is shutting down.
+**** Job ends ****
+Wed Sep 17 12:07:20 PM EDT 2025
