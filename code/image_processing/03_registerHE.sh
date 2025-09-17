@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --mem=150G
+#SBATCH --mem=200G
 #SBATCH --job-name=registerHE
 #SBATCH -c 1
 #SBATCH -t 1-00:00:00
