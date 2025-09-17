@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use("Agg")  # non-GUI backend
 import matplotlib.pyplot as plt
 import sys
+from skimage.transform import AffineTransform, warp
 
 try:
     from scipy.ndimage import distance_transform_edt as dist
@@ -55,7 +56,6 @@ dapi_mask = (dapi > 0).astype(np.float32)
 # ---------------- coarse angle search (89–91°, step 0.1) using edges ----------------
 he_edges   = canny(he_nuc, sigma=1.0).astype(np.float32)
 dapi_edges = canny(dapi_mask, sigma=1.0).astype(np.float32)
-
 
 # Downsample for speed (longest side ≈ 3000 px)
 target_max = 3000
