@@ -182,25 +182,66 @@ for step, rad in [(8, 128), (2, 24)]:
 dx, dy = best_dx_ds * ds, best_dy_ds * ds  # cols, rows in FULL pixels
 print(f"Final translation picked by Dice: dy={dy:.2f}, dx={dx:.2f} (Dice@DS={best_score:.3f})")
 
-# ---------------- apply translation (skimage.warp) ----------------
-# rotate HE RGB once (already done for nuclei)
-he_f   = img_as_float32(he)
-he_rot = rotate(he_f, angle=best_angle, resize=True,
-                order=1, mode='constant', cval=0, preserve_range=True).astype(np.float32)
-Hr, Wr = he_rot.shape[:2]
-ys = max(0, (Hr - H) // 2); xs = max(0, (Wr - W) // 2)
-yd = max(0, (H  - Hr) // 2); xd = max(0, (W  - Wr) // 2)
-he_can = np.zeros((H, W, he_rot.shape[2]), dtype=np.float32)
-he_can[yd:yd+min(H, Hr), xd:xd+min(W, Wr), :] = he_rot[ys:ys+min(H, Hr), xs:xs+min(W, Wr), :]
+# ---- MICRO-REFINEMENT (optional but helps the last 1–2 px) ----
+# Works on a cropped ROI so it's fast. Tries small subpixel tweaks to (dx,dy),
+# and optionally tiny scale/angle. It maximizes Dice on the ROI.
 
-# nuclei (nearest)
-henuc_reg = apply_shift_skimage(he_nuc_can, dx, dy, order=0) > 0.5
+
+# 1) define a ROI around tissue to avoid edges
+y0r, y1r, x0r, xr1 = bbox((dapi_can>0.5), pad=256)
+he_roi   = he_nuc_can[y0r:y1r, x0r:xr1]
+dapi_roi = (dapi_can>0.5)[y0r:y1r, x0r:xr1]
+Hr, Wr   = he_roi.shape
+cx, cy   = Wr/2.0, Hr/2.0
+
+def dice_score_after(dx_, dy_, dtheta_deg=0.0, scale_=1.0):
+    # build tiny similarity transform around the ROI center
+    t = AffineTransform(translation=(-cx, -cy))
+    t += AffineTransform(scale=(scale_, scale_))
+    t += AffineTransform(rotation=np.deg2rad(dtheta_deg))
+    t += AffineTransform(translation=(cx + dx_, cy + dy_))
+    moved = warp(he_roi, t.inverse, order=0, mode='constant', cval=0.0, preserve_range=True) > 0.5
+    return dice(moved, dapi_roi)
+
+# 2) search small neighborhoods; keep it light
+best = {'dx': dx, 'dy': dy, 'th': 0.0, 'sc': 1.0, 'score': -1.0}
+
+# (a) subpixel translation refine (no scale/angle)
+for DY in np.linspace(dy-1.5, dy+1.5, 13):     # step 0.25 px
+    for DX in np.linspace(dx-1.5, dx+1.5, 13):
+        sc = dice_score_after(DX - dx + 0, DY - dy + 0, 0.0, 1.0)
+        if sc > best['score']:
+            best.update({'dx': DX, 'dy': DY, 'th': 0.0, 'sc': 1.0, 'score': sc})
+
+# (b) very small angle/scale polish (optional; comment out if you don't want it)
+for TH in np.linspace(-0.15, 0.15, 7):         # ±0.15°
+    for SC in np.linspace(0.997, 1.003, 7):    # ±0.3% isotropic
+        sc = dice_score_after(best['dx']-dx, best['dy']-dy, TH, SC)
+        if sc > best['score']:
+            best.update({'th': TH, 'sc': SC, 'score': sc})
+
+# 3) report and apply to the FULL canvas
+print(f"Micro-refine => dy={best['dy']:.3f}, dx={best['dx']:.3f}, "
+      f"dθ={best['th']:.3f}°, s={best['sc']:.5f} (Dice_ROI={best['score']:.4f})")
+
+# Build final transform for full-size masks/images
+# Start from your existing rotation+centering result (he_nuc_can, he_can),
+# then apply similarity about the FULL canvas center.
+Cxf, Cyf = W/2.0, H/2.0
+t_full = AffineTransform(translation=(-Cxf, -Cyf))
+t_full += AffineTransform(scale=(best['sc'], best['sc']))
+t_full += AffineTransform(rotation=np.deg2rad(best['th']))
+t_full += AffineTransform(translation=(Cxf + best['dx'], Cyf + best['dy']))
+
+# Recompute outputs using this single transform
+henuc_reg = warp(he_nuc_can, t_full.inverse, order=0, mode='constant', cval=0.0,
+                 preserve_range=True) > 0.5
 henuc_reg = henuc_reg.astype(np.uint8)
 
-# RGB (bilinear)
 he_reg = np.empty_like(he_can, dtype=np.float32)
 for ch in range(he_can.shape[2]):
-    he_reg[..., ch] = apply_shift_skimage(he_can[..., ch], dx, dy, order=1, cval=0.0).astype(np.float32)
+    he_reg[..., ch] = warp(he_can[..., ch], t_full.inverse, order=1, mode='constant',
+                           cval=0.0, preserve_range=True).astype(np.float32)
 
 # ---------------- save ----------------
 imwrite(out_henuc, henuc_reg)
