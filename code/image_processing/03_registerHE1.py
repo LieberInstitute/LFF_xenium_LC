@@ -188,7 +188,7 @@ print(f"Final translation picked by Dice: dy={dy:.2f}, dx={dx:.2f} (Dice@DS={bes
 
 
 # 1) define a ROI around tissue to avoid edges
-y0r, y1r, x0r, xr1 = bbox((dapi_can>0.5), pad=256)
+y0r, y1r, x0r, x1r = bbox((dapi_can>0.5), pad=256)
 
 # 2) pre-apply the *integer* part of your current shift so PCC searches near 0
 dy_i = int(np.round(dy))

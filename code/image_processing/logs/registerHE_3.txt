@@ -1,10 +1,10 @@
 **** Job starts ****
-Thu Sep 18 07:39:11 AM EDT 2025
+Thu Sep 18 03:20:57 PM EDT 2025
 **** JHPCE info ****
 User: mtippani
-Job id: 22616902
+Job id: 22623388
 Job name: registerHE
-Node name: compute-168
+Node name: compute-162
 Task id: 3
 Loading LIBD SLURM module for visium_hd/1.0
 Loading LIBD SLURM module for htslib/1.18
@@ -18,12 +18,3 @@ Currently Loaded Modules:
 Br1556
 0032704_Slide2
 sample_03_y9627_x34277_h19287_w18353.tif
-HE: (22961, 21849, 3) uint8  DAPI: (24015, 22913) uint8
-Best angle ≈ 89.50° (score=0.0194)
-Saved overlay before translation: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1556/overlay_on_dapi1.png
-Final translation picked by Dice: dy=723.10, dx=357.14 (Dice@DS=0.093)
-Micro-refine => dy=721.850, dx=355.640, dθ=-0.150°, s=0.99700 (Dice_ROI=0.0712)
-Traceback (most recent call last):
-  File "/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/03_registerHE1.py", line 241, in <module>
-    he_reg = np.empty_like(he_can, dtype=np.float32)
-NameError: name 'he_can' is not defined
