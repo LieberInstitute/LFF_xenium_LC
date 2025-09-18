@@ -18,3 +18,7 @@ Currently Loaded Modules:
 Br5415
 0032707_Slide1
 sample_04_y32571_x48157_h17001_w21892.tif
+/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/skimage/registration/_phase_cross_correlation.py:119: RuntimeWarning: overflow encountered in scalar multiply
+  amp = src_amp * target_amp
+/var/spool/slurm/d/job22623390/slurm_script: line 34: 66339 Killed                  python 03_registerHE1.py $brnum $slide $sample
+slurmstepd: error: Detected 1 oom-kill event(s) in StepId=22623390.batch. Some of your processes may have been killed by the cgroup out-of-memory handler.
