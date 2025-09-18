@@ -3,7 +3,7 @@
 #SBATCH --mem=80G
 #SBATCH -o logs/NMseg_%a.txt
 #SBATCH -e logs/NMseg_%a.txt
-#SBATCH --array=4
+#SBATCH --array=1-34%5
 
 echo "**** Job starts ****"
 date
