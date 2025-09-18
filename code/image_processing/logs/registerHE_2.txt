@@ -1,8 +1,8 @@
 **** Job starts ****
-Wed Sep 17 11:56:05 AM EDT 2025
+Thu Sep 18 07:39:12 AM EDT 2025
 **** JHPCE info ****
 User: mtippani
-Job id: 22572027
+Job id: 22616903
 Job name: registerHE
 Node name: compute-121
 Task id: 2
@@ -22,8 +22,8 @@ HE: (20239, 26062, 3) uint8  DAPI: (27366, 22835) uint8
 Best angle ≈ 89.50° (score=0.0259)
 Saved overlay before translation: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5415/overlay_on_dapi1.png
 Final translation picked by Dice: dy=-70.72, dx=352.80 (Dice@DS=0.104)
-Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5415/HE_nuclei_registered_to_DAPI.tif
-Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5415/HE_registered_to_DAPI.tif
-Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5415/overlay_on_dapi.png
-**** Job ends ****
-Wed Sep 17 12:14:35 PM EDT 2025
+Micro-refine => dy=-69.970, dx=353.550, dθ=-0.150°, s=1.00100 (Dice_ROI=0.0785)
+Traceback (most recent call last):
+  File "/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/03_registerHE1.py", line 241, in <module>
+    #    return dice(moved, dapi_roi)
+NameError: name 'he_can' is not defined
