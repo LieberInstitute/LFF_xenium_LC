@@ -255,7 +255,7 @@ cx, cy   = Wr/2.0, Hr/2.0
 # Start from your existing rotation+centering result (he_nuc_can, he_can),
 # then apply similarity about the FULL canvas center.
 best = {'dx': dx, 'dy': dy, 'th': 0, 'sc': 1.0, 'score': -1.0}
-
+print(f"Micro-refine => dy={best['dy']:.3f}, dx={best['dx']:.3f}")
 #best = {'dx': dx-37.5, 'dy': -565, 'th': -0.7, 'sc': 1.0, 'score': -1.0} # - = left,top, +=down,right (7.5 pixels = 1)
 Cxf, Cyf = W/2.0, H/2.0
 t_full = AffineTransform(translation=(-Cxf, -Cyf))
