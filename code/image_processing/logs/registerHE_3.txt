@@ -18,3 +18,20 @@ Currently Loaded Modules:
 Br1556
 0032704_Slide2
 sample_03_y9627_x34277_h19287_w18353.tif
+/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/skimage/registration/_phase_cross_correlation.py:119: RuntimeWarning: overflow encountered in scalar multiply
+  amp = src_amp * target_amp
+HE: (22961, 21849, 3) uint8  DAPI: (24015, 22913) uint8
+Best angle ≈ 89.50° (score=0.0194)
+Saved overlay before translation: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1556/overlay_on_dapi1.png
+Final translation picked by Dice: dy=723.10, dx=357.14 (Dice@DS=0.093)
+Full-res micro-refine: dy=-813.040, dx=-2047.040
+Micro-refine => dy=-813.040, dx=-2047.040
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1556/overlay_on_dapi.png
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1556/HE_nuclei_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1556/HE_registered_to_DAPI.tif
+**** Job ends ****
+Thu Sep 18 03:37:07 PM EDT 2025
+
+Best angle ≈ 89.50°
+Final translation picked by Dice: dy=723.10, dx=357.14 (Dice@DS=0.093)
+Micro-refine => dy=721.850, dx=355.640, dθ=-0.150°, s=0.99700 
