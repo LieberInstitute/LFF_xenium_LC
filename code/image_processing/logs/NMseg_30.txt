@@ -1,12 +1,12 @@
 **** Job starts ****
-Thu Sep 18 01:21:09 PM EDT 2025
+Thu Sep 18 01:57:38 PM EDT 2025
 **** JHPCE info ****
 User: mtippani
-Job id: 22619088
+Job id: 22619951
 Job name: NMseg
 Hostname: 
-Task id: 4
-Br5854
+Task id: 30
+Br2305
 MATLAB is selecting SOFTWARE OPENGL rendering.
 
                             < M A T L A B (R) >
@@ -18,11 +18,11 @@ MATLAB is selecting SOFTWARE OPENGL rendering.
 To get started, type doc.
 For product information, visit www.mathworks.com.
  
-Brnum: Br5854
+Brnum: Br2305
 Converting RGB -> Lab...
-Elapsed time is 167.038422 seconds.
+Elapsed time is 138.859735 seconds.
 Running k-means on a*b...
-Elapsed time is 155.287280 seconds.
+Elapsed time is 162.083911 seconds.
 Done.
 **** Job ends ****
-Thu Sep 18 01:31:27 PM EDT 2025
+Thu Sep 18 02:06:24 PM EDT 2025
