@@ -189,44 +189,74 @@ print(f"Final translation picked by Dice: dy={dy:.2f}, dx={dx:.2f} (Dice@DS={bes
 
 # 1) define a ROI around tissue to avoid edges
 y0r, y1r, x0r, xr1 = bbox((dapi_can>0.5), pad=256)
-he_roi   = he_nuc_can[y0r:y1r, x0r:xr1]
-dapi_roi = (dapi_can>0.5)[y0r:y1r, x0r:xr1]
+
+# 2) pre-apply the *integer* part of your current shift so PCC searches near 0
+dy_i = int(np.round(dy))
+dx_i = int(np.round(dx))
+he_pre = translate_slice(he_nuc_can, dy_i, dx_i, fill=0)
+
+# 3) crop ROI (same crop on both)
+he_roi   = (he_pre   [y0r:y1r, x0r:x1r] > 0.5)
+dapi_roi = (dapi_can [y0r:y1r, x0r:x1r] > 0.5)
+
+# 4) signed distance transforms at *full res* (no DS ⇒ no scale factor)
+heSDT   = signed_dt(he_roi).astype(np.float32)
+dapiSDT = signed_dt(dapi_roi).astype(np.float32)
+
+# (optional) window to suppress edge effects
+wy = np.hanning(heSDT.shape[0]); wx = np.hanning(heSDT.shape[1])
+win = (wy[:, None] * wx[None, :]).astype(np.float32)
+heW, dapiW = heSDT * win, dapiSDT * win
+
+# 5) one-shot subpixel delta (rows, cols) directly in FULL-RES pixels
+from skimage.registration import phase_cross_correlation
+sub_shift, _, _ = phase_cross_correlation(dapiW, heW, upsample_factor=50)
+
+# 6) final full-res translation (no ds multiplication anywhere)
+dy = dy_i + float(sub_shift[0])  # rows (y)
+dx = dx_i + float(sub_shift[1])  # cols (x)
+print(f"Full-res micro-refine: dy={dy:.3f}, dx={dx:.3f}")
+
+
 Hr, Wr   = he_roi.shape
 cx, cy   = Wr/2.0, Hr/2.0
 
-def dice_score_after(dx_, dy_, dtheta_deg=0.0, scale_=1.0):
-    # build tiny similarity transform around the ROI center
-    t = AffineTransform(translation=(-cx, -cy))
-    t += AffineTransform(scale=(scale_, scale_))
-    t += AffineTransform(rotation=np.deg2rad(dtheta_deg))
-    t += AffineTransform(translation=(cx + dx_, cy + dy_))
-    moved = warp(he_roi, t.inverse, order=0, mode='constant', cval=0.0, preserve_range=True) > 0.5
-    return dice(moved, dapi_roi)
+## (a) subpixel translation refine (no scale/angle)
+#for DY in np.linspace(dy-1.5, dy+1.5, 13):     # step 0.25 px
+#    for DX in np.linspace(dx-1.5, dx+1.5, 13):
+#        sc = dice_score_after(DX - dx + 0, DY - dy + 0, 0.0, 1.0)
+#        if sc > best['score']:
+#            best.update({'dx': DX, 'dy': DY, 'th': 0.0, 'sc': 1.0, 'score': sc})
+#
 
-# 2) search small neighborhoods; keep it light
-best = {'dx': dx, 'dy': dy, 'th': 0.0, 'sc': 1.0, 'score': -1.0}
+## (b) very small angle/scale polish (optional; comment out if you don't want it)
 
-# (a) subpixel translation refine (no scale/angle)
-for DY in np.linspace(dy-1.5, dy+1.5, 13):     # step 0.25 px
-    for DX in np.linspace(dx-1.5, dx+1.5, 13):
-        sc = dice_score_after(DX - dx + 0, DY - dy + 0, 0.0, 1.0)
-        if sc > best['score']:
-            best.update({'dx': DX, 'dy': DY, 'th': 0.0, 'sc': 1.0, 'score': sc})
-
-# (b) very small angle/scale polish (optional; comment out if you don't want it)
-for TH in np.linspace(-0.15, 0.15, 7):         # ±0.15°
-    for SC in np.linspace(0.997, 1.003, 7):    # ±0.3% isotropic
-        sc = dice_score_after(best['dx']-dx, best['dy']-dy, TH, SC)
-        if sc > best['score']:
-            best.update({'th': TH, 'sc': SC, 'score': sc})
-
-# 3) report and apply to the FULL canvas
-print(f"Micro-refine => dy={best['dy']:.3f}, dx={best['dx']:.3f}, "
-      f"dθ={best['th']:.3f}°, s={best['sc']:.5f} (Dice_ROI={best['score']:.4f})")
+#def dice_score_after(dx_, dy_, dtheta_deg=0.0, scale_=1.0):
+#    # build tiny similarity transform around the ROI center
+#    t = AffineTransform(translation=(-cx, -cy))
+#    t += AffineTransform(scale=(scale_, scale_))
+#    t += AffineTransform(rotation=np.deg2rad(dtheta_deg))
+#    t += AffineTransform(translation=(cx + dx_, cy + dy_))
+#    moved = warp(he_roi, t.inverse, order=0, mode='constant', cval=0.0, preserve_range=True) > 0.5
+#    return dice(moved, dapi_roi)
+#
+#for TH in np.linspace(-0.15, 0.15, 7):         # ±0.15°
+#    for SC in np.linspace(0.997, 1.003, 7):    # ±0.3% isotropic
+#        sc = dice_score_after(best['dx']-dx, best['dy']-dy, TH, SC)
+#        if sc > best['score']:
+#            best.update({'th': TH, 'sc': SC, 'score': sc})
+#
+#
+## 3) report and apply to the FULL canvas
+#print(f"Micro-refine => dy={best['dy']:.3f}, dx={best['dx']:.3f}, "
+#      f"dθ={best['th']:.3f}°, s={best['sc']:.5f} (Dice_ROI={best['score']:.4f})")
 
 # Build final transform for full-size masks/images
 # Start from your existing rotation+centering result (he_nuc_can, he_can),
 # then apply similarity about the FULL canvas center.
+best = {'dx': dx, 'dy': dy, 'th': 0, 'sc': 1.0, 'score': -1.0}
+
+#best = {'dx': dx-37.5, 'dy': -565, 'th': -0.7, 'sc': 1.0, 'score': -1.0} # - = left,top, +=down,right (7.5 pixels = 1)
 Cxf, Cyf = W/2.0, H/2.0
 t_full = AffineTransform(translation=(-Cxf, -Cyf))
 t_full += AffineTransform(scale=(best['sc'], best['sc']))
@@ -238,10 +268,27 @@ henuc_reg = warp(he_nuc_can, t_full.inverse, order=0, mode='constant', cval=0.0,
                  preserve_range=True) > 0.5
 henuc_reg = henuc_reg.astype(np.uint8)
 
+# 2) RGB H&E (bilinear)
+he_f   = img_as_float32(he)
+he_rot = rotate(he_f, angle=best_angle, resize=True,
+                order=1, mode='constant', cval=0, preserve_range=True).astype(np.float32)
+Hr, Wr = he_rot.shape[:2]
+ys = max(0, (Hr - H) // 2); xs = max(0, (Wr - W) // 2)
+yd = max(0, (H  - Hr) // 2); xd = max(0, (W  - Wr) // 2)
+he_can = np.zeros((H, W, he_rot.shape[2]), dtype=np.float32)
+he_can[yd:yd+min(H, Hr), xd:xd+min(W, Wr), :] = he_rot[ys:ys+min(H, Hr), xs:xs+min(W, Wr), :]
+
 he_reg = np.empty_like(he_can, dtype=np.float32)
 for ch in range(he_can.shape[2]):
     he_reg[..., ch] = warp(he_can[..., ch], t_full.inverse, order=1, mode='constant',
                            cval=0.0, preserve_range=True).astype(np.float32)
+
+# ---------------- QC overlay ----------------
+plt.figure(figsize=(8,8))
+plt.imshow(np.clip(he_reg, 0, 1))
+plt.contour(dapi_mask > 0, levels=[0.5], colors=['lime'], linewidths=0.2)
+plt.axis('off'); plt.tight_layout(); plt.savefig(out_overlay, dpi=300, bbox_inches='tight', pad_inches=0); plt.close()
+print("Wrote:", out_overlay)
 
 # ---------------- save ----------------
 imwrite(out_henuc, henuc_reg)
@@ -249,9 +296,3 @@ imwrite(out_he, (np.clip(he_reg, 0, 1) * 65535).astype(np.uint16))
 print("Wrote:", out_henuc)
 print("Wrote:", out_he)
 
-# ---------------- QC overlay ----------------
-plt.figure(figsize=(8,8))
-plt.imshow(np.clip(he_reg, 0, 1))
-plt.contour(dapi_mask > 0, levels=[0.5], colors=['lime'], linewidths=0.7)
-plt.axis('off'); plt.tight_layout(); plt.savefig(out_overlay, dpi=300, bbox_inches='tight', pad_inches=0); plt.close()
-print("Wrote:", out_overlay)
