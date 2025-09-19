@@ -1,0 +1,40 @@
+**** Job starts ****
+Fri Sep 19 08:43:07 AM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 22631361
+Job name: NMsegThresh
+Node name: compute-161
+Task id: 25
+
+Currently Loaded Modules:
+  1) JHPCE_ROCKY9_DEFAULT_ENV   2) JHPCE_tools/3.0   3) matlab/R2023b
+
+ 
+
+Br6119
+2
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2023 The MathWorks, Inc.
+             R2023b Update 4 (23.2.0.2428915) 64-bit (glnxa64)
+                              October 23, 2023
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Br6119
+
+Md =
+
+    '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/'
+
+
+fname =
+
+    '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br6119/Kmeans_cluster.mat'
+
+**** Job ends ****
+Fri Sep 19 08:44:13 AM EDT 2025
