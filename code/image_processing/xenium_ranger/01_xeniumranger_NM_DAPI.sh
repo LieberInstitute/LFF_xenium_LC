@@ -4,7 +4,7 @@
 #SBATCH --ntasks-per-node=24
 #SBATCH -o 01_xeniumranger_NM_DAPI_%a.txt
 #SBATCH -e 01_xeniumranger_NM_DAPI_%a.txt
-#SBATCH --array=15-16
+#SBATCH --array=22-25
 #SBATCH --constraint="intel"
 
 echo "**** Job starts ****"
