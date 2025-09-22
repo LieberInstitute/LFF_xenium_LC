@@ -1,0 +1,140 @@
+**** Job starts ****
+Mon Sep 22 12:41:56 PM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 22678545
+Job name: NMsegDAPI
+Node name: compute-141
+Task id: 7
+
+Currently Loaded Modules:
+  1) JHPCE_ROCKY9_DEFAULT_ENV   2) JHPCE_tools/3.0   3) matlab/R2023b
+
+ 
+
+Br5426
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2023 The MathWorks, Inc.
+             R2023b Update 4 (23.2.0.2428915) 64-bit (glnxa64)
+                              October 23, 2023
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+     2
+
+     4
+
+     5
+
+     6
+
+     9
+
+    10
+
+    11
+
+    15
+
+    18
+
+    23
+
+    27
+
+    37
+
+    40
+
+    45
+
+    49
+
+    52
+
+    55
+
+    58
+
+    61
+
+    63
+
+    71
+
+    85
+
+    86
+
+    87
+
+    91
+
+    95
+
+   100
+
+   102
+
+   111
+
+   116
+
+   118
+
+   121
+
+   126
+
+   132
+
+   141
+
+   142
+
+   143
+
+   155
+
+   171
+
+   181
+
+   183
+
+   185
+
+   186
+
+   188
+
+   189
+
+   190
+
+   193
+
+   195
+
+   196
+
+   200
+
+   201
+
+   203
+
+   204
+
+   206
+
+   217
+
+   234
+
+**** Job ends ****
+Mon Sep 22 12:47:15 PM EDT 2025
