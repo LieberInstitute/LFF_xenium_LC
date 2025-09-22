@@ -51,9 +51,10 @@ for i = 1:numel(names)
         out_dir = fullfile(Md, od, br);
 
         % Save TIFFs (LZW compression; widely supported)
-        imwrite(uint8(cellmask),  fullfile(out_dir, 'cellmask_binary.tif'));
-        imwrite(uint8(nucmask), fullfile(out_dir, 'nucmask_binary.tif'));
-
+        %imwrite(uint8(cellmask),  fullfile(out_dir, 'cellmask_binary.tif'));
+        %imwrite(uint8(nucmask), fullfile(out_dir, 'nucmask_binary.tif'));
+		save(fullfile(out_dir, 'DAPImasks.mat'), 'cellmask', 'nucmask', '-v7.3')
+		
         fprintf('[ok] %s -> %s\n', name, br);
     catch ME
         fprintf('[error] %s: %s\n', name, ME.message);
