@@ -1,4 +1,4 @@
-setwd('/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/')
+setwd('/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/')
 library(here)
 library(SpatialExperiment)
 library(SingleCellExperiment)
@@ -9,8 +9,8 @@ library(tidyverse)
 ########################################################
 # Read in the raw Xenium data into SPE objects and save.
 #######################################################
-
-sample_path = 'raw-data/xenium/xenium-instrument/output-XETG00558__0068654__Br6297__20250501__172909'
+brnum = Sys.getenv("BRNUM")
+sample_path = here('processed-data','xenium_imageProcessing',brnum, paste0('xeniumranger_NM_DAPI_', brnum), 'outs')
 
     counts_path <- here(sample_path, "cell_feature_matrix.h5")
     cell_info_path <- here(sample_path, "cells.csv.gz")
@@ -25,4 +25,4 @@ sample_path = 'raw-data/xenium/xenium-instrument/output-XETG00558__0068654__Br62
     rownames(spe) <- rowData(spe)$Symbol # change rownames to gene symbol
 
    
-saveRDS(spe, here("processed-data/xenium/DAPI", "raw_spe.RDS"))
+saveRDS(spe, here("processed-data/xenium/NM_DAPI_rawSPE", paste0(brnum,".RDS")))

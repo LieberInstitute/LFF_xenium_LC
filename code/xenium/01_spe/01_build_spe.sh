@@ -1,10 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=01_build_spe
-#SBATCH --mem=55G
-#SBATCH --time=00:30:00
-#SBATCH -n 1
-#SBATCH --output=../logs/%x.txt
-#SBATCH --error=../logs/%x.txt    # file to collect standard output
+#SBATCH --mem=60G
+#SBATCH --job-name=buildSPE
+#SBATCH -c 1
+#SBATCH -t 1-00:00:00
+#SBATCH -o logs/buildSPE_%a.txt
+#SBATCH -e logs/buildSPE_%a.txt
+#SBATCH --array=1-34%5
+
+set -e
 
 
 echo "**** Job starts ****"
@@ -24,6 +27,10 @@ module load conda_R/4.3.x
 module list
 
 ## Run code
+brnum=$(awk -v n="$SLURM_ARRAY_TASK_ID" 'BEGIN{FS="\t"} NR==n {print $1}' /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt | awk '{print $1}')
+echo "$brnum"
+
+export BRNUM=$brnum
 Rscript 01_build_spe.R
 
 
