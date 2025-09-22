@@ -1,0 +1,17 @@
+**** Job starts ****
+Mon Sep 22 05:22:36 PM EDT 2025
+**** JHPCE info ****
+User: mtippani
+Job id: 22687904
+Job name: 01_xeniumranger_NM_DAPI.sh
+Hostname: 
+Task id: 35
+Loading LIBD SLURM module for xeniumranger/3.1.1
+Reference files, for use with the '--transcriptome' argument, can be accessed
+or downloaded into /dcs04/lieber/lcolladotor/annotationFiles_LIBD001/10x. 
+brnum = 
+bundle = 
+ERROR: Failed to canonicalize path to the nuclei. Input: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing//combined_nucmask.npy, Error: No such file or directory (os error 2)
+mv: cannot stat 'xeniumranger_NM_DAPI_': No such file or directory
+**** Job ends ****
+Mon Sep 22 05:22:36 PM EDT 2025
