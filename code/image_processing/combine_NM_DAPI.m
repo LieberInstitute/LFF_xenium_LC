@@ -1,11 +1,13 @@
-Md = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC';
+Md = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC';
 od = '/processed-data/xenium_imageProcessing/';
-brain = 'Br6297';
-load(fullfile(Md, od, brain, 'nuc.mat'))
-load(fullfile(Md, od, brain, 'NMseg_clean.mat'))
-NM_labeled = bwlabel(NM);
+
+load(fullfile(Md, od, brnum, 'DAPImasks.mat'));
+load(fullfile(Md, od, brnum, 'NMnofolds.mat'))
+NM = BW_nofolds;
+NM_labeled = bwlabel(BW_nofolds);
 %% seperate NM labels from nucmask labels
 %Offset NM labels to avoid overlap with nucmask labels
+nucmask = bwlabel(nucmask);
 max_nuc_label = max(nucmask(:));
 NM_labeled(NM_labeled > 0) = NM_labeled(NM_labeled > 0) + max_nuc_label;
 
@@ -89,3 +91,4 @@ end
 rgb_nucmask = label2rgb(uint16(nucmask), 'jet', 'k', 'shuffle');
 rgb_NMnucmask = label2rgb(uint16(combined_mask), 'jet', 'k', 'shuffle');
 
+end
