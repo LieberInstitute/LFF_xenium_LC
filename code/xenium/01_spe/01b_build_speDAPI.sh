@@ -5,7 +5,7 @@
 #SBATCH -t 1-00:00:00
 #SBATCH -o logs/buildSPE_DAPI_%a.txt
 #SBATCH -e logs/buildSPE_DAPI_%a.txt
-#SBATCH --array=1-5
+#SBATCH --array=1-35%10
 
 set -e
 
@@ -27,11 +27,11 @@ module load conda_R/4.3.x
 module list
 
 ## Run code
-brnum=$(awk -v n="$SLURM_ARRAY_TASK_ID" 'BEGIN{FS="\t"} NR==n {print $6}' /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt | awk '{print $1}')
-echo "$brnum"
+bundle=$(awk -v n="$SLURM_ARRAY_TASK_ID" 'BEGIN{FS="\t"} NR==n {print $6}' /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt | awk '{print $1}')
+echo "$bundle"
 
 export BRNUM=$bundle
-Rscript 01_build_spe.R
+Rscript 01b_build_speDAPI.R
 
 
 ## Memeory stat
