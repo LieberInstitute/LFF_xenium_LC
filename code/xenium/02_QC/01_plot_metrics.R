@@ -31,22 +31,26 @@ plots3 <- plot_coldata_on_tissue(spe, "cell_area")
 plots4 <- plot_coldata_on_tissue(spe, "nucleus_area")
 plots5 <- plot_coldata_on_tissue(spe, "transcript_counts")
 
-pdf(here("plots", "xenium", "02_QC", "01_QC_metrics_NMDAPI.pdf"))
-plotColData(spe, y="total_counts", x="brnum")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "total_counts_NMDAPI.pdf"))
 plots
+dev.off()
 
-plotColData(spe, y="control_probe_counts", x="brnum")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "control_probe_counts_NMDAPI.pdf"))
 plots1
+dev.off()
 
-plotColData(spe, y="unassigned_codeword_counts", x="brnum")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "unassigned_codeword_counts_NMDAPI.pdf"))
 plots2
+dev.off()
 
-plotColData(spe, y="cell_area", x="brnum")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "cell_area_NMDAPI.pdf"))
 plots3
+dev.off()
 
-plotColData(spe, y="nucleus_area", x="brnum")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "nucleus_area_NMDAPI.pdf"))
 plots4
+dev.off()
 
-plotColData(spe, y="transcript_counts", x="sbrnum")+ geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "transcript_counts_NMDAPI.pdf"))
 plots5
 dev.off()
