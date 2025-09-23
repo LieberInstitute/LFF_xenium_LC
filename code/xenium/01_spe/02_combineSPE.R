@@ -1,21 +1,20 @@
-setwd('/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/')
+setwd('/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/')
 library(here)
 library(SpatialExperiment)
 library(SingleCellExperiment)
 library(readxl)
 library(tidyverse)
 
-spe_DAPI = readRDS(here("processed-data/xenium/DAPI", "raw_spe.RDS"))
-spe_NM_DAPI = readRDS(here("processed-data/xenium/NM_DAPI", "raw_spe.RDS"))
+files <- list.files(here('processed-data/xenium/NM_DAPI_rawSPE/'), pattern = "\\.RDS$", full.names = TRUE)
 
-# Step 1: Annotate each SPE with its source
-colData(spe_DAPI)$sample_type <- "DAPI"
-colData(spe_NM_DAPI)$sample_type <- "NM_DAPI"
+# 1) Read all SPEs and tag brnum
+spe_list <- lapply(files, function(f) {
+  spe <- readRDS(f)
+  br  <- sub(".RDS", " ",basename(f))
+  colData(spe)$brnum <- br
+  spe
+})
 
-# Step 2: Combine the two SPEs
-combined_spe <- cbind(spe_DAPI, spe_NM_DAPI)
+combined_spe <- do.call(cbind, spe_list)
 
-# Check the result
-table(colData(combined_spe)$sample_type)
-
-saveRDS(combined_spe, here("processed-data/xenium/", "raw_combined_spe.RDS"))
+saveRDS(combined_spe, here("processed-data/xenium/NM_DAPI_rawSPE/", "raw_combined_spe.RDS"))
