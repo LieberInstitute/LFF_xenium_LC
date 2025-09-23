@@ -5,7 +5,7 @@
 #SBATCH -t 1-00:00:00
 #SBATCH -o logs/buildSPE_%a.txt
 #SBATCH -e logs/buildSPE_%a.txt
-#SBATCH --array=1-34%5
+#SBATCH --array=1-5
 
 set -e
 
