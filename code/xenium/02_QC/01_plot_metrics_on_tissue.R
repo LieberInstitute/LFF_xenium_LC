@@ -7,7 +7,7 @@ library(escheR)
 library(scater)
 library(scattermore)
 
-spe <- readRDS(here('processed-data/xenium/raw_combined_spe.RDS'))
+spe <- readRDS(here('processed-data/xenium/NM_DAPI_rawSPE/raw_combined_spe.RDS'))
 
 plot_coldata_on_tissue <- function(x, column_name){
     plist <- list()
