@@ -7,13 +7,13 @@ library(escheR)
 library(scater)
 library(scattermore)
 
-spe <- readRDS(here('processed-data/xenium/NM_DAPI_rawSPE/raw_combined_spe.RDS'))
+spe <- readRDS(here('processed-data/xenium/DAPI_rawSPE/raw_combined_spe.RDS'))
 
 plot_coldata_on_tissue <- function(x, column_name){
     plist <- list()
-    brnums <- unique(x$sample_type)
+    brnums <- unique(x$brnum)
     for (i in 1:length(brnums)){
-        x_sub <- x[, x$sample_type == brnums[i]]
+        x_sub <- x[, x$brnum == brnums[i]]
          p <- (make_escheR(x_sub) %>%
             add_fill(column_name)+
             ggtitle(brnums[i])+
@@ -31,22 +31,26 @@ plots3 <- plot_coldata_on_tissue(spe, "cell_area")
 plots4 <- plot_coldata_on_tissue(spe, "nucleus_area")
 plots5 <- plot_coldata_on_tissue(spe, "transcript_counts")
 
-pdf(here("plots", "xenium", "01_QC_metrics.pdf"))
-plotColData(spe, y="total_counts", x="sample_type")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "total_counts_DAPI.pdf"))
 plots
+dev.off()
 
-plotColData(spe, y="control_probe_counts", x="sample_type")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "control_probe_counts_DAPI.pdf"))
 plots1
+dev.off()
 
-plotColData(spe, y="unassigned_codeword_counts", x="sample_type")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "unassigned_codeword_counts_DAPI.pdf"))
 plots2
+dev.off()
 
-plotColData(spe, y="cell_area", x="sample_type")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "cell_area_DAPI.pdf"))
 plots3
+dev.off()
 
-plotColData(spe, y="nucleus_area", x="sample_type")+geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "nucleus_area_DAPI.pdf"))
 plots4
+dev.off()
 
-plotColData(spe, y="transcript_counts", x="sample_type")+ geom_scattermore()
+pdf(here("plots", "xenium1", "02_QC", "transcript_counts_DAPI.pdf"))
 plots5
 dev.off()
