@@ -1,4 +1,4 @@
-setwd('/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_spatial_LC/')
+setwd('/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/')
 library(tidyverse)
 library(escheR)
 library(here)
@@ -9,20 +9,20 @@ library(gridExtra)
 library(matrixStats)
 
 
-spe <- readRDS(here('processed-data/xenium/raw_combined_spe.RDS'))
+spe <- readRDS(here('processed-data/xenium/NMDAPI_rawSPE/raw_combined_spe.RDS'))
 rowData(spe)$Gene <- rownames(rowData(spe))
-colnames(spe) <- paste0(spe$Barcode, "_", spe$sample_id)
+colnames(spe) <- paste0(spe$Barcode, "_", spe$brnum)
 #gene_list <- readxl::read_excel(here("raw-data", "experiment_info", 
 #    "Xenium_SCZ_ProbeSelection5_SHK_v4_15_w_ensemblgene_list.xlsx"))
 #rowData(spe) <- merge(gene_list, rowData(spe), by="Gene",  all.y=TRUE)
-
+spe <- spe[, spe$nucleus_area > 4]
 
 is_neg <- stringr::str_detect(rownames(spe), "^NegControlProbe")
 is_neg2 <- stringr::str_detect(rownames(spe), "^NegControlCodeword")
 is_unassigned <- stringr::str_detect(rownames(spe), "^Unassigned")
 is_mt <- stringr::str_detect(rownames(spe), "MT-")
 
-sample_types <- unique(spe$sample_type)
+brnums <- unique(spe$brnum)
 
 # Remove empty cells
 empty_cells <- colnames(spe)[colSums(counts(spe)) == 0]
@@ -30,10 +30,10 @@ spe <- spe[, colSums(counts(spe)) > 0]
 
 all_outlier_ids <- c(empty_cells)
 all_outlier_ids
-for(i in 1:length(sample_types)){
-    br_use <- sample_types[[i]]
+for(i in 1:length(brnums)){
+    br_use <- brnums[[i]]
     print(sprintf("------------%s------------", br_use))
-    spe_sub <- spe[, colData(spe)$sample_type == br_use]
+    spe_sub <- spe[, colData(spe)$brnum == br_use]
     # Compute within-sample QC metrics based on negative controls and mitochondrial genes
     spe_sub <- scuttle::addPerCellQCMetrics(spe_sub, subsets = list(negProbe = is_neg,
                                                         negCodeword = is_neg2,
@@ -60,12 +60,10 @@ for(i in 1:length(sample_types)){
     spe_sub$detected_out <- isOutlier(spe_sub$detected, type="lower")
     spe_sub$total_counts_out <- isOutlier(spe_sub$total_counts)
 
-
     print("any NAs in unassigned_percent?")
     print(any(is.na(spe_sub$subsets_unassigned_percent)))
     print("any NAs in neg_codeword?")
     print(any(is.na(spe_sub$subsets_negCodeword_percent)))
-
 
     print("Proportion of negative probe outliers:")
     print(sum(spe_sub$neg_probe_out, na.rm=TRUE)/dim(spe_sub)[[2]])
@@ -81,114 +79,139 @@ for(i in 1:length(sample_types)){
     print(sum(spe_sub$total_counts_out, na.rm=TRUE)/dim(spe_sub)[[2]])
 
 
-    pdf(here("plots", "xenium", paste0("01_", br_use, ".pdf")), height=15, width=25)
+    pdf(here("plots", "xenium1", paste0("01_", br_use, ".pdf")), height=10, width=14)
         # Make some plots based on these metrics
     # Plot histogram of subsets_negProbe_percent
-    median_negProbe <- median(spe_sub$subsets_negProbe_percent, na.rm=TRUE)
-    print(ggplot(colData(spe_sub), aes(x=subsets_negProbe_percent))+
-        geom_histogram()+
-        geom_vline(aes(xintercept = median_negProbe), color = "red", linetype = "dashed", linewidth = 1) +
-        geom_vline(aes(xintercept = neg_probe_quantile), color = "blue", linetype = "dashed", linewidth = 1) +
-        ggtitle(br_use))
-    
-    # Plot histogram of subsets_negCodeword_percent
-    median_negCodeword <- median(spe_sub$subsets_negCodeword_percent, na.rm=TRUE)
-    print(ggplot(colData(spe_sub), aes(x=subsets_negCodeword_percent))+
-        geom_histogram()+
-        geom_vline(aes(xintercept = median_negCodeword), color = "red", linetype = "dashed", linewidth = 1) +
-        geom_vline(aes(xintercept = neg_codeword_quantile), color = "blue", linetype = "dashed", linewidth = 1) +
-        ggtitle(br_use))
-
-    # Plot histogram of subsets_unassigned_percent
-    median_unassigned <- median(spe_sub$subsets_negCodeword_percent, na.rm=TRUE)
-    print(ggplot(colData(spe_sub), aes(x=subsets_unassigned_percent))+
-        geom_histogram()+
-        geom_vline(aes(xintercept = median_unassigned), color = "red", linetype = "dashed", linewidth = 1) +
-        geom_vline( aes(xintercept = unassigned_quantile), color = "blue", linetype = "dashed", linewidth = 1) +
-        ggtitle(br_use))
+	df <- as.data.frame(colData(spe_sub))
+	
+   median_negProbe <- median(spe_sub$subsets_negProbe_percent, na.rm=TRUE)
+   print(ggplot(df, aes(x=subsets_negProbe_percent))+
+       geom_histogram()+
+       geom_vline(aes(xintercept = median_negProbe), color = "red", linetype = "dashed", linewidth = 1) +
+       geom_vline(aes(xintercept = neg_probe_quantile), color = "blue", linetype = "dashed", linewidth = 1) +
+       ggtitle(br_use))
+   
+   # Plot histogram of subsets_negCodeword_percent
+   median_negCodeword <- median(spe_sub$subsets_negCodeword_percent, na.rm=TRUE)
+   print(ggplot(df, aes(x=subsets_negCodeword_percent))+
+       geom_histogram()+
+       geom_vline(aes(xintercept = median_negCodeword), color = "red", linetype = "dashed", linewidth = 1) +
+       geom_vline(aes(xintercept = neg_codeword_quantile), color = "blue", linetype = "dashed", linewidth = 1) +
+       ggtitle(br_use))
+  
+   # Plot histogram of subsets_unassigned_percent
+   median_unassigned <- median(spe_sub$subsets_negCodeword_percent, na.rm=TRUE)
+   print(ggplot(df, aes(x=subsets_unassigned_percent))+
+       geom_histogram()+
+       geom_vline(aes(xintercept = median_unassigned), color = "red", linetype = "dashed", linewidth = 1) +
+       geom_vline(aes(xintercept = unassigned_quantile), color = "blue", linetype = "dashed", linewidth = 1) +
+       ggtitle(br_use))
     
     # Make tissue plots 
     print(make_escheR(spe_sub)%>%
-        add_fill("subsets_negProbe_percent")%>%
+        add_fill("subsets_negProbe_percent", spot_size=1)%>%
         add_ground("neg_probe_out")+
-        ggtitle(br_use)+
-        geom_scattermore())
+        ggtitle(br_use))
+	
+	print(make_escheR(spe_sub, spot_size=1)%>%
+	    add_fill("nucleus_area")%>%
+	    add_ground("neg_probe_out")+
+	    ggtitle(br_use))
 
-    print(make_escheR(spe_sub)%>%
+    print(make_escheR(spe_sub, spot_size=1)%>%
         add_fill("subsets_negCodeword_percent") %>%
         add_ground("neg_codeword_out")+
-        ggtitle(br_use)+
-        geom_scattermore())
+        ggtitle(br_use))
     
-    print(make_escheR(spe_sub)%>%
+	print(make_escheR(spe_sub, spot_size=1)%>%
+	    add_fill("nucleus_area")%>%
+	    add_ground("neg_codeword_out")+
+	    ggtitle(br_use))
+		
+    print(make_escheR(spe_sub, spot_size=1)%>%
         add_fill("subsets_unassigned_percent")%>%
         add_ground("unassigned_out")+
-        ggtitle(br_use)+
-        geom_scattermore())
-    
-    print(make_escheR(spe_sub)%>%
+        ggtitle(br_use))
+		
+	print(make_escheR(spe_sub, spot_size=1)%>%
+	    add_fill("nucleus_area")%>%
+	    add_ground("unassigned_out")+
+	    ggtitle(br_use))
+			
+    print(make_escheR(spe_sub, spot_size=1)%>%
         add_fill("subsets_mito_percent")%>%
         add_ground("mito_out")+
-        ggtitle(br_use)+
-        geom_scattermore())
+        ggtitle(br_use))
     
-    print(make_escheR(spe_sub)%>%
+	print(make_escheR(spe_sub, spot_size=1)%>%
+	    add_fill("nucleus_area")%>%
+	    add_ground("mito_out")+
+	    ggtitle(br_use))
+			
+    print(make_escheR(spe_sub, spot_size=1)%>%
         add_fill("detected")%>%
         add_ground("detected_out")+
-        ggtitle(br_use)+
-        geom_scattermore())
+        ggtitle(br_use))
     
-    print(make_escheR(spe_sub)%>%
+	print(make_escheR(spe_sub, spot_size=1)%>%
+	    add_fill("nucleus_area")%>%
+	    add_ground("detected_out")+
+	    ggtitle(br_use))
+			
+    print(make_escheR(spe_sub, spot_size=1)%>%
         add_fill("total_counts")%>%
         add_ground("total_counts_out")+
-        ggtitle(br_use)+
-        geom_scattermore())
-    
+        ggtitle(br_use))
+		
+	print(make_escheR(spe_sub, spot_size=1)%>%
+	    add_fill("nucleus_area")%>%
+	    add_ground("total_counts_out")+
+	    ggtitle(br_use))
     
     # Make some scatterplots of the QC metrics to see how they are related
     # Inspo for the plots: https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009290
-    mito_1 <- ggplot(colData(spe_sub), aes(x=detected, y=subsets_mito_percent))+
+    mito_1 <- ggplot(df, aes(x=detected, y=subsets_mito_percent))+
         geom_point(aes(colour=mito_out))+
         geom_smooth(method="lm")+
         ggtitle(br_use)
     
-    mito_2 <- ggplot(colData(spe_sub), aes(x=total_counts, y=subsets_mito_percent))+
+    mito_2 <- ggplot(df, aes(x=total_counts, y=subsets_mito_percent))+
         geom_point(aes(colour=mito_out))+
         geom_smooth(method="lm")+
         ggtitle(br_use)
 
     grid.arrange(mito_1, mito_2, ncol=2)
 
-   negProbe_1 <- ggplot(colData(spe_sub), aes(x=detected, y=subsets_negProbe_percent))+
+   negProbe_1 <- ggplot(df, aes(x=detected, y=subsets_negProbe_percent))+
        geom_point(aes(colour=neg_probe_out))+
        geom_smooth(method="lm")+
        ggtitle(br_use)
    
-   negProbe_2 <- ggplot(colData(spe_sub), aes(x=total_counts, y=subsets_negProbe_percent))+
+   negProbe_2 <- ggplot(df, aes(x=total_counts, y=subsets_negProbe_percent))+
        geom_point(aes(colour=neg_probe_out))+
        geom_smooth(method="lm")+
        ggtitle(br_use)
    
    grid.arrange(negProbe_1, negProbe_2, ncol=2)
   
-   negCode_1 <- ggplot(colData(spe_sub), aes(x=detected, y=subsets_negCodeword_percent))+
+   negCode_1 <- ggplot(df, aes(x=detected, y=subsets_negCodeword_percent))+
        geom_point(aes(colour=neg_codeword_out))+
        geom_smooth(method="lm")+
        ggtitle(br_use)
    
-   negCode_2 <- ggplot(colData(spe_sub), aes(x=total_counts, y=subsets_negCodeword_percent))+
+   negCode_2 <- ggplot(df, aes(x=total_counts, y=subsets_negCodeword_percent))+
        geom_point(aes(colour=neg_codeword_out))+
        geom_smooth(method="lm")+
        ggtitle(br_use)
    
    grid.arrange(negCode_1, negCode_2, ncol=2)
   
-   unassigned_1 <- ggplot(colData(spe_sub), aes(x=detected, y=subsets_unassigned_percent))+
+   unassigned_1 <- ggplot(df, aes(x=detected, y=subsets_unassigned_percent))+
        geom_point(aes(colour=unassigned_out))+
        geom_smooth(method="lm")+
        ggtitle(br_use)
    
-   unassigned_2 <- ggplot(colData(spe_sub), aes(x=total_counts, y=subsets_unassigned_percent))+
+   unassigned_2 <- ggplot(df, aes(x=total_counts, y=subsets_unassigned_percent))+
        geom_point(aes(colour=unassigned_out))+
        geom_smooth(method="lm")+
        ggtitle(br_use)
@@ -218,17 +241,27 @@ for(i in 1:length(sample_types)){
 
     #grid.arrange(mean_var, mean_probes, var_probes, ncol=3)
 
-    # aggregate all outliers by taking the union
-    spe_sub$is_outlier <- spe_sub$neg_probe_out | spe_sub$neg_codeword_out | spe_sub$unassigned_out | spe_sub$detected_out | spe_sub$total_counts_out
-
+    # aggregate all outliers by taking the union	
+	spe_sub$is_outlier <- spe_sub$neg_probe_out | spe_sub$neg_codeword_out | spe_sub$unassigned_out | spe_sub$detected_out | spe_sub$total_counts_out
+    spe_sub$nucleus_area_out <- spe_sub$nucleus_area >= 200	
     print("Proportion of total outliers:")
     print(sum(spe_sub$is_outlier, na.rm=TRUE)/dim(spe_sub)[[2]])
     # tissue plot of all outliers
-    print(make_escheR(spe_sub)%>%
-        add_fill("is_outlier")+
-        ggtitle(br_use)+
-        geom_scattermore())
-    
+    print(make_escheR(spe_sub, spot_size=1)%>%
+        add_fill("is_outlier")|>
+		add_ground("nucleus_area_out")+
+        ggtitle(br_use))
+	
+    spe_sub$is_outlier <- spe_sub$neg_probe_out | spe_sub$neg_codeword_out | spe_sub$unassigned_out | spe_sub$detected_out 
+    print("Proportion of total outliers without total_counts:")
+    print(sum(spe_sub$is_outlier, na.rm=TRUE)/dim(spe_sub)[[2]])
+    # tissue plot of all outliers
+    print(make_escheR(spe_sub, spot_size=1)%>%
+        add_fill("is_outlier")|>
+		add_ground("nucleus_area_out")+
+        ggtitle(br_use))
+	
+	    
     dev.off() 
 
     outlier_ids <- colnames(spe_sub)[spe_sub$is_outlier] 
@@ -239,4 +272,4 @@ for(i in 1:length(sample_types)){
 all_outlier_ids <- unique(all_outlier_ids)
 print(head(all_outlier_ids))
 print(length(all_outlier_ids))
-write.csv(all_outlier_ids, here("processed-data", "xenium", "outlier_ids.csv"), row.names=FALSE)
+write.csv(all_outlier_ids, here("processed-data", "xenium", "QC", "outlier_ids.csv"), row.names=FALSE)
