@@ -182,14 +182,15 @@ ys = max(0, (Hr - H) // 2); xs = max(0, (Wr - W) // 2)
 yd = max(0, (H  - Hr) // 2); xd = max(0, (W  - Wr) // 2)
 he_can = np.zeros((H, W, he_rot.shape[2]), dtype=np.float32)
 he_can[yd:yd+min(H, Hr), xd:xd+min(W, Wr), :] = he_rot[ys:ys+min(H, Hr), xs:xs+min(W, Wr), :]
-he_reg = np.zeros_like(he_can, dtype=np.float32)
-for ch in range(he_can.shape[2]):
-    he_reg[..., ch] = cv2.warpAffine(he_can[..., ch], M, (W, H),
-                                     flags=cv2.INTER_LINEAR,
-                                     borderMode=cv2.BORDER_CONSTANT, borderValue=0.0)
+#he_reg = np.zeros_like(he_can, dtype=np.float32)
+#for ch in range(he_can.shape[2]):
+#    he_reg[..., ch] = cv2.warpAffine(he_can[..., ch], M, (W, H),
+#                                     flags=cv2.INTER_LINEAR,
+#                                     borderMode=cv2.BORDER_CONSTANT, borderValue=0.0)
 
 ####### code to translate HE image using scikit image
 # 2) Translate RGB H&E (bilinear)
+tform = AffineTransform(translation=(dx, dy))
 he_reg = np.empty_like(he_can, dtype=np.float32)
 for ch in range(he_can.shape[2]):
     he_reg[..., ch] = warp(
@@ -206,9 +207,10 @@ print("Wrote:", out_henuc)
 print("Wrote:", out_he)
 
 # ---------------- quick QC overlay (DAPI edges in lime over HE) ----------------
+dapi_mask = (dapi > 0).astype(np.float32)
 plt.figure(figsize=(8,8))
 plt.imshow(np.clip(he_reg, 0, 1))
-plt.contour(dapi_mask > 0, levels=[0.5], colors=['lime'], linewidths=0.7)
+plt.contour(dapi_mask > 0, levels=[0.5], colors=['lime'], linewidths=0.3)
 plt.axis('off'); plt.tight_layout()
 plt.savefig(out_overlay, dpi=300, bbox_inches='tight', pad_inches=0)
 plt.close()

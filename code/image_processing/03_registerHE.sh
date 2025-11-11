@@ -5,7 +5,7 @@
 #SBATCH -t 1-00:00:00
 #SBATCH -o logs/registerHE_%a.txt
 #SBATCH -e logs/registerHE_%a.txt
-#SBATCH --array=2-3
+#SBATCH --array=5
 
 set -e
 
