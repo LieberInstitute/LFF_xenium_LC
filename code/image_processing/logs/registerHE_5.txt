@@ -1,10 +1,10 @@
 **** Job starts ****
-Tue Sep 16 05:04:54 PM EDT 2025
+Tue Nov 11 12:22:03 PM EST 2025
 **** JHPCE info ****
 User: mtippani
-Job id: 22541909
+Job id: 24091014
 Job name: registerHE
-Node name: compute-151
+Node name: compute-168
 Task id: 5
 Loading LIBD SLURM module for visium_hd/1.0
 Loading LIBD SLURM module for htslib/1.18
@@ -15,15 +15,19 @@ Currently Loaded Modules:
 
  
 
-Br5415
+Br5941
 0032707_Slide1
-sample_04_y32571_x48157_h17001_w21892.tif
-HE: (20239, 26062, 3) uint8  DAPI: (27366, 22835) uint8
-Best angle ≈ 89.50° (score=0.0259)
-Saved overlay
-Translation: dy=2583.00, dx=-10854.00 (err=nan)
-Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5415/HE_nuclei_registered_to_DAPI.tif
-Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5415/HE_registered_to_DAPI.tif
-Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5415/overlay_on_dapi.png
+sample_01_y38429_x10789_h12088_w22675.tif
+/jhpce/shared/libd/core/visium_hd/1.0/hd_env/lib/python3.9/site-packages/skimage/registration/_phase_cross_correlation.py:119: RuntimeWarning: overflow encountered in scalar multiply
+  amp = src_amp * target_amp
+HE: (14390, 26994, 3) uint8  DAPI: (27353, 14405) uint8
+Best angle ≈ 89.50° (score=0.0223)
+Saved overlay before translation: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5941/overlay_on_dapi1.png
+Final translation picked by Dice: dy=-98.88, dx=5.36 (Dice@DS=0.071)
+Full-res micro-refine: dy=1125.000, dx=-1496.900
+Micro-refine => dy=1125.000, dx=-1496.900
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5941/overlay_on_dapi.png
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5941/HE_nuclei_registered_to_DAPI.tif
+Wrote: /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br5941/HE_registered_to_DAPI.tif
 **** Job ends ****
-Tue Sep 16 05:25:04 PM EDT 2025
+Tue Nov 11 12:32:01 PM EST 2025
