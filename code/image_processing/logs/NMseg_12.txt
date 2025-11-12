@@ -1,18 +1,17 @@
 **** Job starts ****
-Thu Sep 18 01:33:16 PM EDT 2025
+Wed Nov 12 03:02:31 PM EST 2025
 **** JHPCE info ****
 User: mtippani
-Job id: 22619293
+Job id: 24111312
 Job name: NMseg
 Hostname: 
 Task id: 12
 Br6098
-MATLAB is selecting SOFTWARE OPENGL rendering.
 
                             < M A T L A B (R) >
-                  Copyright 1984-2023 The MathWorks, Inc.
-             R2023b Update 4 (23.2.0.2428915) 64-bit (glnxa64)
-                              October 23, 2023
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
 
  
 To get started, type doc.
@@ -20,9 +19,10 @@ For product information, visit www.mathworks.com.
  
 Brnum: Br6098
 Converting RGB -> Lab...
-Elapsed time is 134.253550 seconds.
+Elapsed time is 161.554322 seconds.
 Running k-means on a*b...
-Elapsed time is 114.276454 seconds.
+Launching updater executable
+Elapsed time is 178.062438 seconds.
 Done.
-**** Job ends ****
-Thu Sep 18 01:41:01 PM EDT 2025
+>> **** Job ends ****
+Wed Nov 12 03:13:51 PM EST 2025
