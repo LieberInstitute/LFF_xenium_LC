@@ -5,7 +5,7 @@
 #SBATCH -t 1-00:00:00
 #SBATCH -o logs/NMseg_thresh_%a.txt
 #SBATCH -e logs/NMseg_thresh_%a.txt
-#SBATCH --array=1-34%5
+#SBATCH --array=2,3,5,11-13,15,17,28,30%5
 
 set -e
 

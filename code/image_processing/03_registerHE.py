@@ -199,13 +199,7 @@ for ch in range(he_can.shape[2]):
         mode='constant', cval=0.0,
         preserve_range=True
     ).astype(np.float32)
-    
-# ---------------- save outputs ----------------
-imwrite(out_henuc, henuc_reg.astype(np.uint8))
-imwrite(out_he, (np.clip(he_reg, 0, 1) * 65535).astype(np.uint16))
-print("Wrote:", out_henuc)
-print("Wrote:", out_he)
-
+   
 # ---------------- quick QC overlay (DAPI edges in lime over HE) ----------------
 dapi_mask = (dapi > 0).astype(np.float32)
 plt.figure(figsize=(8,8))
@@ -214,4 +208,10 @@ plt.contour(dapi_mask > 0, levels=[0.5], colors=['lime'], linewidths=0.3)
 plt.axis('off'); plt.tight_layout()
 plt.savefig(out_overlay, dpi=300, bbox_inches='tight', pad_inches=0)
 plt.close()
-print("Wrote:", out_overlay)
+print("Wrote:", out_overlay) 
+# ---------------- save outputs ----------------
+imwrite(out_henuc, henuc_reg.astype(np.uint8))
+imwrite(out_he, (np.clip(he_reg, 0, 1) * 65535).astype(np.uint16))
+print("Wrote:", out_henuc)
+print("Wrote:", out_he)
+
