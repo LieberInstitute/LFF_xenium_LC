@@ -1,8 +1,8 @@
 **** Job starts ****
-Tue Sep 23 06:10:49 AM EDT 2025
+Fri Nov 14 09:25:52 AM EST 2025
 **** JHPCE info ****
 User: mtippani
-Job id: 22693844
+Job id: 24141994
 Job name: buildSPE_DAPI
 Hostname: jhpce3
 Task id: 13
@@ -14,7 +14,7 @@ Currently Loaded Modules:
 
  
 
-output-XETG00558__0068641__Br0946__20250501__172909
+Br0946
 here() starts at /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC
 Loading required package: SingleCellExperiment
 Loading required package: SummarizedExperiment
@@ -115,7 +115,7 @@ The following objects are masked from ‘package:matrixStats’:
 ✖ lubridate::second<-() masks S4Vectors::second<-()
 ✖ dplyr::slice()        masks IRanges::slice()
 ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
-Rows: 16102 Columns: 14
+Rows: 19438 Columns: 14
 ── Column specification ────────────────────────────────────────────────────────
 Delimiter: ","
 chr  (2): cell_id, segmentation_method
@@ -124,4 +124,4 @@ dbl (12): x_centroid, y_centroid, transcript_counts, control_probe_counts, g...
 ℹ Use `spec()` to retrieve the full column specification for this data.
 ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 **** Job ends ****
-Tue Sep 23 06:11:08 AM EDT 2025
+Fri Nov 14 09:26:07 AM EST 2025
