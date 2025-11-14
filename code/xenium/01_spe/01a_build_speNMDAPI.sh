@@ -27,11 +27,11 @@ module load conda_R/4.3.x
 module list
 
 ## Run code
-brnum=$(awk -v n="$SLURM_ARRAY_TASK_ID" 'BEGIN{FS="\t"} NR==n {print $6}' /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt | awk '{print $1}')
+brnum=$(awk -v n="$SLURM_ARRAY_TASK_ID" 'BEGIN{FS="\t"} NR==n {print $1}' /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt | awk '{print $1}')
 echo "$brnum"
 
-export BRNUM=$bundle
-Rscript 01_build_spe.R
+export BRNUM=$brnum
+Rscript 01a_build_speNMDAPI.R
 
 
 ## Memeory stat

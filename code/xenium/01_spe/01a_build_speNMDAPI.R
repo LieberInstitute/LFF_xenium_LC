@@ -25,4 +25,4 @@ sample_path = here('processed-data','xenium_imageProcessing',brnum, paste0('xeni
     rownames(spe) <- rowData(spe)$Symbol # change rownames to gene symbol
 
    
-saveRDS(spe, here("processed-data/xenium/NM_DAPI_rawSPE", paste0(brnum,".RDS")))
+saveRDS(spe, here("processed-data/xenium/NMDAPI_rawSPE", paste0(brnum,".RDS")))
