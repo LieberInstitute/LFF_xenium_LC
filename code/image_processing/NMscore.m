@@ -36,7 +36,7 @@ Pi = sum(nm-HE);
 maxNM = max(nm-HE);
 Mt = size(nm,1)*maxNM;
 score1 = Pi/Mt;
-T.ImageBG{i}=score1;
+T.ImageBG(i)=score1;
 
 %%2%%
 BG_mask = img1; BG_mask(BW_nofolds) = 0; temp=BG_mask(BG_mask>0);
@@ -48,13 +48,13 @@ Pi = sum(nm-HE);
 maxNM = max(nm-HE);
 Mt = size(nm,1)*maxNM;
 score2 = Pi/Mt;
-T.TissueBG{i}=score2;
+T.TissueBG(i)=score2;
 
 %%3%%
 NM_mask = img1; NM_mask(~BW_nofolds) = 0; 
 nm = NM_mask(NM_mask>0);
 score3 = mean(nm);
-T.NoBG{i}=score3;
+T.NoBG(i)=score3;
 
 disp(i)
 end
