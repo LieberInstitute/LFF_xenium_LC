@@ -1,6 +1,6 @@
 cd '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC'
 
-	samples = readtable('/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt')
+samples = readtable('/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt', 'Delimiter', '\t');
 %% samples
 files = dir(fullfile(pwd, '/processed-data/xenium_imageProcessing/'));
 myfiles = files(cellfun(@(x) length(x) == 17, {files.name}));
