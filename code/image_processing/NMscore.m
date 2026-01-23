@@ -58,3 +58,5 @@ T.NoBG(i)=score3;
 
 disp(i)
 end
+save(fullfile(pwd, '/processed-data/xenium_imageProcessing/NMmetrics.mat'), 'T')
+writetable(T, fullfile(pwd,'/processed-data/xenium_imageProcessing/NMmetrics.csv'));
