@@ -1,7 +1,12 @@
 cd '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC'
 
-samples = readtable('/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt', 'Delimiter', '\t');
-%% samples
+	fname = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt';
+
+	opts = detectImportOptions(fname, 'Delimiter', '\t');
+	opts.DataLines = [1 Inf];     % <- don’t skip first 4 lines
+	opts.CommentStyle = {};       % <- don’t drop lines starting with #, etc.
+	samples = readtable(fname, opts);
+	
 files = dir(fullfile(pwd, '/processed-data/xenium_imageProcessing/'));
 myfiles = files(cellfun(@(x) length(x) == 17, {files.name}));
 
