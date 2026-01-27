@@ -1,36 +1,59 @@
-cells = readtable("cells.csv");
-b = readtable("cell_boundaries.csv"); % cell_id, x, y (vertex rows)
-img1 = imread("intensity_image.tif");  % single channel preferred
+function NMscore_cell(brnum)
+	
+	Md = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC';
+	od = '/processed-data/xenium_imageProcessing/';
 
-img = mat2gray(rgb2gray(img));
+	cells = readtable(fullfile(Md, od, brnum, ['xeniumranger_NM_DAPI_', brnum], 'outs', 'cells.csv'));
+	b = readtable(fullfile(Md, od, brnum, ['xeniumranger_NM_DAPI_', brnum], 'outs', 'cell_boundaries.csv')); % cell_id, x, y (vertex rows)
+	img1 = imread(fullfile(Md, od, brnum, 'HE_registered_to_DAPI.tif'));  % single channel preferred
+	img = mat2gray(rgb2gray(img1)); [H, W] = size(img);
 
-cellIDs = unique(b.cell_id);
-meanIntensity = nan(height(cells),1);
+    % Convert cell_id to string for reliable matching (tables often store as cellstr)
+    cells_id = string(cells.cell_id);
+    b_id     = string(b.cell_id);
 
-% Create a map from cell_id to row index in cells.csv
-[isInCells, loc] = ismember(cellIDs, cells.cell_id);
+    meanIntensity = nan(height(cells), 1);
 
-for i = 1:numel(cellIDs)
-    cid = cellIDs(i);
-    verts = b(b.cell_id == cid, :);
-    x = verts.x;
-    y = verts.y;
+    % Only consider boundary cell_ids that exist in cells.csv
+    [isInCells, locCells] = ismember(b_id, cells_id);
+    valid_ids = unique(b_id(isInCells));
 
-    if numel(x) < 3
-        continue
+    for i = 1:numel(valid_ids)
+        cid = valid_ids(i);
+
+        verts = b(b_id == cid, :);
+
+        x = double(verts.vertex_x);
+        y = double(verts.vertex_y);
+
+        if numel(x) < 3
+            continue
+        end
+
+        % clip to image bounds
+        x = min(max(x, 1), W);
+        y = min(max(y, 1), H);
+
+        mask = poly2mask(x, y, H, W);
+
+        if any(mask(:))
+            m = mean(img(mask));
+        else
+            m = NaN;
+        end
+
+        % row in cells.csv for this cell_id
+        row_idx = find(cells_id == cid, 1);
+        meanIntensity(row_idx) = m;
+		
+		if mod(i, 500) == 0 
+		    fprintf('Computed mean intensity for %d cells\n', i);
+		end
     end
 
-    mask = poly2mask(x, y, H, W);
-    if any(mask(:))
-        m = mean(img(mask));
-    else
-        m = NaN;
-    end
+    % Add column and overwrite the SAME cells.csv
+    cells.mean_intensity = meanIntensity;
+    writetable(cells, fullfile(Md, od, brnum, ['xeniumranger_NM_DAPI_', brnum], 'outs', 'cells.csv'));
 
-    if isInCells(i)
-        meanIntensity(loc(i)) = m;
-    end
+    fprintf('Wrote mean_intensity_HE into %s\n', cells_file);
 end
-
-cells.mean_intensity = meanIntensity;
-writetable(cells, "cells_with_mean_intensity.csv");
