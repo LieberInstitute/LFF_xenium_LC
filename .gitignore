@@ -26,4 +26,5 @@ processed-data/Images/VistoSeg/*
 *.zip
 *.xlsx
 shared_internal_ref/
+local_ref/
 

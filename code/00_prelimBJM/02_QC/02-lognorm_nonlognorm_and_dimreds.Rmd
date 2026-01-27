@@ -113,7 +113,62 @@ gc()
 
 ```
 
-## save SFE with normalized counts and dimreds
+## append demographics including YRI/CEU FLARE estimates
+```{r}
+demos <- fread("../LFF_spatial_LC/raw-data/demos.txt")
+#names(demos)
+demos[Donors=="Br6119(re-dis)",Donors:="Br6119"]
+setnames(demos,"Donors","brnum")
+demos <- demos[,.(brnum,Sex,APOE,Ancestry,Age)]
+
+# flares
+fla <- fread("../LFF_spatial_LC/raw-data/ancestryAndHaplotypes/FLARE/global_ancestry_estimates.txt")
+fla[,ID:=gsub(ID,pattern="^Br(...)$",replacement=paste0("Br","0","\\1"))]
+stopifnot(all(unique(demos$brnum) %in% fla$ID))
+fla <- fla[ID %in% demos$brnum]
+## 
+
+## string together a second version ofo each where the brnum ends in "L" to match brnum/sample identifiers in xenium data
+demos2 <- copy(demos)
+demos2[,brnum:=paste0(brnum,"L")]
+demos <- rbind(demos2,demos)
+demos <- unique(demos)
+rm(demos2)
+
+stopifnot(all(unique(lcx$brnum) %in% demos$brnum))
+demos <- demos[brnum %in% unique(lcx$brnum),]
+
+fla2 <- copy(fla)
+fla2[,ID:=paste0(ID,"L")]
+fla <- rbind(fla,fla2)
+rm(fla2)
+
+setnames(fla,"ID","brnum")
+stopifnot(all(unique(lcx$brnum) %in% fla$brnum))
+fla <- fla[brnum %in% unique(lcx$brnum)]
+
+## combine for addition to colldata
+demogs <- merge.data.table(demos,fla,by="brnum")
+
+tmpcd <- as.data.table(colData(lcx),keep.rownames=T)
+tmpcd <- merge.data.table(tmpcd,demogs,by="brnum")
+stopifnot(nrow(tmpcd)==ncol(lcx))
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(lcx),]
+tmpcd$rn <- NULL
+colData(lcx) <- tmpcd
+```
+
+APOE columns were a continual pain with the visium data so just fix them here and be done with it.
+```{r}
+lcx$APOE[lcx$APOE %in% c("E4/E4","E4/ E4")] <- "E4hom" 
+lcx$APOE[lcx$APOE=="E3/ E4")] <- "E4het" 
+lcx$APOE[lcx$APOE=="E2/ E3"] <- "E2het"
+lcx$APOE[lcx$APOE=="E2/ E2"] <- "E2hom"
+# unique(lcx$APOE)
+# [1] "E4hom" "E2hom" "E4het" "E2het"
+```
+
+## save SPE with normalized counts, dimreds, and demos
 ```{r}
 saveRDS(lcx,"processed-data/00_prelim_procdat_BJM/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 ```
