@@ -1,0 +1,70 @@
+---
+title: "05a-RcppMLcrossval_LFFvis"
+author: "Bernie Mulvey"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(RcppML)
+library(SingleCellExperiment)
+library(SpatialExperiment)
+library(Matrix) # otherwise rcppml gives error 'no item called "package:Matrix" on the search list'
+
+
+## rstudio GUI tweaks
+# require(colorout)
+# ColorOut()
+options('styler.addins_style_transformer' = 'biocthis::bioc_style()')
+##
+
+## do not load parallelization libraries here. rcppml is installed from source with OpenMP support (i hope) so lets not overcomplicate the environment.
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+
+load Visium data with final labels
+```{r}
+lcv <- readRDS("../LFF_spatial_LC/processed-data/06-countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+
+vdom <- readRDS("../LFF_spatial_LC/processed-data/07_featureSelection_dimred_harmony_clustering/04-Initial_louvLeid_res0.5-1-2_clusterings.RDS")
+vdom <- vdom$HARMONYlmbna_HDG_SVG_2575
+vdom <- vdom[,.(rn,snnHARMONYlmbna_HDG_SVG_2575_louv_res1)]
+setnames(vdom,2,"clusid")
+
+vanno <- fread("../LFF_spatial_LC/processed-data/08_validitycheck_25hdg75svg_louv1/10-25hdg75svg_louv1_annots.txt")
+vdom <- merge.data.table(vdom,vanno[,.(clusid,anno)],by="clusid")
+vdom <- DataFrame(vdom,row.names=vdom$rn)[colnames(lcv),]
+
+colLabels(lcv) <- vdom$anno
+
+rm(vdom,vanno)
+
+unique(lcv$brnum)
+lcv$brnum[lcv$brnum=="Br6119(re-dis)"] <- "Br6119"
+## drop donors with limited LC and br 1691 (tentatively dropping from Xenium)
+lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(1691,5517,5276,5712)))]
+
+
+### we need logcounts on here to perform NMF
+lcv <- scuttle::logNormCounts(lcv)
+```
+
+## nmf projection is done using the entire visium dataset per xenium SAMPLE (encoded in brnum, which encodes one tissue section as unique donor-hemisphere in this dataset). using Cindy's implementation of this from https://github.com/LieberInstitute/spatialDLPFC_SCZ_XENIUM/blob/devel/code/analysis/04_label_transfer/01_run_spaTransfer.R
+
+the alpha parameter (elasticnet mixing parameter?) needs to be specified for this to work. based on the example scripts in the draft repo for the spatransfer manuscript, we'll use alpha=0. no clue if that's actually a suggested value or just something there for demonstration purposes though.
+
+to determine k, we need to run RcppML::crossValidate first
+```{r}
+options(RcppML.threads=10)
+options(RcppML.verbose=TRUE)
+crossval <- RcppML::crossValidate(logcounts(lcv),k=seq(50,150,10),seed = 42,tol=1e-8,threads=10,alpha=0,verbose=T)
+
+```
