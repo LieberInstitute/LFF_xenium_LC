@@ -1,5 +1,5 @@
 ---
-title: "05-NMFlabeltransfer_VisToXen"
+title: "01b-NMFlabeltransfer_VisToXen"
 format: html
 date: 2026-01-26
 ---
@@ -142,7 +142,7 @@ options(RcppML.threads=8)
 # run it
 vis_to_xen <- transfer_labels(targets = lcxes,source = lcv,assay = "logcounts",annotationsName = "label",technicalVarName = "sample_id",seed = 42,tol=1e-8,k=100,threads=10,alpha=0) # not sure threads arg is also needed here.
 
-saveRDS(vis_to_xen,"processed-data/00_prelim_procdat_BJM/05-VistoXen_NMFlabelxfer_tol1e8_k100_alph0.RDS")
+saveRDS(vis_to_xen,"processed-data/00_prelim_procdat_BJM/05_LabelTransfer/01b-VistoXen_NMFlabelxfer_tol1e8_k100_alph0.RDS")
 
 ```
 
