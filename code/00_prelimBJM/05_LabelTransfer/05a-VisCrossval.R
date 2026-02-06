@@ -35,15 +35,15 @@ lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(1691,5517,5276,5712)))]
 lcv <- scuttle::logNormCounts(lcv)
 
 ## run it with a lower tol 
-options(RcppML.threads=7)
+options(RcppML.threads=15)
 options(RcppML.verbose=TRUE)
+setDTthreads(1,restore_after_fork=FALSE) # prevent resource competition
 crossval <- RcppML::crossValidate(logcounts(lcv),k=seq(50,150,10),tol=1e-5,threads=7,alpha=0,verbose=T)
 
 
 saveRDS(crossval, "processed-data/00_prelim_procdat_BJM/05_LabelTransfer/05a-Crossval_VisNMF_50to150.RDS")
 
-png("plots/00_prelimplotsBJM/05_Visdomaintransfer/05a-VisNMF_crossval_k50to150.png"),
-    height=4,width=8, unit="in",res=300)
+png("plots/00_prelimplotsBJM/05_Visdomaintransfer/05a-VisNMF_crossval_k50to150.png", height=4,width=8, unit="in",res=300)
 plot(crossval)
 dev.off()
 

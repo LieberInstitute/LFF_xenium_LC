@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=cv
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=50G
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=60G
 #SBATCH --output=logs/xval.txt
 #SBATCH --error=logs/xval.txt
 #SBATCH --mail-type=END
@@ -17,7 +17,7 @@ echo "Job name: ${SLURM_JOB_NAME}"
 echo "Hostname: ${HOSTNAME}"
 echo "Task id: ${SLURM_ARRAY_TASK_ID}"
 
-module load conda_R
+module load conda_R/4.3.x
 
 ## List current modules for reproducibility
 module list
