@@ -23,7 +23,7 @@ module load conda_R/4.3.x
 module list
 
 ## NMF script
-Rscript 05a-VisCrossval.R
+Rscript 01a-VisCrossval.R
 
 echo "**** Job ends ****"
 date
