@@ -1,0 +1,334 @@
+**** Job starts ****
+Sat Feb  7 01:41:50 AM EST 2026
+**** SLURM info ****
+User: bmulvey
+Job id: 27759899
+Job name: cv
+Hostname: compute-178
+Task id: 
+Loading conda_R/4.3.x
+
+Currently Loaded Modules:
+  1) JHPCE_ROCKY9_DEFAULT_ENV   3) conda/3-23.3.1
+  2) JHPCE_tools/3.0            4) conda_R/4.3.x
+
+ 
+
+RcppML v0.5.5 using 'options(RcppML.threads = 0)' (all available threads), 'options(RcppML.verbose = FALSE)'
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+
+Attaching package: ‘BiocGenerics’
+
+The following object is masked from ‘package:RcppML’:
+
+    sort
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, aperm, append, as.data.frame, basename, cbind,
+    colnames, dirname, do.call, duplicated, eval, evalq, Filter, Find,
+    get, grep, grepl, intersect, is.unsorted, lapply, Map, mapply,
+    match, mget, order, paste, pmax, pmax.int, pmin, pmin.int,
+    Position, rank, rbind, Reduce, rownames, sapply, setdiff, sort,
+    table, tapply, union, unique, unsplit, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following objects are masked from ‘package:data.table’:
+
+    first, second
+
+The following object is masked from ‘package:utils’:
+
+    findMatches
+
+The following objects are masked from ‘package:base’:
+
+    expand.grid, I, unname
+
+Loading required package: IRanges
+
+Attaching package: ‘IRanges’
+
+The following object is masked from ‘package:data.table’:
+
+    shift
+
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+
+Attaching package: ‘Matrix’
+
+The following object is masked from ‘package:S4Vectors’:
+
+    expand
+
+Loading required package: Seurat
+Loading required package: SeuratObject
+Loading required package: sp
+
+Attaching package: ‘sp’
+
+The following object is masked from ‘package:IRanges’:
+
+    %over%
+
+
+Attaching package: ‘SeuratObject’
+
+The following object is masked from ‘package:SummarizedExperiment’:
+
+    Assays
+
+The following object is masked from ‘package:GenomicRanges’:
+
+    intersect
+
+The following object is masked from ‘package:GenomeInfoDb’:
+
+    intersect
+
+The following object is masked from ‘package:IRanges’:
+
+    intersect
+
+The following object is masked from ‘package:S4Vectors’:
+
+    intersect
+
+The following object is masked from ‘package:BiocGenerics’:
+
+    intersect
+
+The following objects are masked from ‘package:base’:
+
+    intersect, t
+
+
+Attaching package: ‘Seurat’
+
+The following object is masked from ‘package:SummarizedExperiment’:
+
+    Assays
+
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following object is masked from ‘package:Biobase’:
+
+    combine
+
+The following objects are masked from ‘package:GenomicRanges’:
+
+    intersect, setdiff, union
+
+The following object is masked from ‘package:GenomeInfoDb’:
+
+    intersect
+
+The following objects are masked from ‘package:IRanges’:
+
+    collapse, desc, intersect, setdiff, slice, union
+
+The following objects are masked from ‘package:S4Vectors’:
+
+    first, intersect, rename, setdiff, setequal, union
+
+The following objects are masked from ‘package:BiocGenerics’:
+
+    combine, intersect, setdiff, union
+
+The following object is masked from ‘package:matrixStats’:
+
+    count
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: RcppEigen
+
+Attaching package: ‘singlet’
+
+The following object is masked from ‘package:Seurat’:
+
+    ProjectData
+
+ [1] "Br5941"         "Br5529"         "Br6222"         "Br5426"        
+ [5] "Br1556"         "Br0946"         "Br5415"         "Br6476"        
+ [9] "Br5854"         "Br3974"         "Br5712"         "Br0942"        
+[13] "Br5460"         "Br6538"         "Br1691"         "Br2582"        
+[17] "Br2305"         "Br6297"         "Br5276"         "Br1105"        
+[21] "Br5367"         "Br1884"         "Br6085"         "Br5368"        
+[25] "Br6098"         "Br6423"         "Br1039"         "Br6119(re-dis)"
+[29] "Br1706"         "Br5517"         "Br1285"         "Br5634"        
+[33] "Br6263"        
+
+Replicate 1, rank: 61  'as(<ngCMatrix>, "dgCMatrix")' is deprecated.
+Use 'as(., "dMatrix")' instead.
+See help("Deprecated") and help("Matrix-deprecated").
+62  63  64  65  66  67  68  69  70  71  72  73  74  75  76  77  78  79  80  81  82  83  84  85  86  87  88  89  
+Replicate 2, rank: 61  62  63  64  65  66  67  68  69  70  71  72  73  74  75  76  77  78  79  80  81  82  83  84  85  86  87  88  89  
+Replicate 3, rank: 61  62  63  64  65  66  67  68  69  70  71  72  73  74  75  76  77  78  79  80  81  82  83  84  85  86  87  88  89  null device 
+          1 
+R version 4.3.2 Patched (2024-02-08 r85876)
+Platform: x86_64-conda-linux-gnu (64-bit)
+Running under: Rocky Linux 9.4 (Blue Onyx)
+
+Matrix products: default
+BLAS:   /jhpce/shared/community/core/conda_R/4.3.x/R/lib64/R/lib/libRblas.so 
+LAPACK: /jhpce/shared/community/core/conda_R/4.3.x/R/lib64/R/lib/libRlapack.so;  LAPACK version 3.11.0
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+time zone: US/Eastern
+tzcode source: system (glibc)
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] ggplot2_4.0.1               singlet_0.99.8             
+ [3] RcppEigen_0.3.4.0.2         dplyr_1.1.4                
+ [5] Seurat_5.4.0                SeuratObject_5.3.0         
+ [7] sp_2.2-0                    Matrix_1.6-5               
+ [9] scuttle_1.12.0              SpatialExperiment_1.12.0   
+[11] SingleCellExperiment_1.24.0 SummarizedExperiment_1.32.0
+[13] Biobase_2.62.0              GenomicRanges_1.54.1       
+[15] GenomeInfoDb_1.38.8         IRanges_2.36.0             
+[17] S4Vectors_0.40.2            BiocGenerics_0.48.1        
+[19] MatrixGenerics_1.14.0       matrixStats_1.5.0          
+[21] RcppML_0.5.6                data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+  [1] RColorBrewer_1.1-3        jsonlite_2.0.0           
+  [3] magrittr_2.0.4            spatstat.utils_3.2-1     
+  [5] magick_2.8.3              farver_2.1.2             
+  [7] zlibbioc_1.48.2           vctrs_0.7.1              
+  [9] ROCR_1.0-12               spatstat.explore_3.7-0   
+ [11] DelayedMatrixStats_1.24.0 RCurl_1.98-1.14          
+ [13] htmltools_0.5.9           S4Arrays_1.2.1           
+ [15] curl_7.0.0                SparseArray_1.2.4        
+ [17] sctransform_0.4.3         parallelly_1.46.1        
+ [19] KernSmooth_2.23-22        htmlwidgets_1.6.4        
+ [21] ica_1.0-3                 plyr_1.8.9               
+ [23] plotly_4.12.0             zoo_1.8-15               
+ [25] igraph_2.2.1.9020         mime_0.13                
+ [27] lifecycle_1.0.5           pkgconfig_2.0.3          
+ [29] R6_2.6.1                  fastmap_1.2.0            
+ [31] GenomeInfoDbData_1.2.11   fitdistrplus_1.2-6       
+ [33] future_1.69.0             shiny_1.12.1             
+ [35] digest_0.6.39             patchwork_1.3.2          
+ [37] tensor_1.5.1              RSpectra_0.16-2          
+ [39] irlba_2.3.7               beachmat_2.18.0          
+ [41] labeling_0.4.3            progressr_0.18.0         
+ [43] spatstat.sparse_3.1-0     polyclip_1.10-7          
+ [45] httr_1.4.7                abind_1.4-8              
+ [47] compiler_4.3.2            withr_3.0.2              
+ [49] S7_0.2.1                  BiocParallel_1.36.0      
+ [51] fastDummies_1.7.5         MASS_7.3-60.0.1          
+ [53] DelayedArray_0.28.0       rjson_0.2.21             
+ [55] tools_4.3.2               lmtest_0.9-40            
+ [57] otel_0.2.0                msigdbr_25.1.1           
+ [59] httpuv_1.6.16             future.apply_1.20.1      
+ [61] goftest_1.2-3             glue_1.8.0               
+ [63] nlme_3.1-164              promises_1.5.0           
+ [65] grid_4.3.2                Rtsne_0.17               
+ [67] cluster_2.1.6             reshape2_1.4.5           
+ [69] fgsea_1.28.0              generics_0.1.4           
+ [71] gtable_0.3.6              spatstat.data_3.1-9      
+ [73] tidyr_1.3.2               XVector_0.42.0           
+ [75] spatstat.geom_3.7-0       RcppAnnoy_0.0.23         
+ [77] ggrepel_0.9.6             RANN_2.6.2               
+ [79] pillar_1.11.1             stringr_1.6.0            
+ [81] babelgene_22.9            limma_3.58.1             
+ [83] spam_2.11-3               RcppHNSW_0.6.0           
+ [85] later_1.4.5               splines_4.3.2            
+ [87] lattice_0.22-5            deldir_2.0-4             
+ [89] survival_3.5-7            tidyselect_1.2.1         
+ [91] miniUI_0.1.2              pbapply_1.7-4            
+ [93] knitr_1.51                gridExtra_2.3            
+ [95] scattermore_1.2           xfun_0.56                
+ [97] statmod_1.5.1             stringi_1.8.7            
+ [99] lazyeval_0.2.2            evaluate_1.0.5           
+[101] codetools_0.2-19          tibble_3.3.1             
+[103] cli_3.6.5                 uwot_0.2.4               
+[105] xtable_1.8-4              reticulate_1.44.1        
+[107] dichromat_2.0-0.1         Rcpp_1.1.1               
+[109] spatstat.random_3.4-4     globals_0.19.0           
+[111] png_0.1-8                 spatstat.univar_3.1-6    
+[113] parallel_4.3.2            assertthat_0.2.1         
+[115] dotCall64_1.2             sparseMatrixStats_1.14.0 
+[117] bitops_1.0-9              listenv_0.10.0           
+[119] viridisLite_0.4.2         scales_1.4.0             
+[121] ggridges_0.5.7            purrr_1.2.1              
+[123] crayon_1.5.3              rlang_1.1.7              
+[125] fastmatch_1.1-4           cowplot_1.2.0            
+**** Job ends ****
+Sun Feb  8 09:25:43 AM EST 2026
