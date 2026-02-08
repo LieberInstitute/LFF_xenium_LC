@@ -49,8 +49,9 @@ rm(vdom,vanno)
 
 unique(lcv$brnum)
 lcv$brnum[lcv$brnum=="Br6119(re-dis)"] <- "Br6119"
-## drop donors with limited LC and br 1691 (tentatively dropping from Xenium)
-lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(1691,5517,5276,5712)))]
+## drop donors with limited visium LC, those not on xenium, and br 1691 (dropping from Xenium data)
+
+lcv <- lcv[,!(lcv$brnum %in% c(paste0("Br",c(1691,5517,5276,5712))))]
 
 
 ### we need logcounts on here to perform NMF
