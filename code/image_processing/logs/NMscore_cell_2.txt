@@ -1,0 +1,81 @@
+**** Job starts ****
+Mon Jan 26 09:08:14 PM EST 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 27117083
+Job name: NMscore_cell
+Node name: compute-120
+Task id: 2
+
+Currently Loaded Modules:
+  1) JHPCE_ROCKY9_DEFAULT_ENV   2) JHPCE_tools/3.0   3) matlab/R2025a
+
+ 
+
+Br5415
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Computed mean intensity for 500 cells
+Launching updater executable
+Computed mean intensity for 1000 cells
+Computed mean intensity for 1500 cells
+Computed mean intensity for 2000 cells
+Computed mean intensity for 2500 cells
+Computed mean intensity for 3000 cells
+Computed mean intensity for 3500 cells
+Computed mean intensity for 4000 cells
+Computed mean intensity for 4500 cells
+Computed mean intensity for 5000 cells
+Computed mean intensity for 5500 cells
+Computed mean intensity for 6000 cells
+Computed mean intensity for 6500 cells
+Computed mean intensity for 7000 cells
+Computed mean intensity for 7500 cells
+Computed mean intensity for 8000 cells
+Computed mean intensity for 8500 cells
+Computed mean intensity for 9000 cells
+Computed mean intensity for 9500 cells
+Computed mean intensity for 10000 cells
+Computed mean intensity for 10500 cells
+Computed mean intensity for 11000 cells
+Computed mean intensity for 11500 cells
+Computed mean intensity for 12000 cells
+Computed mean intensity for 12500 cells
+Computed mean intensity for 13000 cells
+Computed mean intensity for 13500 cells
+Computed mean intensity for 14000 cells
+Computed mean intensity for 14500 cells
+Computed mean intensity for 15000 cells
+Computed mean intensity for 15500 cells
+Computed mean intensity for 16000 cells
+Computed mean intensity for 16500 cells
+Computed mean intensity for 17000 cells
+Computed mean intensity for 17500 cells
+Computed mean intensity for 18000 cells
+Computed mean intensity for 18500 cells
+Computed mean intensity for 19000 cells
+Computed mean intensity for 19500 cells
+Computed mean intensity for 20000 cells
+Computed mean intensity for 20500 cells
+Computed mean intensity for 21000 cells
+Computed mean intensity for 21500 cells
+Computed mean intensity for 22000 cells
+Computed mean intensity for 22500 cells
+Computed mean intensity for 23000 cells
+Computed mean intensity for 23500 cells
+{Unrecognized function or variable 'cells_file'.
+
+Error in NMscore_cell (line 58)
+    fprintf('Wrote mean_intensity_HE into %s\n', cells_file);
+                                                 ^^^^^^^^^^
+} 
+>> **** Job ends ****
+Mon Jan 26 11:11:24 PM EST 2026

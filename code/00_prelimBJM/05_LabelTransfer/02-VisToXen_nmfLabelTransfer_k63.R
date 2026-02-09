@@ -117,7 +117,7 @@ vis_to_xen <- transfer_labels(targets = lcxes,
 	threads=15,
 	alpha=0)
 
-saveRDS(vis_to_xen,"processed-data/00_prelim_procdat_BJM/05_LabelTransfer/01b-VistoXen_NMFlabelxfer_tol1e8_k100_alph0.RDS")
+saveRDS(vis_to_xen,"processed-data/00_prelim_procdat_BJM/05_LabelTransfer/02-VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
 
 ## sessionInf
 sessionInfo()

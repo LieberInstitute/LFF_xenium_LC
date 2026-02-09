@@ -1,0 +1,36 @@
+**** Job starts ****
+Tue Jan 27 03:20:16 AM EST 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 27118510
+Job name: NMscore_cell
+Node name: compute-122
+Task id: 28
+
+Currently Loaded Modules:
+  1) JHPCE_ROCKY9_DEFAULT_ENV   2) JHPCE_tools/3.0   3) matlab/R2025a
+
+ 
+
+Br1691
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+{Error using readtable (line 19)
+Unable to find or open
+'/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1691/xeniumranger_NM_DAPI_Br1691/outs/cells.csv'.
+Check the path and filename or file permissions.
+
+Error in NMscore_cell (line 6)
+	cells = readtable(fullfile(Md, od, brnum, ['xeniumranger_NM_DAPI_', brnum], 'outs', 'cells.csv'));
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+} 
+>> **** Job ends ****
+Tue Jan 27 03:21:08 AM EST 2026
