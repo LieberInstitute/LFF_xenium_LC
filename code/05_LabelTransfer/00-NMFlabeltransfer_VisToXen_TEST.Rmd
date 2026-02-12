@@ -1,0 +1,421 @@
+---
+title: "01b-NMFlabeltransfer_VisToXen"
+format: html
+date: 2026-01-26
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+
+## one time install:github RcppML--has an nmf object class not in CRAN version, but required in singlet 
+## spatransfer dependency zdebruine/singlet
+# github cindyfang70/spaTransfer (actually called nmfLabelTransfer)
+
+# devtools::install_github('zdebruine/RcppML')
+# devtools::install_github('zdebruine/singlet')
+# devtools::install_github('cindyfang70/spaTransfer')
+
+library(data.table)
+library(RcppML)
+library(SingleCellExperiment)
+library(SpatialExperiment)
+library(Matrix) # otherwise rcppml gives error 'no item called "package:Matrix" on the search list'
+
+
+## rstudio GUI tweaks
+# require(colorout)
+# ColorOut()
+options('styler.addins_style_transformer' = 'biocthis::bioc_style()')
+##
+
+## do not load parallelization libraries here. rcppml is installed from source with OpenMP support (i hope) so lets not overcomplicate the environment.
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+
+load Visium data with final labels
+```{r}
+lcv <- readRDS("../LFF_spatial_LC/processed-data/06-countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+
+vdom <- readRDS("../LFF_spatial_LC/processed-data/07_featureSelection_dimred_harmony_clustering/04-Initial_louvLeid_res0.5-1-2_clusterings.RDS")
+vdom <- vdom$HARMONYlmbna_HDG_SVG_2575
+vdom <- vdom[,.(rn,snnHARMONYlmbna_HDG_SVG_2575_louv_res1)]
+setnames(vdom,2,"clusid")
+
+vanno <- fread("../LFF_spatial_LC/processed-data/08_validitycheck_25hdg75svg_louv1/10-25hdg75svg_louv1_annots.txt")
+vdom <- merge.data.table(vdom,vanno[,.(clusid,anno)],by="clusid")
+vdom <- DataFrame(vdom,row.names=vdom$rn)[colnames(lcv),]
+
+colLabels(lcv) <- vdom$anno
+
+rm(vdom,vanno)
+
+unique(lcv$brnum)
+lcv$brnum[lcv$brnum=="Br6119(re-dis)"] <- "Br6119"
+## drop donors with limited LC and br 1691 (tentatively dropping from Xenium)
+lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(1691,5517,5276,5712)))]
+
+
+### we need logcounts on here to perform NMF
+lcv <- scuttle::logNormCounts(lcv)
+```
+
+load xenium data
+```{r}
+lcx <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+unique(lcx$brnum) # donor WITH hemisphere
+lcx$donor <- lcx$brnum
+lcx$donor[lcx$donor=="Br2305L"] <- "Br2305"
+lcx$donor[lcx$donor=="Br1039L"] <- "Br1039"
+lcx$donor[lcx$donor=="Br5854L"] <- "Br5854"
+
+stopifnot(all(unique(lcx$donor) %in% unique(lcv$brnum)))
+stopifnot(all(unique(lcv$brnum) %in% unique(lcx$donor)))
+
+## isoforms of XBP1 are separate probes for xenium, so we want to add a row that just aggregates the two. we recalculate logcounts during the per-sample loop below anyhow so we can get rid of the normalized counts in the xenium SPE too.
+assays(lcx)[[3]] <- NULL
+assays(lcx)[[2]] <- NULL
+gc(full=T)
+
+```
+
+## add a row for XBP1 gene level to rowData and counts, remove isoforms
+```{r}
+newg <- as.data.frame(rowData(lcx))
+newg[(nrow(newg)+1),"Symbol"] <- "XBP1"
+rownames(newg)[nrow(newg)] <- "XBP1"
+newg <- as.data.table(newg,keep.rownames=T)
+newg[rn=="XBP1",ID:="ENSG00000100219"]
+newg[rn=="XBP1",Type:="Gene Expression"]
+set(newg,i=nrow(newg),j = c(5:12),value=FALSE)
+newg <- newg[!(rn %in% c("XBP1u","XBP1s"))]
+newg <- DataFrame(newg,row.names=newg$rn)
+newg$rn <- NULL
+
+## remove isoforms from counts matrix
+newr <- t(as.matrix(colSums(counts(lcx)[c("XBP1s","XBP1u"),],na.rm=T)))
+newct <- as(rbind(as.matrix(counts(lcx)),newr),"dgCMatrix")
+rownames(newct)[nrow(newct)] <- "XBP1"
+newct <- newct[!(rownames(newct) %in% c("XBP1u","XBP1s")),]
+
+## make sure we have the same genes in both of these matrices, in the same order by row and col
+stopifnot(all(rownames(newct)==rownames(newg)))
+stopifnot(all(colnames(newct)==colnames(lcx)))
+
+lcx2 <- SpatialExperiment(colData=colData(lcx),rowData=newg,assays=list(counts=newct),spatialCoords = spatialCoords(lcx))
+
+## we need the Symbol column to be gene_name for spaTransfer
+colnames(rowData(lcx2))[2] <- "gene_name"
+
+rm(lcx,newct,newg,newr)
+gc(full=T)
+```
+
+## nmf projection is done using the entire visium dataset per xenium SAMPLE (encoded in brnum, which encodes one tissue section as unique donor-hemisphere in this dataset). using Cindy's implementation of this from https://github.com/LieberInstitute/spatialDLPFC_SCZ_XENIUM/blob/devel/code/analysis/04_label_transfer/01_run_spaTransfer.R
+
+the alpha parameter (elasticnet mixing parameter?) needs to be specified for this to work. based on the example scripts in the draft repo for the spatransfer manuscript, we'll use alpha=0. no clue if that's actually a suggested value or just something there for demonstration purposes though.
+
+```{r}
+lcxes <- lapply(unique(lcx2$brnum),function(x){
+    lcx2[,lcx2$brnum==x]
+})
+names(lcxes) <- unique(lcx2$brnum)
+lcxes <- lapply(lcxes,scuttle::logNormCounts)
+
+rm(lcx2)
+gc(full=T)
+### 
+
+# technicalVarName should be the sample identifier in the source(reference) dataset.
+# use tol 1e-8 (vs default 1e-5) for higher stringency (passed to nmfLabelTransfer::run_nmf)
+# use k=100 for 100 nmf factors
+# use 8 threads; prevent data.table parallelization overcommiting threads using setDTthreads
+setDTthreads(1,restore_after_fork = FALSE)
+options(RcppML.verbose = TRUE)
+options(RcppML.threads=8)
+
+# run it
+vis_to_xen <- transfer_labels(targets = lcxes,source = lcv,assay = "logcounts",annotationsName = "label",technicalVarName = "sample_id",seed = 42,tol=1e-8,k=100,threads=10,alpha=0) # not sure threads arg is also needed here.
+
+saveRDS(vis_to_xen,"processed-data/05_LabelTransfer/01b-VistoXen_NMFlabelxfer_tol1e8_k100_alph0.RDS")
+
+```
+
+sessioninfo
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.4.3 (2025-02-28)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sequoia 15.3.2
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] ggrastr_1.0.2               ggtext_0.1.2               
+ [3] escheR_1.6.0                ggplot2_4.0.1              
+ [5] Matrix_1.7-4                SpatialExperiment_1.16.0   
+ [7] data.table_1.17.4           nmfLabelTransfer_0.0.0.9000
+ [9] singlet_0.99.8              RcppEigen_0.3.4.0.2        
+[11] dplyr_1.1.4                 RcppML_0.5.6               
+[13] Seurat_5.4.0                SeuratObject_5.3.0         
+[15] sp_2.2-0                    SingleCellExperiment_1.28.1
+[17] SummarizedExperiment_1.36.0 Biobase_2.66.0             
+[19] GenomicRanges_1.58.0        GenomeInfoDb_1.42.3        
+[21] IRanges_2.40.1              S4Vectors_0.44.0           
+[23] BiocGenerics_0.52.0         MatrixGenerics_1.18.1      
+[25] matrixStats_1.5.0          
+
+loaded via a namespace (and not attached):
+  [1] RcppAnnoy_0.0.23        splines_4.4.3           later_1.4.4            
+  [4] tibble_3.3.0            polyclip_1.10-7         fastDummies_1.7.5      
+  [7] lifecycle_1.0.4         rprojroot_2.1.1         globals_0.18.0         
+ [10] lattice_0.22-7          MASS_7.3-65             magrittr_2.0.4         
+ [13] limma_3.62.2            plotly_4.11.0           rmarkdown_2.30         
+ [16] yaml_2.3.12             httpuv_1.6.16           otel_0.2.0             
+ [19] sctransform_0.4.3       spam_2.11-1             spatstat.sparse_3.1-0  
+ [22] reticulate_1.44.1       cowplot_1.2.0           pbapply_1.7-4          
+ [25] RColorBrewer_1.1-3      abind_1.4-8             zlibbioc_1.52.0        
+ [28] Rtsne_0.17              purrr_1.2.0             msigdbr_25.1.1         
+ [31] GenomeInfoDbData_1.2.13 ggrepel_0.9.6           irlba_2.3.5.1          
+ [34] listenv_0.10.0          spatstat.utils_3.2-1    goftest_1.2-3          
+ [37] RSpectra_0.16-2         spatstat.random_3.4-4   fitdistrplus_1.2-6     
+ [40] parallelly_1.46.1       commonmark_2.0.0        codetools_0.2-20       
+ [43] DelayedArray_0.32.0     xml2_1.5.0              scuttle_1.16.0         
+ [46] tidyselect_1.2.1        shape_1.4.6.1           UCSC.utils_1.2.0       
+ [49] farver_2.1.2            spatstat.explore_3.7-0  jsonlite_2.0.0         
+ [52] progressr_0.18.0        ggridges_0.5.7          survival_3.8-3         
+ [55] iterators_1.0.14        foreach_1.5.2           dbscan_1.2.4           
+ [58] tools_4.4.3             ica_1.0-3               Rcpp_1.1.1             
+ [61] glue_1.8.0              gridExtra_2.3           SparseArray_1.6.2      
+ [64] xfun_0.56               here_1.0.2              withr_3.0.2            
+ [67] fastmap_1.2.0           litedown_0.8            digest_0.6.39          
+ [70] R6_2.6.1                mime_0.13               scattermore_1.2        
+ [73] tensor_1.5.1            markdown_2.0            dichromat_2.0-0.1      
+ [76] spatstat.data_3.1-9     tidyr_1.3.1             generics_0.1.4         
+ [79] httr_1.4.7              htmlwidgets_1.6.4       S4Arrays_1.6.0         
+ [82] uwot_0.2.4              pkgconfig_2.0.3         gtable_0.3.6           
+ [85] lmtest_0.9-40           S7_0.2.1                XVector_0.46.0         
+ [88] htmltools_0.5.8.1       dotCall64_1.2           fgsea_1.32.4           
+ [91] scales_1.4.0            png_0.1-8               spatstat.univar_3.1-6  
+ [94] knitr_1.51              rstudioapi_0.17.1       reshape2_1.4.5         
+ [97] rjson_0.2.23            nlme_3.1-168            curl_7.0.0             
+[100] zoo_1.8-14              stringr_1.6.0           KernSmooth_2.23-26     
+[103] vipor_0.4.7             parallel_4.4.3          miniUI_0.1.2           
+[106] pillar_1.11.1           grid_4.4.3              vctrs_0.7.1            
+[109] RANN_2.6.2              promises_1.5.0          beachmat_2.22.0        
+[112] xtable_1.8-4            cluster_2.1.8.1         beeswarm_0.4.0         
+[115] evaluate_1.0.5          magick_2.9.0            cli_3.6.5              
+[118] compiler_4.4.3          rlang_1.1.7             crayon_1.5.3           
+[121] future.apply_1.20.1     labeling_0.4.3          ggbeeswarm_0.7.2       
+[124] plyr_1.8.9              stringi_1.8.7           viridisLite_0.4.2      
+[127] deldir_2.0-4            BiocParallel_1.40.2     assertthat_0.2.1       
+[130] babelgene_22.9          lazyeval_0.2.2          spatstat.geom_3.7-0    
+[133] glmnet_4.1-10           RcppHNSW_0.6.0          patchwork_1.3.2        
+[136] future_1.69.0           statmod_1.5.1           shiny_1.11.1           
+[139] ROCR_1.0-12             gridtext_0.1.5          igraph_2.2.1           
+[142] fastmatch_1.1-6        
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.4.3 (2025-02-28)
+ os       macOS Sequoia 15.3.2
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2026-01-28
+ rstudio  2024.07.0-daily+219 Cranberry Hibiscus (desktop)
+ pandoc   3.1.11 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.4.555 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ─────────────────────────────────────────────────────────────────────────
+ package              * version    date (UTC) lib source
+ abind                  1.4-8      2024-09-12 [1] CRAN (R 4.4.1)
+ assertthat             0.2.1      2019-03-21 [1] CRAN (R 4.4.0)
+ babelgene              22.9       2022-09-29 [1] CRAN (R 4.4.0)
+ beachmat               2.22.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ beeswarm               0.4.0      2021-06-01 [1] CRAN (R 4.4.0)
+ Biobase              * 2.66.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ BiocGenerics         * 0.52.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ BiocParallel           1.40.2     2025-04-08 [1] Bioconductor
+ cli                    3.6.5      2025-04-23 [1] CRAN (R 4.4.1)
+ cluster                2.1.8.1    2025-03-12 [1] CRAN (R 4.4.1)
+ codetools              0.2-20     2024-03-31 [1] CRAN (R 4.4.3)
+ commonmark             2.0.0      2025-07-07 [1] CRAN (R 4.4.1)
+ cowplot                1.2.0      2025-07-07 [1] CRAN (R 4.4.1)
+ crayon                 1.5.3      2024-06-20 [1] CRAN (R 4.4.0)
+ curl                   7.0.0      2025-08-19 [1] CRAN (R 4.4.1)
+ data.table           * 1.17.4     2025-05-26 [1] CRAN (R 4.4.3)
+ dbscan                 1.2.4      2025-12-19 [1] CRAN (R 4.4.3)
+ DelayedArray           0.32.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ deldir                 2.0-4      2024-02-28 [1] CRAN (R 4.4.0)
+ dichromat              2.0-0.1    2022-05-02 [1] CRAN (R 4.4.0)
+ digest                 0.6.39     2025-11-19 [1] CRAN (R 4.4.3)
+ dotCall64              1.2        2024-10-04 [1] CRAN (R 4.4.1)
+ dplyr                * 1.1.4      2023-11-17 [1] CRAN (R 4.4.0)
+ escheR               * 1.6.0      2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ evaluate               1.0.5      2025-08-27 [1] CRAN (R 4.4.1)
+ farver                 2.1.2      2024-05-13 [1] CRAN (R 4.4.0)
+ fastDummies            1.7.5      2025-01-20 [1] CRAN (R 4.4.1)
+ fastmap                1.2.0      2024-05-15 [1] CRAN (R 4.4.0)
+ fastmatch              1.1-6      2024-12-23 [1] CRAN (R 4.4.1)
+ fgsea                  1.32.4     2025-03-20 [1] Bioconductor 3.20 (R 4.4.3)
+ fitdistrplus           1.2-6      2026-01-24 [1] CRAN (R 4.4.3)
+ foreach                1.5.2      2022-02-02 [1] CRAN (R 4.4.0)
+ future                 1.69.0     2026-01-16 [1] CRAN (R 4.4.3)
+ future.apply           1.20.1     2025-12-09 [1] CRAN (R 4.4.3)
+ generics               0.1.4      2025-05-09 [1] CRAN (R 4.4.1)
+ GenomeInfoDb         * 1.42.3     2025-01-27 [1] Bioconductor 3.20 (R 4.4.2)
+ GenomeInfoDbData       1.2.13     2024-12-12 [1] Bioconductor
+ GenomicRanges        * 1.58.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ ggbeeswarm             0.7.2      2023-04-29 [1] CRAN (R 4.4.0)
+ ggplot2              * 4.0.1      2025-11-14 [1] CRAN (R 4.4.3)
+ ggrastr              * 1.0.2      2023-06-01 [1] CRAN (R 4.4.0)
+ ggrepel                0.9.6      2024-09-07 [1] CRAN (R 4.4.1)
+ ggridges               0.5.7      2025-08-27 [1] CRAN (R 4.4.1)
+ ggtext               * 0.1.2      2022-09-16 [1] CRAN (R 4.4.0)
+ glmnet                 4.1-10     2025-07-17 [1] CRAN (R 4.4.1)
+ globals                0.18.0     2025-05-08 [1] CRAN (R 4.4.1)
+ glue                   1.8.0      2024-09-30 [1] CRAN (R 4.4.1)
+ goftest                1.2-3      2021-10-07 [1] CRAN (R 4.4.0)
+ gridExtra              2.3        2017-09-09 [1] CRAN (R 4.4.0)
+ gridtext               0.1.5      2022-09-16 [1] CRAN (R 4.4.0)
+ gtable                 0.3.6      2024-10-25 [1] CRAN (R 4.4.1)
+ here                   1.0.2      2025-09-15 [1] CRAN (R 4.4.1)
+ htmltools              0.5.8.1    2024-04-04 [1] CRAN (R 4.4.0)
+ htmlwidgets            1.6.4      2023-12-06 [1] CRAN (R 4.4.0)
+ httpuv                 1.6.16     2025-04-16 [1] CRAN (R 4.4.1)
+ httr                   1.4.7      2023-08-15 [1] CRAN (R 4.4.0)
+ ica                    1.0-3      2022-07-08 [1] CRAN (R 4.4.0)
+ igraph                 2.2.1      2025-10-27 [1] CRAN (R 4.4.1)
+ IRanges              * 2.40.1     2024-12-05 [1] Bioconductor 3.20 (R 4.4.2)
+ irlba                  2.3.5.1    2022-10-03 [1] CRAN (R 4.4.0)
+ iterators              1.0.14     2022-02-05 [1] CRAN (R 4.4.0)
+ jsonlite               2.0.0      2025-03-27 [1] CRAN (R 4.4.1)
+ KernSmooth             2.23-26    2025-01-01 [1] CRAN (R 4.4.3)
+ knitr                  1.51       2025-12-20 [1] CRAN (R 4.4.3)
+ labeling               0.4.3      2023-08-29 [1] CRAN (R 4.4.0)
+ later                  1.4.4      2025-08-27 [1] CRAN (R 4.4.1)
+ lattice                0.22-7     2025-04-02 [1] CRAN (R 4.4.1)
+ lazyeval               0.2.2      2019-03-15 [1] CRAN (R 4.4.0)
+ lifecycle              1.0.4      2023-11-07 [1] CRAN (R 4.4.0)
+ limma                  3.62.2     2025-01-09 [1] Bioconductor 3.20 (R 4.4.2)
+ listenv                0.10.0     2025-11-02 [1] CRAN (R 4.4.1)
+ litedown               0.8        2025-11-02 [1] CRAN (R 4.4.1)
+ lmtest                 0.9-40     2022-03-21 [1] CRAN (R 4.4.0)
+ magick                 2.9.0      2025-09-08 [1] CRAN (R 4.4.1)
+ magrittr               2.0.4      2025-09-12 [1] CRAN (R 4.4.1)
+ markdown               2.0        2025-03-23 [1] CRAN (R 4.4.3)
+ MASS                   7.3-65     2025-02-28 [1] CRAN (R 4.4.1)
+ Matrix               * 1.7-4      2025-08-28 [1] CRAN (R 4.4.1)
+ MatrixGenerics       * 1.18.1     2025-01-09 [1] Bioconductor 3.20 (R 4.4.2)
+ matrixStats          * 1.5.0      2025-01-07 [1] CRAN (R 4.4.1)
+ mime                   0.13       2025-03-17 [1] CRAN (R 4.4.1)
+ miniUI                 0.1.2      2025-04-17 [1] CRAN (R 4.4.1)
+ msigdbr                25.1.1     2025-07-21 [1] CRAN (R 4.4.1)
+ nlme                   3.1-168    2025-03-31 [1] CRAN (R 4.4.1)
+ nmfLabelTransfer     * 0.0.0.9000 2026-01-28 [1] Github (cindyfang70/spaTransfer@8b2d090)
+ otel                   0.2.0      2025-08-29 [1] CRAN (R 4.4.1)
+ parallelly             1.46.1     2026-01-08 [1] CRAN (R 4.4.3)
+ patchwork              1.3.2      2025-08-25 [1] CRAN (R 4.4.1)
+ pbapply                1.7-4      2025-07-20 [1] CRAN (R 4.4.1)
+ pillar                 1.11.1     2025-09-17 [1] CRAN (R 4.4.1)
+ pkgconfig              2.0.3      2019-09-22 [1] CRAN (R 4.4.0)
+ plotly                 4.11.0     2025-06-19 [1] CRAN (R 4.4.1)
+ plyr                   1.8.9      2023-10-02 [1] CRAN (R 4.4.0)
+ png                    0.1-8      2022-11-29 [1] CRAN (R 4.4.0)
+ polyclip               1.10-7     2024-07-23 [1] CRAN (R 4.4.0)
+ progressr              0.18.0     2025-11-06 [1] CRAN (R 4.4.1)
+ promises               1.5.0      2025-11-01 [1] CRAN (R 4.4.1)
+ purrr                  1.2.0      2025-11-04 [1] CRAN (R 4.4.1)
+ R6                     2.6.1      2025-02-15 [1] CRAN (R 4.4.1)
+ RANN                   2.6.2      2024-08-25 [1] CRAN (R 4.4.1)
+ RColorBrewer           1.1-3      2022-04-03 [1] CRAN (R 4.4.0)
+ Rcpp                   1.1.1      2026-01-10 [1] CRAN (R 4.4.3)
+ RcppAnnoy              0.0.23     2026-01-12 [1] CRAN (R 4.4.3)
+ RcppEigen            * 0.3.4.0.2  2024-08-24 [1] CRAN (R 4.4.1)
+ RcppHNSW               0.6.0      2024-02-04 [1] CRAN (R 4.4.1)
+ RcppML               * 0.5.6      2026-01-27 [1] Github (zdebruine/RcppML@5449a5b)
+ reshape2               1.4.5      2025-11-12 [1] CRAN (R 4.4.1)
+ reticulate             1.44.1     2025-11-14 [1] CRAN (R 4.4.3)
+ rjson                  0.2.23     2024-09-16 [1] CRAN (R 4.4.1)
+ rlang                  1.1.7      2026-01-09 [1] CRAN (R 4.4.3)
+ rmarkdown              2.30       2025-09-28 [1] CRAN (R 4.4.1)
+ ROCR                   1.0-12     2026-01-23 [1] CRAN (R 4.4.3)
+ rprojroot              2.1.1      2025-08-26 [1] CRAN (R 4.4.1)
+ RSpectra               0.16-2     2024-07-18 [1] CRAN (R 4.4.0)
+ rstudioapi             0.17.1     2024-10-22 [1] CRAN (R 4.4.1)
+ Rtsne                  0.17       2023-12-07 [1] CRAN (R 4.4.0)
+ S4Arrays               1.6.0      2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ S4Vectors            * 0.44.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ S7                     0.2.1      2025-11-14 [1] CRAN (R 4.4.3)
+ scales                 1.4.0      2025-04-24 [1] CRAN (R 4.4.1)
+ scattermore            1.2        2023-06-12 [1] CRAN (R 4.4.0)
+ sctransform            0.4.3      2026-01-10 [1] CRAN (R 4.4.3)
+ scuttle                1.16.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ sessioninfo            1.2.3      2025-02-05 [1] CRAN (R 4.4.1)
+ Seurat               * 5.4.0      2025-12-14 [1] CRAN (R 4.4.3)
+ SeuratObject         * 5.3.0      2025-12-12 [1] CRAN (R 4.4.3)
+ shape                  1.4.6.1    2024-02-23 [1] CRAN (R 4.4.0)
+ shiny                  1.11.1     2025-07-03 [1] CRAN (R 4.4.1)
+ SingleCellExperiment * 1.28.1     2024-11-23 [1] Bioconductor 3.20 (R 4.4.2)
+ singlet              * 0.99.8     2026-01-27 [1] Github (zdebruine/singlet@7ce199e)
+ sp                   * 2.2-0      2025-02-01 [1] CRAN (R 4.4.1)
+ spam                   2.11-1     2025-01-20 [1] CRAN (R 4.4.1)
+ SparseArray            1.6.2      2025-02-20 [1] Bioconductor 3.20 (R 4.4.2)
+ SpatialExperiment    * 1.16.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ spatstat.data          3.1-9      2025-10-18 [1] CRAN (R 4.4.1)
+ spatstat.explore       3.7-0      2026-01-22 [1] CRAN (R 4.4.3)
+ spatstat.geom          3.7-0      2026-01-20 [1] CRAN (R 4.4.3)
+ spatstat.random        3.4-4      2026-01-21 [1] CRAN (R 4.4.3)
+ spatstat.sparse        3.1-0      2024-06-21 [1] CRAN (R 4.4.0)
+ spatstat.univar        3.1-6      2026-01-17 [1] CRAN (R 4.4.3)
+ spatstat.utils         3.2-1      2026-01-10 [1] CRAN (R 4.4.3)
+ statmod                1.5.1      2025-10-09 [1] CRAN (R 4.4.1)
+ stringi                1.8.7      2025-03-27 [1] CRAN (R 4.4.1)
+ stringr                1.6.0      2025-11-04 [1] CRAN (R 4.4.1)
+ SummarizedExperiment * 1.36.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ survival               3.8-3      2024-12-17 [1] CRAN (R 4.4.3)
+ tensor                 1.5.1      2025-06-17 [1] CRAN (R 4.4.1)
+ tibble                 3.3.0      2025-06-08 [1] CRAN (R 4.4.1)
+ tidyr                  1.3.1      2024-01-24 [1] CRAN (R 4.4.0)
+ tidyselect             1.2.1      2024-03-11 [1] CRAN (R 4.4.0)
+ UCSC.utils             1.2.0      2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ uwot                   0.2.4      2025-11-10 [1] CRAN (R 4.4.1)
+ vctrs                  0.7.1      2026-01-23 [1] CRAN (R 4.4.3)
+ vipor                  0.4.7      2023-12-18 [1] CRAN (R 4.4.0)
+ viridisLite            0.4.2      2023-05-02 [1] CRAN (R 4.4.0)
+ withr                  3.0.2      2024-10-28 [1] CRAN (R 4.4.1)
+ xfun                   0.56       2026-01-18 [1] CRAN (R 4.4.3)
+ xml2                   1.5.0      2025-11-17 [1] CRAN (R 4.4.3)
+ xtable                 1.8-4      2019-04-21 [1] CRAN (R 4.4.0)
+ XVector                0.46.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ yaml                   2.3.12     2025-12-10 [1] CRAN (R 4.4.3)
+ zlibbioc               1.52.0     2024-11-08 [1] Bioconductor 3.20 (R 4.4.1)
+ zoo                    1.8-14     2025-04-10 [1] CRAN (R 4.4.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.4/library
+ * ── Packages attached to the search path.
+
+────────────────────────────────────────────────────────────────────────────────────

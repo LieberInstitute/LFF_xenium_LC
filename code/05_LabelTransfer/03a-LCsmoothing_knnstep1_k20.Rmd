@@ -1,0 +1,294 @@
+---
+title: "02-TestLCsmoothing_knnstep1_k20"
+author: "Bernie Mulvey"
+date: "02-09-2026`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+library(FastKNN)
+library(caTools)
+library(FNN)
+
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+library(parallel)
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+spe <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+labxf <- readRDS("processed-data/05_LabelTransfer/02-VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
+
+labxf2 <- lapply(labxf$targets,function(x){
+  y <- as.data.table(cbind(rownames(colData(x)),as.character(x$nmf_preds)))
+  setnames(y,c("rn","nmfpred"))
+})
+
+labxf2 <- rbindlist(labxf2)
+labxf2 <- DataFrame(labxf2,row.names=labxf2$rn)[colnames(spe),]
+spe$nmfpred <- labxf2$nmfpred
+
+rm(labxf,labxf2)
+gc(full=T)
+```
+
+## first smoothing
+```{r}
+spe$xcoord <- spatialCoords(spe)[,1]
+spe$ycoord <- spatialCoords(spe)[,2]
+xyspe <- as.data.table(colData(spe),keep.rownames=T)
+xyspe[,isLC:=0]
+xyspe[nmfpred=="LC",isLC:=1]
+sum(xyspe$isLC==1) #9788
+
+xyspe <- xyspe[,.(rn,brnum,xcoord,ycoord,isLC)]
+gc(full=T)
+
+## split back to samplewise
+xyspe_list <- split(xyspe,xyspe$brnum)
+rm(xyspe)
+```
+
+## step 1 knn smoothing of LC with k=20
+#### note that the data.table-internalized sapply call is not the absolute fastest way to run that step (but still only takes a matter of seconds at scale here).
+#### however, this approach is more transparent in that the user can take an entry of xyspe_list into the environment as v and step through the bplapply to see what's being done here, and can see that cells are always matched in the process (as opposed to working with vectors where we don't have cell ids matched up anymore. which always makes me unccomfortable, however rationally/irrationally.)
+```{r}
+setDTthreads(1,restore_after_fork = FALSE)
+knnreslist <- mclapply(xyspe_list,mc.cores=8,FUN=function(v){
+    # get nearest neighbors for each cell in the sample
+    setDTthreads(1,restore_after_fork = FALSE)
+    knnout <- FNN::get.knn(v[,c("xcoord","ycoord")],k = 20)
+    
+    # get the row indices of those k cells
+    neighborslist <- apply(knnout$nn.index,MARGIN=1,FUN=list)
+    # goofily, this is returns each entry as a list within a list (e.g., [[1]][[1]], [[2]][[1]], etc.). so fix that:
+    neighborslist <- lapply(neighborslist,FUN=unlist)
+    # make the list names the cell identifiers as a failsafe against reordering; we will use the list entry names to retrieve the neighbor indices when calculating means below
+    names(neighborslist) <- v$rn
+    
+    # now, get the mean of LC y/n for the k nearest neighbors indexed for each cell
+    # (in knnout, the first list item, nn.index, has v's row indices corresponding to those neighbors) 
+    # this value is thus a probability 0-1 that, a given cell is a LC type given the LC/nonLC identity of its 20 spatial neighbors
+    v[,lcpred.smooth1.k20:=
+          apply(.SD, MARGIN = 1, FUN=function(x){
+              mean(v[neighborslist[[x]],isLC])}
+              )
+      ,.SDcols = "rn"]
+    return(v)
+})
+rm(xyspe_list)
+
+## concatenate back into a single full-dataset table of KNN smoothing predictions based on k=20 nearest cells
+xyspeout <- rbindlist(knnreslist)
+
+## what would the domain definitions be just from these knns?
+# any LC neighbor
+# nrow(xyspeout[lcpred.smooth1.k20>0])
+#[1] 76073
+
+#1 lc neighbor 
+# nrow(xyspeout[lcpred.smooth1.k20>0.05])
+# [1] 39559
+
+
+## save the resulting smoothing predictions as a table of cell ID, coords, and LCknn smoothing step 1 prediction values
+saveRDS(xyspeout,"processed-data/05_LabelTransfer/03-LCknnsmoothing_step1k20.RDS")
+```
+
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.2
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats4    stats     graphics 
+[5] grDevices utils     methods   base     
+
+other attached packages:
+ [1] FNN_1.1.4.1                
+ [2] caTools_1.18.3             
+ [3] FastKNN_0.0.1              
+ [4] BiocParallel_1.44.0        
+ [5] parallelly_1.46.1          
+ [6] colorout_1.3-3             
+ [7] escheR_1.10.0              
+ [8] SpatialExperiment_1.20.0   
+ [9] SingleCellExperiment_1.32.0
+[10] SummarizedExperiment_1.40.0
+[11] Biobase_2.70.0             
+[12] GenomicRanges_1.62.1       
+[13] Seqinfo_1.0.0              
+[14] IRanges_2.44.0             
+[15] S4Vectors_0.48.0           
+[16] BiocGenerics_0.56.0        
+[17] generics_0.1.4             
+[18] MatrixGenerics_1.22.0      
+[19] matrixStats_1.5.0          
+[20] ggrastr_1.0.2              
+[21] gridExtra_2.3              
+[22] ggtext_0.1.2               
+[23] ggplot2_4.0.2              
+[24] data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6        beeswarm_0.4.0     
+ [3] rjson_0.2.23        xfun_0.56          
+ [5] lattice_0.22-7      bitops_1.0-9       
+ [7] vctrs_0.7.1         tools_4.5.2        
+ [9] tibble_3.3.1        pkgconfig_2.0.3    
+[11] Matrix_1.7-4        RColorBrewer_1.1-3 
+[13] S7_0.2.1            assertthat_0.2.1   
+[15] lifecycle_1.0.5     compiler_4.5.2     
+[17] farver_2.1.2        pdist_1.2.1        
+[19] codetools_0.2-20    vipor_0.4.7        
+[21] pillar_1.11.1       DelayedArray_0.36.0
+[23] magick_2.9.0        abind_1.4-8        
+[25] tidyselect_1.2.1    dplyr_1.2.0        
+[27] rprojroot_2.1.1     grid_4.5.2         
+[29] here_1.0.2          cli_3.6.5          
+[31] SparseArray_1.10.8  magrittr_2.0.4     
+[33] S4Arrays_1.10.1     dichromat_2.0-0.1  
+[35] withr_3.0.2         scales_1.4.0       
+[37] ggbeeswarm_0.7.3    XVector_0.50.0     
+[39] otel_0.2.0          evaluate_1.0.5     
+[41] knitr_1.51          rlang_1.1.7        
+[43] gridtext_0.1.5      Rcpp_1.1.1         
+[45] glue_1.8.0          xml2_1.5.2         
+[47] R6_2.6.1           
+> sessioninfo::session_info()
+─ Session info ──────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.2
+ system   aarch64, darwin20
+ ui       Positron
+ language (EN)
+ collate  C.UTF-8
+ ctype    C.UTF-8
+ tz       America/Chicago
+ date     2026-02-09
+ pandoc   NA
+ quarto   1.7.32 @ /Applications/Positron.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ──────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [1] CRAN (R 4.5.0)
+ assertthat             0.2.1    2019-03-21 [1] CRAN (R 4.5.0)
+ beeswarm               0.4.0    2021-06-01 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocParallel         * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ bitops                 1.0-9    2024-10-03 [1] CRAN (R 4.5.0)
+ caTools              * 1.18.3   2024-09-04 [1] CRAN (R 4.5.0)
+ cli                    3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ codetools              0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
+ colorout             * 1.3-3    2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ data.table           * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ DelayedArray           0.36.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ dichromat              2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
+ dplyr                  1.2.0    2026-02-03 [1] CRAN (R 4.5.2)
+ escheR               * 1.10.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ evaluate               1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ farver                 2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
+ FastKNN              * 0.0.1    2015-02-12 [1] CRAN (R 4.5.0)
+ FNN                  * 1.1.4.1  2024-09-22 [1] CRAN (R 4.5.0)
+ generics             * 0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ ggbeeswarm             0.7.3    2025-11-29 [1] CRAN (R 4.5.2)
+ ggplot2              * 4.0.2    2026-02-03 [1] CRAN (R 4.5.2)
+ ggrastr              * 1.0.2    2023-06-01 [1] CRAN (R 4.5.0)
+ ggtext               * 0.1.2    2022-09-16 [1] CRAN (R 4.5.0)
+ glue                   1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
+ gridExtra            * 2.3      2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext               0.1.5    2022-09-16 [1] CRAN (R 4.5.0)
+ gtable                 0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
+ here                   1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ knitr                  1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ lattice                0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ magick                 2.9.0    2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ Matrix                 1.7-4    2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0    2025-01-07 [1] CRAN (R 4.5.0)
+ otel                   0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly           * 1.46.1   2026-01-08 [1] CRAN (R 4.5.2)
+ pdist                  1.2.1    2022-05-02 [1] CRAN (R 4.5.0)
+ pillar                 1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig              2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
+ R6                     2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
+ RColorBrewer           1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rprojroot              2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ S4Arrays               1.10.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ S7                     0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
+ scales                 1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ sessioninfo            1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8   2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ tibble                 3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect             1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
+ vctrs                  0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
+ vipor                  0.4.7    2023-12-18 [1] CRAN (R 4.5.0)
+ withr                  3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
+ xfun                   0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ xml2                   1.5.2    2026-01-17 [1] CRAN (R 4.5.2)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+─────────────────────────────────────────────

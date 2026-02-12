@@ -1,0 +1,77 @@
+---
+title: "03-Banksy_XenLCmanual_visiumbayesspace_regist"
+author: "Bernie Mulvey"
+date: "12/12/2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+load registration results
+```{r}
+regs <- readRDS("processed-data/04_Banksy_clusterings/03-BankyToManual_BanksyToVisium_registration_cors.RDS")
+
+regs[1:2] <- mapply(X=regs[1:2],N=names(regs)[1:2],SIMPLIFY = FALSE,function(X,N){y <- copy(X)
+y[,No:=NULL] # since there's just an LC and non-LC in the manual annots, we can dump the other since the correl is just inverse
+y <- melt.data.table(y,id.vars=c("banksy_run","Xen_clust","Ntopxenmks"))
+y[,variable:=as.character(variable)]
+y[,variable:=N]
+return(y)})
+
+regs$LFF_Visium_9clust <- melt.data.table(regs$LFF_Visium_9clust,id.vars = c("banksy_run","Xen_clust","Ntopxenmks"))
+regs$LFF_Visium_9clust[,variable:=as.character(variable)]
+regs$LFF_Visium_9clust[,variable:=paste0("Vis_",variable)]
+
+regs <- rbindlist(regs)
+```
+
+# plot registration results as heatmaps for N=20 top genes
+```{r}
+heatreg <- regs[Ntopxenmks==20]
+
+library(parallel)
+plts <- mclapply(unique(heatreg$banksy_run),mc.cores=8,function(x){
+  tmpdat <- heatreg[banksy_run==x]
+  nx <- length(unique(heatreg$Xen_clust))
+  reord <- paste0("X",c(1:nx))
+  tmpdat[,Xen_clust:=factor(Xen_clust,levels=rev(reord))]
+  plt <- ggplot(aes(x=variable,y=Xen_clust,fill=value),data=tmpdat)+geom_tile()+scale_fill_viridis_c(name="Correlation",limits=c(-1,1))+theme(axis.text.x = element_text(angle=45,hjust=1))+labs(x="Reference Clust",y="XenLC Cluster",title=paste0("Banksy Run ",x," - Registration Correlations (N=20 Top Xen Markers)"))
+})
+
+print(plts[[1]])
+
+
+```

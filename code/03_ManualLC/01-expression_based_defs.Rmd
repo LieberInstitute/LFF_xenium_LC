@@ -1,0 +1,162 @@
+---
+title: "01-Count_based_LC_definition"
+author: "Bernie Mulvey"
+date: "2025-11-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+load spe
+```{r}
+lcx <- readRDS("processed-data/01_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+```
+
+```{r}
+tmpct <- c("CHGB", "DBH", "DDC", "GAL", "GPX3", "GPX4", "MAOA", "SLC6A2", "SLC18A2", "SNCG", "TH")
+
+ctt <- as.data.table(as.data.table(as.data.frame(as.matrix(t(logcounts(lcx[tmpct,]))))),keep.rownames=T)
+
+plts <- lapply(names(ctt)[2:ncol(ctt)],function(g){
+  p <- ggplot(ctt[get(g)>0,],aes(x=get(g)) ) +
+    geom_histogram(bins=100) +
+    labs(title=paste0("Density of counts for gene: ",g),x="Counts",y="Number of spots")
+  return(p)
+})
+do.call("grid.arrange",c(plts,nrow=3))
+
+## basically DBH 6A2 and TH show bimodal distributions above 0, with the trough between right around 3.75
+dev.off()
+
+## how many have any one of these genes > 3.75
+ctt[DBH>3.75 | SLC6A2>3.75 | TH>3.75] ## 11785
+
+## how many all 3 over
+ctt[DBH>3.75 & SLC6A2>3.75 & TH>3.75] ## 5490
+
+## we only need those three genes the data so remake
+tmpct <- c("DBH", "SLC6A2", "TH")
+
+ctt <- as.data.table(as.data.frame(as.matrix(t(logcounts(lcx[tmpct,])))),keep.rownames=T)
+ctt <- merge.data.table(ctt,as.data.table(colData(lcx),keep.rownames=T),by="rn")
+```
+
+### what do the cell / nuc sizes look like for the two cutoffs
+```{r}
+ctt[,LCdef:="No"]
+ctt[DBH>3.75 | SLC6A2>3.75 | TH>3.75,LCdef:="Loose"]
+ctt[DBH>3.75 & SLC6A2>3.75 & TH>3.75,LCdef:="Strict"]
+
+
+## these plots will not represent all loose definition cells, only those that do not additionally meet the strict criterion.
+ctt[,LCdef:=factor(LCdef,levels=c("No","Loose","Strict"))]
+ggplot(ctt,aes(x=log10(cell_area),fill=LCdef))+
+  geom_density(alpha=0.4)
+
+ctt[,LCdef:=factor(LCdef,levels=c("No","Loose","Strict"))]
+ggplot(ctt,aes(x=log10(nucleus_area),fill=LCdef))+
+  geom_density(alpha=0.4)
+
+## THIS will show all the loose cells vs non-LC
+ctt[,LCdef:="No"]
+ctt[DBH>3.75 | SLC6A2>3.75 | TH>3.75,LCdef:="Loose"]
+
+ctt[,LCdef:=factor(LCdef,levels=c("No","Loose"))]
+ggplot(ctt,aes(x=log10(cell_area),fill=LCdef))+
+  geom_density(alpha=0.4)
+
+ggplot(ctt,aes(x=log10(nucleus_area),fill=LCdef))+
+  geom_density(alpha=0.4)
+
+```
+
+Interestingly, the loose-definition-only cells seem to sometimes have smaller cell/nucleus areas than non-LC cells. they also have a smaller peak of cells larger in area than non-LC (presumably driven by NM segmentations). the density of these two peaks (smaller/greater than non-LC respectively) is reversed for the high stringency definition. 
+
+If we plot ALL loose def cells (including those that also meet strict criterion), then there's a narrow peak of cells with area < nonLC and a wider one with >LC of about the same height.
+
+```{r}
+ctt[,LCloose:="No"]
+ctt[DBH>3.75 | SLC6A2>3.75 | TH>3.75,LCloose:="LC"]
+
+ctt[,LCstrict:="No"]
+ctt[DBH>3.75 & SLC6A2>3.75 & TH>3.75,LCstrict:="LC"]
+
+outt <- ctt[,.(rn,LCloose,LCstrict)]
+```
+
+now let's see if we can infer which cells were new additions based on the NM segmentation. (cells that were not modified by adding the NM segmentation seemed to wind up with the same cell ID as before)
+```{r}
+oglc <- readRDS("processed-data/01_spe/DAPIraw_combined_spe.RDS")
+# make cell ID formats the same as lcx
+oglc$brnum <- gsub(oglc$brnum,pattern="-",replacement="")
+oglc$brnum <- gsub(oglc$brnum,pattern=" $",replacement="")
+colnames(oglc) <- paste0(oglc$brnum,"_",oglc$cell_id)
+
+# see what cell IDs are new to the NM-DAPI seg
+newcell <- colnames(lcx)[!(colnames(lcx) %in% colnames(oglc))]
+sum(colnames(lcx) %in% colnames(oglc)) # 2
+
+## okay that approach is a no go. what about doing it by coordinates
+rownames(spatialCoords(oglc)) <- colnames(oglc)
+
+ogspc <- as.data.table(spatialCoords(oglc),keep.rownames=T)
+setnames(ogspc,c(2:3),paste0(names(ogspc)[2:3],"_og"))
+lcspc <- as.data.table(spatialCoords(lcx),keep.rownames=T)
+
+lcspcmatch <- merge.data.table(ogspc,lcspc,by.x=c("x_centroid_og","y_centroid_og"),by.y=c("x_centroid","y_centroid"))
+length(unique(lcspcmatch$rn.y))
+
+## hrm this only gets us 434320 cells. so the NM+ cells are probably among the remaining 66k, but so would be others..
+
+newcells <- lcx[,!(colnames(lcx) %in% lcspcmatch$rn.y)]
+ncol(newcells)
+
+## well, lets try this. how many of these nm-gained cells are in the LC definitions?
+outt2 <- outt[rn %in% colnames(newcells)]
+outt2[,.N,by="LCstrict"] # 4335 of 5490 (79%)
+outt2[,.N,by="LCloose"] # 7293 of 11785 (62%)
+
+
+# cool. so we can identify the majority of LC cells that were gained (or altered in terms of centroids) by the NM segmentation. useful for benchmarking purposes at least
+
+outt <- outt[,NMgained_or_altered_LCstrict:="No"]
+outt <- outt[rn %in% colnames(newcells)&LCstrict=="LC",NMgained_or_altered_LCstrict:="Yes"]
+
+outt[,NMgained_or_altered_LCloose:="No"]
+outt <- outt[rn %in% colnames(newcells)&LCloose=="LC",NMgained_or_altered_LCloose:="Yes"]
+
+fwrite(outt,"processed-data/03_ManualLC/01-XprBasedLClabels_and_cellSegsGainedorAlteredByNM.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
