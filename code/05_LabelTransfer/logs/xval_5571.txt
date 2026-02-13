@@ -1,12 +1,11 @@
 **** Job starts ****
-Thu Feb 12 08:39:23 PM EST 2026
+Fri Feb 13 01:43:52 PM EST 2026
 **** SLURM info ****
 User: bmulvey
-Job id: 28460760
+Job id: 28610436
 Job name: cv
-Hostname: compute-114
+Hostname: compute-177
 Task id: 
-Unloading conda_R/4.3.x
 Loading conda_R/4.3.x
 
 Currently Loaded Modules:
@@ -223,6 +222,4 @@ The following object is masked from ‘package:Seurat’:
 [25] "Br1039"         "Br6119(re-dis)" "Br1706"         "Br1285"        
 [29] "Br5634"         "Br6263"        
 
-Replicate 1, rank: 55  'as(<ngCMatrix>, "dgCMatrix")' is deprecated.
-Use 'as(., "dMatrix")' instead.
-See help("Deprecated") and help("Matrix-deprecated").
+Replicate 1, rank: 

@@ -1,12 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=cv
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=300G
+#SBATCH --mem=60G
+#SBATCH --constraint="sapphirerapids"
 #SBATCH --output=logs/xval_5571.txt
 #SBATCH --error=logs/xval_5571.txt
 #SBATCH --mail-type=END
 #SBATCH --mail-user=bernie.mulvey@libd.org
-#SBATCH --time=2-00:00:00
+#SBATCH --time=3-00:00:00
 
 echo "**** Job starts ****"
 date
