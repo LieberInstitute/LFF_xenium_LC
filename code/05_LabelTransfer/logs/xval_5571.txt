@@ -222,4 +222,14 @@ The following object is masked from ‘package:Seurat’:
 [25] "Br1039"         "Br6119(re-dis)" "Br1706"         "Br1285"        
 [29] "Br5634"         "Br6263"        
 
-Replicate 1, rank: 
+Replicate 1, rank: 55  'as(<ngCMatrix>, "dgCMatrix")' is deprecated.
+Use 'as(., "dMatrix")' instead.
+See help("Deprecated") and help("Matrix-deprecated").
+56  57  58  59  60  61  62  63  64  65  66  67  68  69  70  71  
+Replicate 2, rank: 55  56  57  58  59  60  61  62  63  64  65  66  67  68  69  70  71  
+Replicate 3, rank: 55  56  57  58  59  60  61  62  63  64  65  66  67  68  69  70  71  Error in grid.newpage() : 
+  could not open file 'plots/00_prelimplotsBJM/05_Visdomaintransfer/05a-LCposOnly_Vis_NMF_crossval_k55to71.png'
+Calls: <Anonymous> -> print.ggplot2::ggplot -> grid.newpage
+Execution halted
+**** Job ends ****
+Sat Feb 14 08:27:04 AM EST 2026
