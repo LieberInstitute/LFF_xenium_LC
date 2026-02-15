@@ -16,8 +16,9 @@ setnames(louvs,2,"clusid")
 finalann <- fread("../LFF_spatial_LC/processed-data/07_2_LCsampsonly_featureSelection_dimred_harmony_clustering/08_2-25hdg75svg_louv1_annots.txt")
 
 louvs <- merge.data.table(louvs,finalann,by="clusid")
-louvs <- DataFrame(louvs,row.names=louvs$rn)[colnames(lc3),]
+louvs <- DataFrame(louvs,row.names=louvs$rn)[colnames(lcv),]
 
+ncol(lcv) # sanity check-120k instead for reprocessed data instead of 130somethingk
 colLabels(lcv) <- louvs$anno
 
 rm(vdom,vanno)
