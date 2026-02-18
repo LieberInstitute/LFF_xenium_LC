@@ -1,0 +1,347 @@
+---
+title: "07-LCsmooth_knnstep1_k20_step2_k75_thresholdsViz"
+author: "Bernie Mulvey"
+date: "02-17-2026"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(ggrastr)
+library(SpatialExperiment)
+library(escheR)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(parallel)
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+first let's make some plots of the relationship between visium registration scores and manual LC label inclusion
+```{r}
+regs <- fread("processed-data/05_LabelTransfer/07c-NMF_to_KNNksmoothedLCs_regist_to_manXenLC_visLC.txt")
+
+regsplt1 <- regs[Ntopdommks %in% c(10,40,70,100,130,160,190,220,250,280,300)]
+regsplt1 <- melt.data.table(regsplt1,id.vars = c("domainDef","Ntopdommks","looseInDom","strictInDom","k1","k2"))
+
+pdf("plots/05_Visdomaintransfer/07a_LFFvis_regist_andStrictManCellprop_top300mks_k2facet.pdf",height=10,width=5.5)
+ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Visium"],aes(x=strictInDom,y=value,color=factor(k1)))+
+  geom_point()+
+  facet_wrap(~k2,ncol=4)+
+  ylab("Registration to Visium LC")
+dev.off()
+
+#
+
+pdf("plots/05_Visdomaintransfer/07b_XenManStrict_regist_andStrictManCellprop_top300mks_k2facet.pdf",height=7,width=5.5)
+ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Xenium_strict"],aes(x=strictInDom,y=value,color=factor(k1)))+
+  geom_point()+
+  facet_wrap(~k2,ncol=4)+
+  ylab("Registration to Strict-Definition Xenium Manual LC Cells")
+dev.off()
+
+#
+
+pdf("plots/05_Visdomaintransfer/07c_XenLoose_regist_andStrictManCellprop_top300mks_k2facet.pdf",height=7,width=5.5)
+ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Xenium_loose"],aes(x=strictInDom,y=value,color=factor(k1)))+
+  geom_point()+
+  facet_wrap(~k2,ncol=4)+
+  ylab("Registration to Loose-Definition Xenium Manual LC Cells")
+dev.off()
+
+## how much better does each  domain definition register to Visium compared to strictly defined LC cells alone?
+pdf("plots/05_Visdomaintransfer/07d_LFFvis-LFFXenstrict_registdiff_top300mks_k1facet.pdf",height=7,width=5.5)
+ggplot(regs[Ntopdommks==300],aes(y=(LFF_Visium-LFF_Xenium_strict),x=k2))+
+  geom_point()+
+  facet_wrap(~k1)
+dev.off()
+
+pdf("plots/05_Visdomaintransfer/07e_LFFvis-LFFXenstrict_registdiff_top50mks_k1facet.pdf",height=7,width=5.5)
+ggplot(regs[Ntopdommks==50],aes(y=(LFF_Visium-LFF_Xenium_strict),x=k2))+
+  geom_point()+
+  facet_wrap(~k1)
+dev.off()
+
+pdf("plots/05_Visdomaintransfer/07e_LFFvis-LFFXenstrict_registdiff_top20mks_k1facet.pdf",height=7,width=5.5)
+ggplot(regs[Ntopdommks==20],aes(y=(LFF_Visium-LFF_Xenium_strict),x=k2))+
+  geom_point()+
+  facet_wrap(~k1)
+dev.off()
+```
+
+## where I'm looking: k1=0.05 and k2=0.12/0.28/0.36; k=0.1 and k2 0.12/0.28(!)/0.36(!)/0.44/0.52 and k1=0.15 w k2= 0.12/.52/.6
+
+```{r}
+dualscores <- readRDS("processed-data/05_LabelTransfer/06b-LCknnsmoothing_step2k75.RDS")
+
+spe <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+logcounts(spe) <- NULL #dont need it
+```
+
+```{r}
+pal <- readRDS("../LFF_spatial_LC/plots/finalpal_somuchfornorainbows.RDS")
+
+names(pal)
+pal <- pal[c(1,4)]
+names(pal)[2] <- "Other"
+```
+
+## run through the combos that seem promising on both visium registration and LC cell retention
+# plots with one donor's xenium sample and all visium samples in a row for each threshold
+```{r}
+lcv <- readRDS("../LFF_spatial_LC/processed-data/06-LCposDonorsOnly_countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+
+vdom <- fread("../LFF_spatial_LC/processed-data/07_2_LCsampsonly_featureSelection_dimred_harmony_clustering/04_2-LConly_HDG_SVG_2575_Louv1_clustering.txt")
+setnames(vdom,2,"clusid")
+
+vanno <- fread("../LFF_spatial_LC/processed-data/07_2_LCsampsonly_featureSelection_dimred_harmony_clustering/08_2-25hdg75svg_louv1_annots.txt")
+vdom <- merge.data.table(vdom,vanno[,.(clusid,anno)],by="clusid")
+vdom[,anno:=ifelse(anno=="LC","LC","Other")]
+vdom <- DataFrame(vdom,row.names=vdom$rn)[colnames(lcv),]
+
+colLabels(lcv) <- vdom$anno
+
+rm(vdom,vanno)
+
+lcv$brnum[lcv$brnum=="Br6119(re-dis)"] <- "Br6119"
+## drop 1691 (outside LC on xenium)
+lcv <- lcv[,!(lcv$brnum %in% paste0("Br1691"))]
+
+## we also want to match left/right sections here so change brnum to reflect the hemi of origin
+lcv$brnum <- paste0(lcv$brnum,lcv$hemisphere)
+lcv$brnum <- gsub(lcv$brnum,pattern="(Br.*)R",replacement="\\1")
+sum(unique(lcv$brnum) %in% unique(spe$brnum))==length(unique(spe$brnum)) # k we good
+
+### same plotting function as above, but one plot file per threshold set and incorporating visium samples
+k1thresh <- seq(0.05,0.15,0.05)
+setDTthreads(1,restore_after_fork = FALSE)
+lapply(k1thresh,function(k1){
+  if (k1==0.05){
+    k2s <- c(0.12,0.28,0.36)
+  } else if (k1==0.1){
+    k2s <- c(0.12,0.28,0.36,0.44,0.52)
+  } else if (k1==0.15){
+    k2s <- c(0.12,0.52,0.6)
+  }
+
+  n <- paste0("k1thresh_",k1)
+  d <- copy(dualscores[[n]]) # single brackets don't return a d.t. i guess, but double brackets do
+
+  lapply(k2s,function(k2){
+    d <- as.data.table(d)
+    d[,isLC:=ifelse(lcpred.smooth1.k20>k1 & lcpred.smooth2.k75>k2,"LC","Other")]
+    d2 <- DataFrame(d,row.names=d$rn)[colnames(spe),]
+    spe$pltclus <- d2$isLC
+    
+    plts <- list()
+    j<-1
+    for (j in c(1:length(unique(spe$brnum)))){
+      s <- unique(spe$brnum)[j]
+      sublist <- list()
+      px <- make_escheR(spe[,spe$brnum==s], y_reverse=FALSE)
+      px <- rasterize(add_fill(p = px,var="pltclus",size=0.7,point_size=0.7),layers="Points",dpi=300,dev="cairo_png")
+      px <- px+scale_fill_manual(values = pal) + guides(fill="none",color="none")
+      px <- px+ggtitle(s)
+
+      sublist[[1]] <- px
+
+      i<-1
+      for (i in c(1:length(unique(lcv[,lcv$brnum==s]$sample_id)))){
+        curs <- unique(lcv[,lcv$brnum==s]$sample_id)[i]
+        curd <- lcv[,lcv$brnum==s & lcv$sample_id==curs]
+        px <- make_escheR(curd, y_reverse=FALSE)
+        px <- rasterize(add_fill(p=px,var="label",size=1.25,point_size=1.25),layers="Points",dpi=300,dev="cairo_png")
+        px <- px+scale_fill_manual(
+          values = pal)+guides(color="none",fill="none")
+        px <- px+ggtitle(curs)
+        sublist[[(i+1)]] <- px
+      }
+      ## arrange the xenium and visium plots into one row (ncol=length(sublist))
+      retobj <- gridExtra::arrangeGrob(grobs = sublist, ncol = length(sublist))
+      ## add that arrangement to one slot of the plts list
+      plts[[j]] <- retobj
+    }
+    # flat_plts <- do.call(c, plts)
+    # args_list <- c(flat_plts, list(nrow = length(plts)))
+    png(paste0("plots/05_Visdomaintransfer/07f-NMFtransferLC_smoothedDom_knn20_k1_",k1,"_knn75_k2_",k2,"_VisCompare.png"),height=4*length(plts),width=14,units = "in",res=150)
+    # one column = one entry in plts (==a xenvis row):
+    grid.arrange(grobs=plts,ncol=1) 
+    dev.off()
+  })
+})
+
+
+
+
+
+
+
+
+```
+
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.2
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] BiocParallel_1.44.0         parallelly_1.46.1          
+ [3] colorout_1.3-3              escheR_1.10.0              
+ [5] SpatialExperiment_1.20.0    SingleCellExperiment_1.32.0
+ [7] SummarizedExperiment_1.40.0 Biobase_2.70.0             
+ [9] GenomicRanges_1.62.1        Seqinfo_1.0.0              
+[11] IRanges_2.44.0              S4Vectors_0.48.0           
+[13] BiocGenerics_0.56.0         generics_0.1.4             
+[15] MatrixGenerics_1.22.0       matrixStats_1.5.0          
+[17] ggrastr_1.0.2               gridExtra_2.3              
+[19] ggtext_0.1.2                ggplot2_4.0.1              
+[21] data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6        beeswarm_0.4.0      rjson_0.2.23        xfun_0.56          
+ [5] lattice_0.22-7      vctrs_0.7.1         tools_4.5.2         tibble_3.3.1       
+ [9] pkgconfig_2.0.3     Matrix_1.7-4        RColorBrewer_1.1-3  S7_0.2.1           
+[13] lifecycle_1.0.5     compiler_4.5.2      farver_2.1.2        codetools_0.2-20   
+[17] vipor_0.4.7         htmltools_0.5.9     yaml_2.3.12         pillar_1.11.1      
+[21] rsconnect_1.7.0     DelayedArray_0.36.0 sessioninfo_1.2.3   magick_2.9.0       
+[25] abind_1.4-8         tidyselect_1.2.1    digest_0.6.39       dplyr_1.1.4        
+[29] rprojroot_2.1.1     fastmap_1.2.0       grid_4.5.2          here_1.0.2         
+[33] cli_3.6.5           SparseArray_1.10.8  magrittr_2.0.4      S4Arrays_1.10.1    
+[37] dichromat_2.0-0.1   withr_3.0.2         scales_1.4.0        ggbeeswarm_0.7.3   
+[41] rmarkdown_2.30      XVector_0.50.0      otel_0.2.0          evaluate_1.0.5     
+[45] knitr_1.51          rlang_1.1.7         gridtext_0.1.5      Rcpp_1.1.1         
+[49] glue_1.8.0          xml2_1.5.2          rstudioapi_0.18.0   R6_2.6.1           
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.2
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2026-02-02
+ rstudio  2026.01.0+392 Apple Blossom (desktop)
+ pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ─────────────────────────────────────────────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [1] CRAN (R 4.5.0)
+ beeswarm               0.4.0    2021-06-01 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocParallel         * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ cli                    3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ codetools              0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
+ colorout             * 1.3-3    2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ data.table           * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ DelayedArray           0.36.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ dichromat              2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
+ digest                 0.6.39   2025-11-19 [1] CRAN (R 4.5.2)
+ dplyr                  1.1.4    2023-11-17 [1] CRAN (R 4.5.0)
+ escheR               * 1.10.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ evaluate               1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ farver                 2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
+ fastmap                1.2.0    2024-05-15 [1] CRAN (R 4.5.0)
+ generics             * 0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ ggbeeswarm             0.7.3    2025-11-29 [1] CRAN (R 4.5.2)
+ ggplot2              * 4.0.1    2025-11-14 [1] CRAN (R 4.5.2)
+ ggrastr              * 1.0.2    2023-06-01 [1] CRAN (R 4.5.0)
+ ggtext               * 0.1.2    2022-09-16 [1] CRAN (R 4.5.0)
+ glue                   1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
+ gridExtra            * 2.3      2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext               0.1.5    2022-09-16 [1] CRAN (R 4.5.0)
+ gtable                 0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
+ here                   1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ htmltools              0.5.9    2025-12-04 [1] CRAN (R 4.5.2)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ knitr                  1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ lattice                0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ magick                 2.9.0    2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ Matrix                 1.7-4    2025-08-28 [1] CRAN (R 4.5.2)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0    2025-01-07 [1] CRAN (R 4.5.0)
+ otel                   0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly           * 1.46.1   2026-01-08 [1] CRAN (R 4.5.2)
+ pillar                 1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig              2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
+ R6                     2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
+ RColorBrewer           1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rmarkdown              2.30     2025-09-28 [1] CRAN (R 4.5.0)
+ rprojroot              2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ rsconnect              1.7.0    2025-12-06 [1] CRAN (R 4.5.2)
+ rstudioapi             0.18.0   2026-01-16 [1] CRAN (R 4.5.2)
+ S4Arrays               1.10.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ S7                     0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
+ scales                 1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ sessioninfo            1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ SparseArray            1.10.8   2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ tibble                 3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect             1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
+ vctrs                  0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
+ vipor                  0.4.7    2023-12-18 [1] CRAN (R 4.5.0)
+ withr                  3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
+ xfun                   0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ xml2                   1.5.2    2026-01-17 [1] CRAN (R 4.5.2)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ yaml                   2.3.12   2025-12-10 [1] CRAN (R 4.5.2)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+────────────────────────────────────────────────────────────────────────────────────
