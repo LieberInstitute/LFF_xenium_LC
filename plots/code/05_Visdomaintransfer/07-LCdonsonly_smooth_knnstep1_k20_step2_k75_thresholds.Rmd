@@ -92,7 +92,7 @@ ggplot(regs[Ntopdommks==20],aes(y=(LFF_Visium-LFF_Xenium_strict),x=k2))+
 dev.off()
 ```
 
-## where I'm looking: k1=0.05 and k2=0.12/0.28/0.36; k=0.1 and k2 0.12/0.28(!)/0.36(!)/0.44/0.52 and k1=0.15 w k2= 0.12/.52/.6
+## where I'm looking: k1=0.05 and k2=0.12/0.28/0.36; k=0.1 and k2 0.12/0.28(!)/0.36(!)/0.44/0.52 and k1=0.15 w k2= 0.12/0.2/.52/.6
 
 ```{r}
 dualscores <- readRDS("processed-data/05_LabelTransfer/06b-LCknnsmoothing_step2k75.RDS")
@@ -112,6 +112,7 @@ names(pal)[2] <- "Other"
 
 ## run through the combos that seem promising on both visium registration and LC cell retention
 # plots with one donor's xenium sample and all visium samples in a row for each threshold
+## recall that we used >= for the cutoffs when registering + calculating stats plotted above!!
 ```{r}
 lcv <- readRDS("../LFF_spatial_LC/processed-data/06-LCposDonorsOnly_countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
 
@@ -145,7 +146,7 @@ lapply(k1thresh,function(k1){
   } else if (k1==0.1){
     k2s <- c(0.12,0.28,0.36,0.44,0.52)
   } else if (k1==0.15){
-    k2s <- c(0.12,0.52,0.6)
+    k2s <- c(0.12,0.2,0.52,0.6)
   }
 
   n <- paste0("k1thresh_",k1)
@@ -153,7 +154,7 @@ lapply(k1thresh,function(k1){
 
   lapply(k2s,function(k2){
     d <- as.data.table(d)
-    d[,isLC:=ifelse(lcpred.smooth1.k20>k1 & lcpred.smooth2.k75>k2,"LC","Other")]
+    d[,isLC:=ifelse(lcpred.smooth1.k20>=k1 & lcpred.smooth2.k75>=k2,"LC","Other")]
     d2 <- DataFrame(d,row.names=d$rn)[colnames(spe),]
     spe$pltclus <- d2$isLC
     
@@ -193,14 +194,6 @@ lapply(k1thresh,function(k1){
     dev.off()
   })
 })
-
-
-
-
-
-
-
-
 ```
 
 ```{r}
