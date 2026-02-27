@@ -1,7 +1,7 @@
 ---
 title: "04-LCsmooth_knnstep1_k20_step2_k75_thresholdsViz"
 author: "Bernie Mulvey"
-date: "02-10-2026"
+date: "02-26-2026"
 output: html_document
 ---
 
@@ -143,17 +143,17 @@ k1thresh <- seq(0.05,0.3,0.05)
 setDTthreads(1,restore_after_fork = FALSE)
 lapply(k1thresh,function(k1){
   if (k1==0.05){
-    k2s <- c(0.3,0.35,0.4,0.45,0.5,0.55)
+    k2s <- seq(0.28,0.6,by=0.08)
   } else if (k1==0.1){
-    k2s <- c(0.25,0.3,0.35,0.4,0.45,0.5,0.55)
+    k2s <- seq(0.2,0.6,0.08)
   } else if (k1==0.15){
-    k2s <- c(0.15,0.2,0.25,0.3)
+    k2s <- 0.04 # k2s <- seq(0.04,0.12,0.36,0.08)
   } else if (k1==0.2){
-    k2s <- c(0.05,0.1,0.15,0.3)
+    k2s <- seq(0.04,0.36,0.08)
   } else if (k1==0.25) {
-    k2s <- c(0.05,0.1,0.15)
+    k2s <- seq(0.04,0.2,0.08)
   } else if (k1==0.3){
-    k2s <- c(0.05,0.1)
+    k2s <- c(0.04,0.12)
   }
 
   n <- paste0("k1thresh_",k1)
@@ -161,7 +161,7 @@ lapply(k1thresh,function(k1){
 
   lapply(k2s,function(k2){
     d <- as.data.table(d)
-    d[,isLC:=ifelse(lcpred.smooth1.k20>k1 & lcpred.smooth2.k75>k2,"LC","Other")]
+    d[,isLC:=ifelse(lcpred.smooth1.k20>=k1 & lcpred.smooth2.k75>=k2,"LC","Other")]
     d2 <- DataFrame(d,row.names=d$rn)[colnames(spe),]
     spe$pltclus <- d2$isLC
     
