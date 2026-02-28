@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=cv
+#SBATCH --job-name=lxfr
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=300G
 #SBATCH --output=logs/06_nmfLT66.txt
@@ -23,7 +23,7 @@ module load conda_R/4.3.x
 module list
 
 ## NMF script
-Rscript 06-WebDivToXen_nmfLabelTransfer_k66.R
+Rscript 06-WebDivToXen_nmfLT66.R
 
 echo "**** Job ends ****"
 date
