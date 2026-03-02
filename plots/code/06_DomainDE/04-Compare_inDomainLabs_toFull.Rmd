@@ -1,0 +1,231 @@
+---
+title: "04-Compare_DomainLabXfer_toVis"
+author: "Bernie Mulvey"
+date: "03-01-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(ggrastr)
+library(gridExtra)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+library(parallel)
+
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 7,color = "#000000"), axis.title.x = element_text(size = 8,color = "#000000"), axis.text.y = element_text(size = 7,color = "#000000"), axis.title.y = element_text(size =8,color = "#000000"), plot.title = element_markdown(size = 8,hjust=0.5,color = "#000000"), strip.text = element_text(size=8), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=7,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.25),panel.grid.major = element_line(linewidth=0.25),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+fullde <- readRDS("processed-data/06_DomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
+
+fulldes <- list(
+  dom0528=list(fullde$dom0528$ApoAllelesLabel$detabs,fullde$dom0528$E2E4label$detabs,fullde$dom0528$sexlabel$detabs,fullde$dom0528$YRIAPOlabel$detabs),
+  dom1020=list(fullde$dom1020$ApoAllelesLabel$detabs,fullde$dom1020$E2E4label$detabs,fullde$dom1020$sexlabel$detabs,fullde$dom1020$YRIAPOlabel$detabs),
+  dom1512=list(fullde$dom1512$ApoAllelesLabel$detabs,fullde$dom1512$E2E4label$detabs,fullde$dom1512$sexlabel$detabs,fullde$dom1512$YRIAPOlabel$detabs))
+
+names(fulldes[[1]]) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+names(fulldes[[2]]) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+names(fulldes[[3]]) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+
+subde <- readRDS("processed-data/06_DomainDE/04-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_withinLCVisLabs.RDS")
+
+subdes <- list(
+  dom0528=list(subde$dom0528$ApoAllelesLabel$detabs,subde$dom0528$E2E4label$detabs,subde$dom0528$sexlabel$detabs,subde$dom0528$YRIAPOlabel$detabs),
+  dom1020=list(subde$dom1020$ApoAllelesLabel$detabs,subde$dom1020$E2E4label$detabs,subde$dom1020$sexlabel$detabs,subde$dom1020$YRIAPOlabel$detabs),
+  dom1512=list(subde$dom1512$ApoAllelesLabel$detabs,subde$dom1512$E2E4label$detabs,subde$dom1512$sexlabel$detabs,subde$dom1512$YRIAPOlabel$detabs))
+
+
+names(subdes[[1]]) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+names(subdes[[2]]) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+names(subdes[[3]]) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+
+
+rm(fullde,subde)
+```
+
+```{r}
+fulldes <- lapply(fulldes,function(x){
+  z <- lapply(x,function(a){
+    y <- rbindlist(a,idcol="contrast",fill=T)
+    return(y)
+  })
+  y <- rbindlist(z,fill=T)
+  y[,gene_name:=rn]
+  return(y)
+})
+
+fulldes <- lapply(fulldes,function(x){
+  x[contrast %in% grep(contrast,pattern="LC_outOfDomain",value=T),LCsub:="outDom"]
+  x[contrast %in% grep(contrast,pattern="LCdomain",value=T),LCsub:="inDom"]
+    
+  x[contrast %in% grep(contrast,pattern="LC_outOfDomain_",value=T),contrast:=gsub(contrast,pattern="LC_outOfDomain_",replacement="LC_")]
+  x[contrast %in% grep(contrast,pattern="LCdomain_",value=T),contrast:=gsub(contrast,pattern="LCdomain_",replacement="LC_")]
+  
+  return(x)
+})
+
+subdes <- lapply(subdes,function(x){
+  z <- lapply(x,function(y){
+    a <- rbindlist(y,idcol="contrast")
+    return(a)
+  })
+  z <- rbindlist(z,fill=T)
+  ## some tables don't have a gene_name column, but all have an RN column with symbol so propagate for uniformity
+  z[,gene_name:=rn]
+  return(z)
+})
+
+fulldes <- lapply(fulldes,function(x){
+  setnames(x,"t","tstatfull")
+  return(x)
+})
+
+
+subdes <- lapply(subdes,function(x){
+  setnames(x,"t","tstatinLCDom")
+  return(x)
+})
+
+fulldes <- lapply(fulldes,function(x){
+  y <- x[,.(gene_name,contrast,tstatfull,LCsub)]
+  return(y)
+})
+
+subdes <- lapply(subdes,function(x){
+  y <- x[,.(gene_name,contrast,tstatinLCDom)]
+  return(y)
+})
+```
+
+```{r}
+jtdes <- mapply(fulldes,subdes,SIMPLIFY=FALSE,FUN=function(x,y){
+  z <- merge.data.table(x,y,by=c("contrast","gene_name"))
+  z[!is.na(LCsub),contrast:=paste0(contrast,"_",LCsub)]
+  return(z)
+})
+
+keepcont <- unique(c(jtdes$dom0528$contrast,jtdes$dom1020$contrast,jtdes$dom1512$contrast))
+## except LC contrasts for which the plots are going to need to be a little different
+lccont <- grep(keepcont,pattern="LC",value=T)
+keepcont <- grep(keepcont,pattern="LC",value=T,invert=T)
+
+
+i<-1
+plts<-list()
+for (i in c(1:length(keepcont))){
+  d <- unique(keepcont)[i]
+  j<-1
+  subplt <- list()
+  for (j in c(1:length(jtdes))){
+    x <- jtdes[[j]]
+    n <- names(jtdes)[j]
+    pltdat <- x[contrast==d,]
+    minx <- min(c(pltdat$tstatfull,pltdat$tstatinLCDom),na.rm=T)
+    maxx <- max(c(pltdat$tstatfull,pltdat$tstatinLCDom),na.rm=T)
+    mm <- max(abs(c(minx,maxx)))
+    if(is.infinite(mm)){
+      mm <- 5
+    }
+    p <- ggplot(pltdat,aes(x=tstatfull,y=tstatinLCDom))+
+      geom_point(size=0.5,alpha=0.5)+
+      labs(title=paste0(d),x="Xenwide DE t",y=paste0("t-stat: Cell Type DE within LC\nDomain (smoothing",n,")"))+
+      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))
+      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+    subplt[[j]] <- p
+  }
+  retobj <- gridExtra::arrangeGrob(grobs = subplt, ncol = length(subplt))
+  plts[[i]] <- retobj
+}
+dev.off()
+
+png("plots/06_DomainDE/04a-Systematic_FullXen_LCXenDom_labelwise_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
+grid.arrange(grobs=plts,ncol=1)
+dev.off()
+```
+
+## for LC contrasts: we want a plot of domain DE ("indom") vs LC domain LC cells, and vs non-LC domain LC cells, as well as those two compared to each other.
+```{r}
+lccont <- unique(gsub(lccont,pattern="_outDom|_inDom",replacement=""))
+
+plts <- lapply(lccont,function(d){
+  subplt <- mapply(x=jtdes,n=names(jtdes),SIMPLIFY=FALSE,function(x,n){
+    pltdat <- x[contrast %in% grep(contrast,pattern=d,value=T)] # both indomain and out of domain contrasts
+    domainde <- pltdat[LCsub=="inDom"]
+    setnames(domainde,"tstatfull","tstat_LCdomain")
+    
+    nondomcells <- pltdat[LCsub=="outDom"]
+    setnames(nondomcells,"tstatfull","tstat_nonDomainLCcells")
+    
+    newpltdat <- merge.data.table(domainde[,.(gene_name,tstat_LCdomain)],nondomcells[,.(gene_name,tstat_nonDomainLCcells,tstatinLCDom)],by="gene_name")
+    setnames(newpltdat,"tstatinLCDom","tstat_LCdomainLCcells")
+    
+    minx <- min(c(newpltdat$tstat_LCdomain,newpltdat$tstat_nonDomainLCcells,newpltdat$tstat_LCdomainLCcells),na.rm=T)
+    maxx <- max(c(newpltdat$tstat_LCdomain,newpltdat$tstat_nonDomainLCcells,newpltdat$tstat_LCdomainLCcells),na.rm=T)
+    mm <- max(abs(c(minx,maxx)))
+    if(is.infinite(mm)){
+      mm <- 5
+    }
+    
+    p1 <- ggplot(newpltdat,aes(x=tstat_LCdomain,y=tstat_LCdomainLCcells))+
+      geom_point(size=0.5,alpha=0.5)+
+      labs(title=paste0(d),x="LC Domain DE tstat",y=paste0("LC Cells of LC Domain \n(smoothing",n,") tstat"))+
+      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))+
+      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+      
+      p2 <- ggplot(newpltdat,aes(x=tstat_LCdomain,y=tstat_nonDomainLCcells))+
+      geom_point(size=0.5,alpha=0.5)+
+      labs(title=paste0(d),x="LC Domain DE tstat",y=paste0("LC Cells OUTSIDE Domain \n(smoothing",n,") tstat"))+
+      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))+
+      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+      
+      p3 <- ggplot(newpltdat,aes(x=tstat_LCdomainLCcells,y=tstat_nonDomainLCcells))+
+      geom_point(size=0.5,alpha=0.5)+
+      labs(title=paste0(d),x=paste0("LC Cells of LC Domain \n(smoothing",n,") tstat"),y=paste0("LC Cells OUTSIDE Domain","\n(smoothing",n,") tstat"))+
+      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))+
+      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+  
+      retobj <- gridExtra::arrangeGrob(grobs = list(p1,p2,p3), ncol = 3)
+      return(retobj)
+  })
+  subret <- gridExtra::arrangeGrob(grobs=subplt,ncol=1)
+  return(subret)
+})
+png("plots/06_DomainDE/04b-Systematic_LCdomCells_nonDomLCcells_LCwholedom_DEtstat_comparisons.png",height=length(lccont)*9,width=9,unit="in",res=150)
+grid.arrange(grobs=plts,ncol=1)
+dev.off()
+
+
+```
+
+
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```

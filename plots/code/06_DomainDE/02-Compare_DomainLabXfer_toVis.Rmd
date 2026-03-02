@@ -1,0 +1,147 @@
+---
+title: "02-Compare_DomainLabXfer_toVis"
+author: "Bernie Mulvey"
+date: "03-01-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(ggrastr)
+library(gridExtra)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+library(parallel)
+
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 7,color = "#000000"), axis.title.x = element_text(size = 8,color = "#000000"), axis.text.y = element_text(size = 7,color = "#000000"), axis.title.y = element_text(size =8,color = "#000000"), plot.title = element_markdown(size = 8,hjust=0.5,color = "#000000"), strip.text = element_text(size=8), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=7,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.25),panel.grid.major = element_line(linewidth=0.25),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+visde <- readRDS("../LFF_spatial_LC/processed-data/12_DEanalyses_removedsampsAndFinalNMseg/02b-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_noMixClusts_YRIcontAndCat_JUL2025.RDS")
+visdes <- list(visde$cont_ances$ApoAllelesLabel$detabs,visde$cont_ances$E2E4label$detabs,visde$cont_ances$sexlabel$detabs,visde$cat_ances$YRIAPOlabel$detabs)
+names(visdes) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+
+xende <- readRDS("processed-data/06_DomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
+
+xendes5 <- list(xende$dom0528$ApoAllelesLabel$detabs,xende$dom0528$ApoAllelesLabel$detabs,xende$dom0528$sexlabel$detabs,xende$dom0528$YRIAPOlabel$detabs)
+names(xendes5) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+
+xendes10 <- list(xende$dom1020$ApoAllelesLabel$detabs,xende$dom1020$ApoAllelesLabel$detabs,xende$dom1020$sexlabel$detabs,xende$dom1020$YRIAPOlabel$detabs)
+names(xendes10) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+
+xendes15 <- list(xende$dom1512$ApoAllelesLabel$detabs,xende$dom1512$ApoAllelesLabel$detabs,xende$dom1512$sexlabel$detabs,xende$dom1512$YRIAPOlabel$detabs)
+names(xendes15) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
+xendes <- list(xendes5,xendes10,xendes15)
+names(xendes) <- c("dom0528","dom1020","dom1512")
+
+rm(xende,visde,xendes5,xendes10,xendes15)
+```
+
+```{r}
+visdes <- lapply(visdes,function(x){
+  y <- rbindlist(x,idcol="contrast")
+  return(y)
+})
+visdes <- rbindlist(visdes) # one giant table
+
+xendes2 <- lapply(xendes,function(x){
+  z <- lapply(x,function(y){
+    a <- rbindlist(y,idcol="contrast")
+    ## account for in/out LC
+    a[contrast %in% grep(contrast,pattern="LC_outOfDomain",value=T),LCsub:="outDom"]
+    a[contrast %in% grep(contrast,pattern="LCdomain",value=T),LCsub:="inDom"]
+    
+    a[contrast %in% grep(contrast,pattern="LC_outOfDomain_",value=T),contrast:=gsub(contrast,pattern="LC_outOfDomain_",replacement="LC_")]
+    a[contrast %in% grep(contrast,pattern="LCdomain_",value=T),contrast:=gsub(contrast,pattern="LCdomain_",replacement="LC_")]
+    return(a)
+  })
+  return(z)
+})
+
+xendes2 <- lapply(xendes2,function(x){
+  y<-rbindlist(x,fill=TRUE)
+  return(y)
+})
+rm(xende)
+
+### subset visium tab to genes found in any of these for efficiency
+visdes <- visdes[gene_name %in% unique(c(xendes2$dom0528$gene_name,xendes2$dom1020$gene_name,xendes2$dom1512$gene_name))]
+
+setnames(visdes,"t","tstat_vis")
+visdes <- visdes[,.(gene_name,contrast,tstat_vis)]
+```
+
+```{r}
+xendes2 <- lapply(xendes2,function(x){
+  y <- copy(x)
+  setnames(y,"t","tstat_xen")
+  y <- merge.data.table(y,visdes,by=c("gene_name","contrast"))
+  ## now we can append the LC in/out info back to the xenium contrasts
+  y[!is.na(LCsub),contrast:=paste0(contrast,"_",LCsub)]
+  return(y)
+})
+
+## get contrasts that are valid for comparisons
+keepcont <- unique(c(xendes2$dom0528$contrast,xendes2$dom1020$contrast,xendes2$dom1512$contrast))
+
+i<-1
+plts<-list()
+for (i in c(1:length(keepcont))){
+  d <- unique(keepcont)[i]
+  j<-1
+  subplt <- list()
+  for (j in c(1:length(xendes2))){
+    x <- xendes2[[j]]
+    n <- names(xendes2)[j]
+    pltdat <- x[contrast==d,]
+    minx <- min(c(pltdat$tstat_vis,pltdat$tstat_xen),na.rm=T)
+    maxx <- max(c(pltdat$tstat_vis,pltdat$tstat_xen),na.rm=T)
+    mm <- max(abs(c(minx,maxx)))
+    if(is.infinite(mm)){
+      mm <- 5
+    }
+    p <- ggplot(pltdat,aes(x=tstat_vis,y=tstat_xen))+
+      geom_point(size=0.5,alpha=0.5)+
+      labs(title=paste0(d),x="Visium DE t-stat",y=paste0("Xenium DE (smoothing\n",n,") t-stat"))+
+      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))
+      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+    subplt[[j]] <- p
+  }
+  retobj <- gridExtra::arrangeGrob(grobs = subplt, ncol = length(subplt))
+  plts[[i]] <- retobj
+}
+dev.off()
+
+png("plots/06_DomainDE/02-Systematic_VisXen_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
+grid.arrange(grobs=plts,ncol=1)
+dev.off()
+```
+
+
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
