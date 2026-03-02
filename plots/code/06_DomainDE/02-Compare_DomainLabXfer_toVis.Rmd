@@ -45,13 +45,13 @@ names(visdes) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
 
 xende <- readRDS("processed-data/06_DomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
 
-xendes5 <- list(xende$dom0528$ApoAllelesLabel$detabs,xende$dom0528$ApoAllelesLabel$detabs,xende$dom0528$sexlabel$detabs,xende$dom0528$YRIAPOlabel$detabs)
+xendes5 <- list(xende$dom0528$ApoAllelesLabel$detabs,xende$dom0528$E2E4label$detabs,xende$dom0528$sexlabel$detabs,xende$dom0528$YRIAPOlabel$detabs)
 names(xendes5) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
 
-xendes10 <- list(xende$dom1020$ApoAllelesLabel$detabs,xende$dom1020$ApoAllelesLabel$detabs,xende$dom1020$sexlabel$detabs,xende$dom1020$YRIAPOlabel$detabs)
+xendes10 <- list(xende$dom1020$ApoAllelesLabel$detabs,xende$dom1020$E2E4label$detabs,xende$dom1020$sexlabel$detabs,xende$dom1020$YRIAPOlabel$detabs)
 names(xendes10) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
 
-xendes15 <- list(xende$dom1512$ApoAllelesLabel$detabs,xende$dom1512$ApoAllelesLabel$detabs,xende$dom1512$sexlabel$detabs,xende$dom1512$YRIAPOlabel$detabs)
+xendes15 <- list(xende$dom1512$ApoAllelesLabel$detabs,xende$dom1512$E2E4label$detabs,xende$dom1512$sexlabel$detabs,xende$dom1512$YRIAPOlabel$detabs)
 names(xendes15) <- c("ApoAllelesLabel","E2E4label","sexlabel","YRIAPOlabel")
 xendes <- list(xendes5,xendes10,xendes15)
 names(xendes) <- c("dom0528","dom1020","dom1512")
@@ -81,7 +81,7 @@ xendes2 <- lapply(xendes,function(x){
 })
 
 xendes2 <- lapply(xendes2,function(x){
-  y<-rbindlist(x,fill=TRUE)
+  y<-rbindlist(x)
   return(y)
 })
 rm(xende)
@@ -94,6 +94,8 @@ visdes <- visdes[,.(gene_name,contrast,tstat_vis)]
 ```
 
 ```{r}
+## DE tests from 4 domains will have been run on both platforms: Astro, LC, ACHE_SERT_Npep, Oligo_Astro. However, ACHE_SERT_LC_WM was analyzed on Visium, but doesn't label transfer like at all because it's a clearly multicelltype cluster.
+
 xendes2 <- lapply(xendes2,function(x){
   y <- copy(x)
   setnames(y,"t","tstat_xen")
@@ -106,36 +108,48 @@ xendes2 <- lapply(xendes2,function(x){
 ## get contrasts that are valid for comparisons
 keepcont <- unique(c(xendes2$dom0528$contrast,xendes2$dom1020$contrast,xendes2$dom1512$contrast))
 
-i<-1
-plts<-list()
-for (i in c(1:length(keepcont))){
-  d <- unique(keepcont)[i]
-  j<-1
-  subplt <- list()
-  for (j in c(1:length(xendes2))){
-    x <- xendes2[[j]]
-    n <- names(xendes2)[j]
-    pltdat <- x[contrast==d,]
-    minx <- min(c(pltdat$tstat_vis,pltdat$tstat_xen),na.rm=T)
-    maxx <- max(c(pltdat$tstat_vis,pltdat$tstat_xen),na.rm=T)
-    mm <- max(abs(c(minx,maxx)))
-    if(is.infinite(mm)){
-      mm <- 5
+pltset <- function(con){
+  i<-1
+  plts<-list()
+  for (i in c(1:length(keepcont))){
+    d <- unique(keepcont)[i]
+    j<-1
+    subplt <- list()
+    for (j in c(1:length(xendes2))){
+      x <- xendes2[[j]]
+      n <- names(xendes2)[j]
+      pltdat <- x[contrast==d,]
+      minx <- min(c(pltdat$tstat_vis,pltdat$tstat_xen),na.rm=T)
+      maxx <- max(c(pltdat$tstat_vis,pltdat$tstat_xen),na.rm=T)
+      mm <- max(abs(c(minx,maxx)))
+      if(is.infinite(mm)){
+        mm <- 5
+      }
+      p <- ggplot(pltdat,aes(x=tstat_vis,y=tstat_xen))+
+        geom_point(size=0.5,alpha=0.5)+
+        labs(title=paste0(d),x="Visium DE t-stat",y=paste0("Xenium DE (smoothing\n",n,") t-stat"))+
+        scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+        scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))
+        geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+      subplt[[j]] <- p
     }
-    p <- ggplot(pltdat,aes(x=tstat_vis,y=tstat_xen))+
-      geom_point(size=0.5,alpha=0.5)+
-      labs(title=paste0(d),x="Visium DE t-stat",y=paste0("Xenium DE (smoothing\n",n,") t-stat"))+
-      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
-      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))
-      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
-    subplt[[j]] <- p
+    retobj <- gridExtra::arrangeGrob(grobs = subplt, ncol = length(subplt))
+    plts[[i]] <- retobj
   }
-  retobj <- gridExtra::arrangeGrob(grobs = subplt, ncol = length(subplt))
-  plts[[i]] <- retobj
+  dev.off()
+  return(plts)
 }
+
+### one with all tests
+plts <- pltset(keepcont)
+png("plots/06_DomainDE/02-Systematic_VisXen_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
+grid.arrange(grobs=plts,ncol=1)
 dev.off()
 
-png("plots/06_DomainDE/02-Systematic_VisXen_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
+## another without single-geno tests
+maincont <- grep(keepcont,pattern="hom|het",value=T,invert=T)
+plts <- pltset(maincont)
+png("plots/06_DomainDE/02b-Systematic_VisXen_tstat_comparisons_mainDEtestsonly.png",height=length(maincont)*3,width=9,unit="in",res=150)
 grid.arrange(grobs=plts,ncol=1)
 dev.off()
 ```
@@ -145,3 +159,122 @@ dev.off()
 sessionInfo()
 sessioninfo::session_info()
 ```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.2
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] gridExtra_2.3       ggrastr_1.0.2       ggtext_0.1.2        ggplot2_4.0.2      
+ [5] edgeR_4.8.2         limma_3.66.0        BiocParallel_1.44.0 parallelly_1.46.1  
+ [9] colorout_1.3-3      data.table_1.18.2.1
+
+loaded via a namespace (and not attached):
+ [1] generics_0.1.4     xml2_1.5.2         stringi_1.8.7      lattice_0.22-7    
+ [5] digest_0.6.39      magrittr_2.0.4     evaluate_1.0.5     grid_4.5.2        
+ [9] RColorBrewer_1.1-3 fastmap_1.2.0      rprojroot_2.1.1    scales_1.4.0      
+[13] codetools_0.2-20   cli_3.6.5          rlang_1.1.7        litedown_0.9      
+[17] commonmark_2.0.0   withr_3.0.2        yaml_2.3.12        otel_0.2.0        
+[21] ggbeeswarm_0.7.3   tools_4.5.2        dplyr_1.2.0        locfit_1.5-9.12   
+[25] here_1.0.2         vctrs_0.7.1        R6_2.6.1           lifecycle_1.0.5   
+[29] stringr_1.6.0      vipor_0.4.7        pkgconfig_2.0.3    beeswarm_0.4.0    
+[33] pillar_1.11.1      gtable_0.3.6       glue_1.8.0         Rcpp_1.1.1        
+[37] statmod_1.5.1      xfun_0.56          tibble_3.3.1       tidyselect_1.2.1  
+[41] rstudioapi_0.18.0  knitr_1.51         dichromat_2.0-0.1  farver_2.1.2      
+[45] htmltools_0.5.9    rmarkdown_2.30     labeling_0.4.3     compiler_4.5.2    
+[49] S7_0.2.1           markdown_2.0       gridtext_0.1.5    
+> sessioninfo::session_info()
+─ Session info ────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.2
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2026-03-02
+ rstudio  2026.01.0+392 Apple Blossom (desktop)
+ pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ────────────────────────────────────────────────────────────────────────
+ package      * version  date (UTC) lib source
+ beeswarm       0.4.0    2021-06-01 [1] CRAN (R 4.5.0)
+ BiocParallel * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ cli            3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ codetools      0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
+ colorout     * 1.3-3    2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ commonmark     2.0.0    2025-07-07 [1] CRAN (R 4.5.0)
+ data.table   * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ dichromat      2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
+ digest         0.6.39   2025-11-19 [1] CRAN (R 4.5.2)
+ dplyr          1.2.0    2026-02-03 [1] CRAN (R 4.5.2)
+ edgeR        * 4.8.2    2025-12-23 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ evaluate       1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ farver         2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
+ fastmap        1.2.0    2024-05-15 [1] CRAN (R 4.5.0)
+ generics       0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ ggbeeswarm     0.7.3    2025-11-29 [1] CRAN (R 4.5.2)
+ ggplot2      * 4.0.2    2026-02-03 [1] CRAN (R 4.5.2)
+ ggrastr      * 1.0.2    2023-06-01 [1] CRAN (R 4.5.0)
+ ggtext       * 0.1.2    2022-09-16 [1] CRAN (R 4.5.0)
+ glue           1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
+ gridExtra    * 2.3      2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext       0.1.5    2022-09-16 [1] CRAN (R 4.5.0)
+ gtable         0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
+ here           1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ htmltools      0.5.9    2025-12-04 [1] CRAN (R 4.5.2)
+ knitr          1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ labeling       0.4.3    2023-08-29 [1] CRAN (R 4.5.0)
+ lattice        0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle      1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ limma        * 3.66.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ litedown       0.9      2025-12-18 [1] CRAN (R 4.5.2)
+ locfit         1.5-9.12 2025-03-05 [1] CRAN (R 4.5.0)
+ magrittr       2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ markdown       2.0      2025-03-23 [1] CRAN (R 4.5.0)
+ otel           0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly   * 1.46.1   2026-01-08 [1] CRAN (R 4.5.2)
+ pillar         1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig      2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
+ R6             2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
+ RColorBrewer   1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp           1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rlang          1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rmarkdown      2.30     2025-09-28 [1] CRAN (R 4.5.0)
+ rprojroot      2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ rstudioapi     0.18.0   2026-01-16 [1] CRAN (R 4.5.2)
+ S7             0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
+ scales         1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
+ sessioninfo    1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ statmod        1.5.1    2025-10-09 [1] CRAN (R 4.5.0)
+ stringi        1.8.7    2025-03-27 [1] CRAN (R 4.5.0)
+ stringr        1.6.0    2025-11-04 [1] CRAN (R 4.5.0)
+ tibble         3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect     1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
+ vctrs          0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
+ vipor          0.4.7    2023-12-18 [1] CRAN (R 4.5.0)
+ withr          3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
+ xfun           0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ xml2           1.5.2    2026-01-17 [1] CRAN (R 4.5.2)
+ yaml           2.3.12   2025-12-10 [1] CRAN (R 4.5.2)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+───────────────────────────────────────────────────────────────────────────────────

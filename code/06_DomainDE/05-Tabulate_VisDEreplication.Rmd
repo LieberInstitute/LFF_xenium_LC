@@ -1,5 +1,5 @@
 ---
-title: "04-OneInteractionPerRun_IntraLCVisLabels_DE"
+title: "05-Tabulate VisDE Replication"
 author: "Bernie Mulvey"
 date: "03-01-26"
 output: html_document
@@ -11,8 +11,6 @@ knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
 knitr::opts_knit$set(root.dir = here::here())
 
 library(data.table)
-library(edgeR)
-library(limma)
 ## rstudio GUI tweaks
 require(colorout)
 ColorOut()
@@ -34,7 +32,16 @@ unloadNamespace("datasets")
 ```
 
 ```{r}
-dgels <- readRDS("processed-data/06_DomainDE/03a-unfilt_unnorm_pbulk_domain_VisLabels_withinVisDomOnly_DGElists_2kctsampmin.RDS")
+totde <- readRDS("processed-data/06_DomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
+totde <- lapply(totde,function(x){
+  y <- lapply(x,function(z){
+    z2 <- z$detab
+    z2 <- rbindlist(z2,idcol="contrast",fill=T)
+    return(z2)
+  })
+  rbindlist(y,idcol="modelset")
+})
+
 
 colnames(dgels$LCsmooth0528_orxfer$samples)[colnames(dgels$LCsmooth0528_orxfer$samples)=="clus"] <- "label"
 colnames(dgels$LCsmooth1020_orxfer$samples)[colnames(dgels$LCsmooth1020_orxfer$samples)=="clus"] <- "label"
@@ -101,7 +108,7 @@ sexfun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelsex, trasts = trastmat, detabs = sexlabel_detabs)
     
-    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_sexlabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_sexlabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -150,7 +157,7 @@ e2e4fun <- function(dgel,n){dgelE2E4 <- dgel
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelE2E4, trasts = trastmat, detabs = E2E4label_detabs)
                      
-    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_E2E4label_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_E2E4label_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)}
 ```
 
@@ -201,7 +208,7 @@ apogenofun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelApoAlleles, trasts = trastmat, detabs = ApoAllelesLabel_detabs)
                      
-    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_ApoAllelesLabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_ApoAllelesLabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -263,7 +270,7 @@ ancesfun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelances, trasts = trastmat, detabs = yrilabel_detabs)
 
-    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_AncesByLabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_AncesByLabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -282,8 +289,7 @@ ancesapofun <- function(dgel,n){
       newsamp[,YRIcat:=ifelse(YRI>0.75,"YRI","CEU")]
       newct <- newct[,colnames(newct) %in% newsamp$rn]
       newsamp <- as.data.frame(newsamp,row.names=newsamp$rn)[colnames(newct),]
-      newg <- as.data.frame(dgel$genes,row.names=rownames(dgel$genes))[rownames(newct),]
-      newdgel <- DGEList(counts=newct,samples=newsamp,genes=newg)
+      newdgel <- DGEList(counts=newct,samples=newsamp)
     }
   
     # for the categorical data, set it up and go
@@ -321,16 +327,14 @@ ancesapofun <- function(dgel,n){
 
     # get toptabs, other results, and save
     yriapolabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
-        o <- as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
-        setnames(o,"genes","gene_name") ## force uniformimty with other results
-        return(o)
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
     })
     names(yriapolabel_detabs) <- colnames(v.swt.fit)
 
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = newdgel, trasts = trastmat, detabs = yriapolabel_detabs)
                      
-    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_YRIAPOlabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_YRIAPOlabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -355,29 +359,27 @@ gc(full=T)
 
 ## load the tmp RDSes
 ```{r}
-tmp04 <- list.files("processed-data/06_DomainDE/MODULARIZEDTMP_OUT",full.names = TRUE)
-tmp04 <- grep(tmp04,pattern="04b",value=T)
-dom0528 <- grep(tmp04,pattern="0528_orxfer.RDS",value=TRUE)
-dom1020 <- grep(tmp04,pattern="1020_orxfer.RDS",value = TRUE)
-dom1512 <- grep(tmp04,pattern="1512_orxfer.RDS",value = TRUE)
-rm(tmp04)
+dom0528 <- list.files("processed-data/06_DomainDE/MODULARIZEDTMP_OUT",pattern="0528_orxfer.RDS",full.names = TRUE)
+dom1020 <- list.files("processed-data/06_DomainDE/MODULARIZEDTMP_OUT",pattern="1020_orxfer.RDS",full.names = TRUE)
+dom1512 <- list.files("processed-data/06_DomainDE/MODULARIZEDTMP_OUT",pattern="1512_orxfer.RDS",full.names = TRUE)
+
 
 ## combine into one metalist
 dom0528out <- lapply(dom0528,readRDS)
-names(dom0528out) <- gsub(dom0528,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+names(dom0528out) <- gsub(dom0528,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
 
 dom1020out <- lapply(dom1020,readRDS)
-names(dom1020out) <- gsub(dom1020,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+names(dom1020out) <- gsub(dom1020,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
 
 dom1512out <- lapply(dom1512,readRDS)
-names(dom1512out) <- gsub(dom1512,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+names(dom1512out) <- gsub(dom1512,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
 
 
 outlist <- list(dom0528=dom0528out, dom1020=dom1020out, dom1512=dom1512out)
 
 saveRDS(outlist,"processed-data/06_DomainDE/04-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_withinLCVisLabs.RDS")
 ```
-## can now delete 04bTMP RDSes.
+## can now delete 02bTMP RDSes.
 
 ```{r}
 sessionInfo()

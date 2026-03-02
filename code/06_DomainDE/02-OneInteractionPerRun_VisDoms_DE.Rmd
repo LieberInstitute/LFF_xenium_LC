@@ -282,7 +282,8 @@ ancesapofun <- function(dgel,n){
       newsamp[,YRIcat:=ifelse(YRI>0.75,"YRI","CEU")]
       newct <- newct[,colnames(newct) %in% newsamp$rn]
       newsamp <- as.data.frame(newsamp,row.names=newsamp$rn)[colnames(newct),]
-      newdgel <- DGEList(counts=newct,samples=newsamp)
+      newg <- as.data.frame(dgel$genes,row.names=rownames(dgel$genes))[rownames(newct),]
+      newdgel <- DGEList(counts=newct,samples=newsamp,genes=newg)
     }
   
     # for the categorical data, set it up and go
@@ -320,7 +321,9 @@ ancesapofun <- function(dgel,n){
 
     # get toptabs, other results, and save
     yriapolabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
-        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+        o <- as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+        setnames(o,"genes","gene_name") ## force uniformimty with other results
+        return(o)
     })
     names(yriapolabel_detabs) <- colnames(v.swt.fit)
 

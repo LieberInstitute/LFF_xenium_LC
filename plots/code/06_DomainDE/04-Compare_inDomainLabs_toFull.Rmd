@@ -73,7 +73,6 @@ fulldes <- lapply(fulldes,function(x){
     return(y)
   })
   y <- rbindlist(z,fill=T)
-  y[,gene_name:=rn]
   return(y)
 })
 
@@ -132,95 +131,121 @@ keepcont <- unique(c(jtdes$dom0528$contrast,jtdes$dom1020$contrast,jtdes$dom1512
 lccont <- grep(keepcont,pattern="LC",value=T)
 keepcont <- grep(keepcont,pattern="LC",value=T,invert=T)
 
-
-i<-1
-plts<-list()
-for (i in c(1:length(keepcont))){
-  d <- unique(keepcont)[i]
-  j<-1
-  subplt <- list()
-  for (j in c(1:length(jtdes))){
-    x <- jtdes[[j]]
-    n <- names(jtdes)[j]
-    pltdat <- x[contrast==d,]
-    minx <- min(c(pltdat$tstatfull,pltdat$tstatinLCDom),na.rm=T)
-    maxx <- max(c(pltdat$tstatfull,pltdat$tstatinLCDom),na.rm=T)
-    mm <- max(abs(c(minx,maxx)))
-    if(is.infinite(mm)){
-      mm <- 5
+pltset <- function(con){
+  i<-1
+  plts<-list()
+  for (i in c(1:length(keepcont))){
+    d <- keepcont[i]
+    j<-1
+    subplt <- list()
+    for (j in c(1:length(jtdes))){
+      x <- jtdes[[j]]
+      n <- names(jtdes)[j]
+      pltdat <- x[contrast==d,]
+      minx <- min(c(pltdat$tstatfull,pltdat$tstatinLCDom),na.rm=T)
+      maxx <- max(c(pltdat$tstatfull,pltdat$tstatinLCDom),na.rm=T)
+      mm <- max(abs(c(minx,maxx)))
+      if(is.infinite(mm)){
+        mm <- 5
+      }
+      p <- ggplot(pltdat,aes(x=tstatfull,y=tstatinLCDom))+
+        geom_point(size=0.5,alpha=0.5)+
+        labs(title=paste0(d),x="Xenwide DE t",y=paste0("t-stat: Cell Type DE within LC\nDomain (smoothing",n,")"))+
+        scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+        scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))
+        geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+      subplt[[j]] <- p
     }
-    p <- ggplot(pltdat,aes(x=tstatfull,y=tstatinLCDom))+
-      geom_point(size=0.5,alpha=0.5)+
-      labs(title=paste0(d),x="Xenwide DE t",y=paste0("t-stat: Cell Type DE within LC\nDomain (smoothing",n,")"))+
-      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
-      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))
-      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
-    subplt[[j]] <- p
+    retobj <- gridExtra::arrangeGrob(grobs = subplt, ncol = length(subplt))
+    plts[[i]] <- retobj
   }
-  retobj <- gridExtra::arrangeGrob(grobs = subplt, ncol = length(subplt))
-  plts[[i]] <- retobj
+  dev.off()
+  return(plts)
 }
+
+
+### all tests
+allplt <- pltset(keepcont)
+png("plots/06_DomainDE/04a-Systematic_FullXen_LCXenDom_labelwise_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
+grid.arrange(grobs=allplt,ncol=1)
 dev.off()
 
-png("plots/06_DomainDE/04a-Systematic_FullXen_LCXenDom_labelwise_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
-grid.arrange(grobs=plts,ncol=1)
+### non single-geno tests
+keepcont <- grep(keepcont,pattern="hom|het",value=T,invert=T)
+mainsplt <- pltset(keepcont)
+png("plots/06_DomainDE/04b-Systematic_FullXen_LCXenDom_labelwise_tstat_comparisons_mainDEtestsonly.png",height=length(keepcont)*3,width=9,unit="in",res=150)
+grid.arrange(grobs=mainsplt,ncol=1)
 dev.off()
+
+rm(keepcont,allplt,mainsplt,pltset)
 ```
 
 ## for LC contrasts: we want a plot of domain DE ("indom") vs LC domain LC cells, and vs non-LC domain LC cells, as well as those two compared to each other.
 ```{r}
 lccont <- unique(gsub(lccont,pattern="_outDom|_inDom",replacement=""))
 
-plts <- lapply(lccont,function(d){
-  subplt <- mapply(x=jtdes,n=names(jtdes),SIMPLIFY=FALSE,function(x,n){
-    pltdat <- x[contrast %in% grep(contrast,pattern=d,value=T)] # both indomain and out of domain contrasts
-    domainde <- pltdat[LCsub=="inDom"]
-    setnames(domainde,"tstatfull","tstat_LCdomain")
-    
-    nondomcells <- pltdat[LCsub=="outDom"]
-    setnames(nondomcells,"tstatfull","tstat_nonDomainLCcells")
-    
-    newpltdat <- merge.data.table(domainde[,.(gene_name,tstat_LCdomain)],nondomcells[,.(gene_name,tstat_nonDomainLCcells,tstatinLCDom)],by="gene_name")
-    setnames(newpltdat,"tstatinLCDom","tstat_LCdomainLCcells")
-    
-    minx <- min(c(newpltdat$tstat_LCdomain,newpltdat$tstat_nonDomainLCcells,newpltdat$tstat_LCdomainLCcells),na.rm=T)
-    maxx <- max(c(newpltdat$tstat_LCdomain,newpltdat$tstat_nonDomainLCcells,newpltdat$tstat_LCdomainLCcells),na.rm=T)
-    mm <- max(abs(c(minx,maxx)))
-    if(is.infinite(mm)){
-      mm <- 5
-    }
-    
-    p1 <- ggplot(newpltdat,aes(x=tstat_LCdomain,y=tstat_LCdomainLCcells))+
-      geom_point(size=0.5,alpha=0.5)+
-      labs(title=paste0(d),x="LC Domain DE tstat",y=paste0("LC Cells of LC Domain \n(smoothing",n,") tstat"))+
-      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
-      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))+
-      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+pltset <- function(con){
+  plts <- lapply(con,function(d){
+    subplt <- mapply(x=jtdes,n=names(jtdes),SIMPLIFY=FALSE,function(x,n){
+      pltdat <- copy(x[contrast %in% grep(contrast,pattern=d,value=T)]) # both indomain and out of domain contrasts
+      domainde <- pltdat[LCsub=="inDom"]
+      setnames(domainde,"tstatfull","tstat_LCdomain")
       
-      p2 <- ggplot(newpltdat,aes(x=tstat_LCdomain,y=tstat_nonDomainLCcells))+
-      geom_point(size=0.5,alpha=0.5)+
-      labs(title=paste0(d),x="LC Domain DE tstat",y=paste0("LC Cells OUTSIDE Domain \n(smoothing",n,") tstat"))+
-      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
-      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))+
-      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+      nondomcells <- pltdat[LCsub=="outDom"]
+      setnames(nondomcells,"tstatfull","tstat_nonDomainLCcells")
       
-      p3 <- ggplot(newpltdat,aes(x=tstat_LCdomainLCcells,y=tstat_nonDomainLCcells))+
-      geom_point(size=0.5,alpha=0.5)+
-      labs(title=paste0(d),x=paste0("LC Cells of LC Domain \n(smoothing",n,") tstat"),y=paste0("LC Cells OUTSIDE Domain","\n(smoothing",n,") tstat"))+
-      scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
-      scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))+
-      geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
-  
-      retobj <- gridExtra::arrangeGrob(grobs = list(p1,p2,p3), ncol = 3)
-      return(retobj)
+      newpltdat <- merge.data.table(domainde[,.(gene_name,tstat_LCdomain)],nondomcells[,.(gene_name,tstat_nonDomainLCcells,tstatinLCDom)],by="gene_name")
+      setnames(newpltdat,"tstatinLCDom","tstat_LCdomainLCcells")
+      
+      minx <- min(c(newpltdat$tstat_LCdomain,newpltdat$tstat_nonDomainLCcells,newpltdat$tstat_LCdomainLCcells),na.rm=T)
+      maxx <- max(c(newpltdat$tstat_LCdomain,newpltdat$tstat_nonDomainLCcells,newpltdat$tstat_LCdomainLCcells),na.rm=T)
+      mm <- max(abs(c(minx,maxx)))
+      if(is.infinite(mm)){
+        mm <- 5
+      }
+      
+      p1 <- ggplot(newpltdat,aes(x=tstat_LCdomain,y=tstat_LCdomainLCcells))+
+        geom_point(size=0.5,alpha=0.5)+
+        labs(title=paste0(d),x="LC Domain DE tstat",y=paste0("LC Cells of LC Domain \n(smoothing",n,") tstat"))+
+        scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+        scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))+
+        geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+        
+        p2 <- ggplot(newpltdat,aes(x=tstat_LCdomain,y=tstat_nonDomainLCcells))+
+        geom_point(size=0.5,alpha=0.5)+
+        labs(title=paste0(d),x="LC Domain DE tstat",y=paste0("LC Cells OUTSIDE Domain \n(smoothing",n,") tstat"))+
+        scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+        scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))+
+        geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+        
+        p3 <- ggplot(newpltdat,aes(x=tstat_LCdomainLCcells,y=tstat_nonDomainLCcells))+
+        geom_point(size=0.5,alpha=0.5)+
+        labs(title=paste0(d),x=paste0("LC Cells of LC Domain \n(smoothing",n,") tstat"),y=paste0("LC Cells OUTSIDE Domain","\n(smoothing",n,") tstat"))+
+        scale_x_continuous(limits=c(-mm,mm),expand=c(0,0))+
+        scale_y_continuous(limits=c(-mm,mm),expand=c(0,0))+
+        geom_abline(slope=1,intercept=0,color="red",linetype="dashed")
+    
+        retobj <- gridExtra::arrangeGrob(grobs = list(p1,p2,p3), ncol = 3)
+        return(retobj)
+    })
+    subret <- gridExtra::arrangeGrob(grobs=subplt,ncol=1)
+    return(subret)
   })
-  subret <- gridExtra::arrangeGrob(grobs=subplt,ncol=1)
-  return(subret)
-})
-png("plots/06_DomainDE/04b-Systematic_LCdomCells_nonDomLCcells_LCwholedom_DEtstat_comparisons.png",height=length(lccont)*9,width=9,unit="in",res=150)
+  dev.off()
+  return(plts)
+}
+
+plts <- pltset(lccont)
+png("plots/06_DomainDE/04c-Systematic_LCdomCells_nonDomLCcells_LCwholedom_DEtstat_comparisons.png",height=length(lccont)*9,width=9,unit="in",res=150)
 grid.arrange(grobs=plts,ncol=1)
 dev.off()
 
+## make a separate one thats cleaner without all the subgeno analyses
+keepcont <- grep(lccont,pattern="E4hom|E4het|E2hom|E2het",value=T,invert=T)
+plts <- pltset(keepcont)
+png("plots/06_DomainDE/04d-Systematic_LCdomCells_nonDomLCcells_LCwholedom_DEtstat_comparisons_mainDEtestsonly.png",height=length(keepcont)*9,width=9,unit="in",res=150)
+grid.arrange(grobs=plts,ncol=1)
+dev.off()
 
 ```
 
@@ -229,3 +254,123 @@ dev.off()
 sessionInfo()
 sessioninfo::session_info()
 ```
+
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.2
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] gridExtra_2.3       ggrastr_1.0.2       ggtext_0.1.2        ggplot2_4.0.2      
+ [5] edgeR_4.8.2         limma_3.66.0        BiocParallel_1.44.0 parallelly_1.46.1  
+ [9] colorout_1.3-3      data.table_1.18.2.1
+
+loaded via a namespace (and not attached):
+ [1] generics_0.1.4     xml2_1.5.2         stringi_1.8.7      lattice_0.22-7    
+ [5] digest_0.6.39      magrittr_2.0.4     evaluate_1.0.5     grid_4.5.2        
+ [9] RColorBrewer_1.1-3 fastmap_1.2.0      rprojroot_2.1.1    scales_1.4.0      
+[13] codetools_0.2-20   cli_3.6.5          rlang_1.1.7        litedown_0.9      
+[17] commonmark_2.0.0   withr_3.0.2        yaml_2.3.12        otel_0.2.0        
+[21] ggbeeswarm_0.7.3   tools_4.5.2        dplyr_1.2.0        locfit_1.5-9.12   
+[25] here_1.0.2         vctrs_0.7.1        R6_2.6.1           lifecycle_1.0.5   
+[29] stringr_1.6.0      vipor_0.4.7        pkgconfig_2.0.3    beeswarm_0.4.0    
+[33] pillar_1.11.1      gtable_0.3.6       glue_1.8.0         Rcpp_1.1.1        
+[37] statmod_1.5.1      xfun_0.56          tibble_3.3.1       tidyselect_1.2.1  
+[41] rstudioapi_0.18.0  knitr_1.51         dichromat_2.0-0.1  farver_2.1.2      
+[45] htmltools_0.5.9    rmarkdown_2.30     labeling_0.4.3     compiler_4.5.2    
+[49] S7_0.2.1           markdown_2.0       gridtext_0.1.5    
+> sessioninfo::session_info()
+─ Session info ────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.2
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2026-03-02
+ rstudio  2026.01.0+392 Apple Blossom (desktop)
+ pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ────────────────────────────────────────────────────────────────────────
+ package      * version  date (UTC) lib source
+ beeswarm       0.4.0    2021-06-01 [1] CRAN (R 4.5.0)
+ BiocParallel * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ cli            3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ codetools      0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
+ colorout     * 1.3-3    2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ commonmark     2.0.0    2025-07-07 [1] CRAN (R 4.5.0)
+ data.table   * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ dichromat      2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
+ digest         0.6.39   2025-11-19 [1] CRAN (R 4.5.2)
+ dplyr          1.2.0    2026-02-03 [1] CRAN (R 4.5.2)
+ edgeR        * 4.8.2    2025-12-23 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ evaluate       1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ farver         2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
+ fastmap        1.2.0    2024-05-15 [1] CRAN (R 4.5.0)
+ generics       0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ ggbeeswarm     0.7.3    2025-11-29 [1] CRAN (R 4.5.2)
+ ggplot2      * 4.0.2    2026-02-03 [1] CRAN (R 4.5.2)
+ ggrastr      * 1.0.2    2023-06-01 [1] CRAN (R 4.5.0)
+ ggtext       * 0.1.2    2022-09-16 [1] CRAN (R 4.5.0)
+ glue           1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
+ gridExtra    * 2.3      2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext       0.1.5    2022-09-16 [1] CRAN (R 4.5.0)
+ gtable         0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
+ here           1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ htmltools      0.5.9    2025-12-04 [1] CRAN (R 4.5.2)
+ knitr          1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ labeling       0.4.3    2023-08-29 [1] CRAN (R 4.5.0)
+ lattice        0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle      1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ limma        * 3.66.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ litedown       0.9      2025-12-18 [1] CRAN (R 4.5.2)
+ locfit         1.5-9.12 2025-03-05 [1] CRAN (R 4.5.0)
+ magrittr       2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ markdown       2.0      2025-03-23 [1] CRAN (R 4.5.0)
+ otel           0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly   * 1.46.1   2026-01-08 [1] CRAN (R 4.5.2)
+ pillar         1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig      2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
+ R6             2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
+ RColorBrewer   1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp           1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rlang          1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rmarkdown      2.30     2025-09-28 [1] CRAN (R 4.5.0)
+ rprojroot      2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ rstudioapi     0.18.0   2026-01-16 [1] CRAN (R 4.5.2)
+ S7             0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
+ scales         1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
+ sessioninfo    1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ statmod        1.5.1    2025-10-09 [1] CRAN (R 4.5.0)
+ stringi        1.8.7    2025-03-27 [1] CRAN (R 4.5.0)
+ stringr        1.6.0    2025-11-04 [1] CRAN (R 4.5.0)
+ tibble         3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect     1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
+ vctrs          0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
+ vipor          0.4.7    2023-12-18 [1] CRAN (R 4.5.0)
+ withr          3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
+ xfun           0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ xml2           1.5.2    2026-01-17 [1] CRAN (R 4.5.2)
+ yaml           2.3.12   2025-12-10 [1] CRAN (R 4.5.2)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+───────────────────────────────────────────────────────────────────────────────────
