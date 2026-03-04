@@ -10,10 +10,10 @@ library(nmfLabelTransfer)
 
 lcv <- readRDS("../LFF_spatial_LC/processed-data/06-LCposDonorsOnly_countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
 
-louvs <- fread("../LFF_spatial_LC/processed-data/07_2_LCsampsonly_featureSelection_dimred_harmony_clustering/04_2-LConly_HDG_SVG_2575_Louv1_clustering.txt")
+louvs <- fread("../LFF_spatial_LC/processed-data/16_sensitivityanalysis_reproc_wo3donors/Sens1_LCsampsonly_featureSelection_dimred_harmony_clustering/04_2-LConly_HDG_SVG_2575_Louv1_clustering.txt")
 setnames(louvs,2,"clusid")
 
-finalann <- fread("../LFF_spatial_LC/processed-data/07_2_LCsampsonly_featureSelection_dimred_harmony_clustering/08_2-25hdg75svg_louv1_annots.txt")
+finalann <- fread("../LFF_spatial_LC/processed-data/16_sensitivityanalysis_reproc_wo3donors/Sens1_LCsampsonly_featureSelection_dimred_harmony_clustering/08_2-25hdg75svg_louv1_annots.txt")
 
 louvs <- merge.data.table(louvs,finalann,by="clusid")
 louvs <- DataFrame(louvs,row.names=louvs$rn)[colnames(lcv),]
@@ -25,8 +25,8 @@ rm(vdom,vanno)
 
 unique(lcv$brnum)
 lcv$brnum[lcv$brnum=="Br6119(re-dis)"] <- "Br6119"
-## drop donors with limited LC and br 1691 (tentatively dropping from Xenium)
-lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(1691,5517,5276,5712)))]
+## drop donors with limited LC; keep br 1691 (have left hemi on Xenium)
+lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(5517,5276,5712)))]
 
 
 ### we need logcounts on the Visium object to perform NMF
@@ -119,7 +119,7 @@ vis_to_xen <- transfer_labels(targets = lcxes,
 	threads=15,
 	alpha=0)
 
-saveRDS(vis_to_xen,"processed-data/05_LabelTransfer/05b-LCdonsonly_VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
+saveRDS(vis_to_xen,"processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/05b-LCdonsonly_VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
 
 ## sessionInf
 sessionInfo()
