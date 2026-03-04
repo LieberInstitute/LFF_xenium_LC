@@ -1,0 +1,97 @@
+d---
+title: "01-Make_VisDomain_DGELists"
+author: "Bernie Mulvey"
+date: "`02-28-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(dreamlet)
+library(edgeR)
+library(limma)
+library(SpatialExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+xlc <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+tmpcd <- as.data.table(colData(xlc),keep.rownames=T)
+
+lcd <- fread("processed-data/05_LabelTransfer/04d-TransferredLabels_and_SmoothLCdomain_assigns.txt")
+
+### using transferred labels, straight up
+tmpcd <- merge.data.table(tmpcd,lcd[,.(rn,nmfpred)],by="rn")
+
+tmpcd[,APOEsimple:=ifelse(APOE %in% c("E4hom","E4het"),"E4","E2")]
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(xlc),]
+tmpcd$rn <- NULL
+colData(xlc) <- tmpcd
+
+rm(tmpcd,lcd)
+```
+
+
+pseudobulk
+```{r}
+ag <- dreamlet::aggregateToPseudoBulk(xlc,assay="counts",sample_id="brnum",cluster_id = "nmfpred",BPPARAM = MulticoreParam(8))
+  
+agcd <- as.data.table(colData(ag),keep.rownames=T)
+setnames(agcd,"rn","brnum")
+
+agn <- as.data.table(ag@int_colData$n_cells,keep.rownames=T)
+setnames(agn,"rn","clus")
+agn <- melt.data.table(agn,id.vars = "clus")
+setnames(agn,"variable","brnum")
+agn[,brnum:=as.character(brnum)]
+agn[,clus_brnum:=paste0(clus,"_",brnum)]
+agn <- agn[value>=10] ## these are the samples we want to keep to start: 10+ cells for domain type
+setnames(agn,"value","ncells")
+
+
+agm <- as.list(assays(ag))
+agc <- unlist(lapply(agm,function(x){sum(colSums(x)>2000)})) ## number of pseudobulks with 2000+ counts
+## only keep those where at least 10 samples meet that
+kpb <- names(agc[agc>=10])
+agn <- agn[clus %in% kpb]
+agm <- agm[kpb]
+
+## now we want to make one giant sample matrix with the remaining samples
+agm.filt <- mapply(a=agm,n=names(agm),SIMPLIFY=FALSE,function(a,n){
+  a <- a[,colnames(a) %in% agn[clus==n]$brnum]
+  colnames(a) <- paste0(n,"_",colnames(a))
+  return(a)
+})
+agm.filt <- do.call("cbind",agm.filt)
+
+# make a per cluster-donor samples table
+agn <- merge.data.table(agn,agcd[,.(brnum,sample_id,Sex,APOE,APOEsimple,YRI,Age)],by="brnum")
+stopifnot(all(agn$clus_brnum %in% colnames(agm.filt)))
+agn <- as.data.frame(agn,row.names=agn$clus_brnum)[colnames(agm.filt),]
+dge <- DGEList(counts=agm.filt, samples=agn)
+
+saveRDS(dge,"processed-data/07_StraightVisLabelDE/01a-unfilt_unnorm_pbulk_labels_DGElists_2kctsampmin.RDS")
+```
+

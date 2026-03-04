@@ -1,5 +1,5 @@
 ---
-title: "05-Tabulate VisDE Replication"
+title: "05-Tabulate VisDE Replication Redux"
 author: "Bernie Mulvey"
 date: "03-01-26"
 output: html_document
@@ -32,39 +32,54 @@ unloadNamespace("datasets")
 ```
 
 ```{r}
-totde <- readRDS("processed-data/06_DomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
-totde <- lapply(totde,function(x){
-  y <- lapply(x,function(z){
-    z2 <- z$detab
-    z2 <- rbindlist(z2,idcol="contrast",fill=T)
-    return(z2)
-  })
-  rbindlist(y,idcol="modelset")
-})
-
-
+# visium DE
 visde <- readRDS("../LFF_spatial_LC/processed-data/12_DEanalyses_removedsampsAndFinalNMseg/02b-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_noMixClusts_YRIcontAndCat_JUL2025.RDS")
 visdes <- list(visde$cont_ances$E2E4label$detabs,visde$cont_ances$sexlabel$detabs,visde$cat_ances$YRIAPOlabel$detabs)
 names(visdes) <- c("E2E4label","sexlabel","YRIAPOlabel")
 visdes <- lapply(visdes,rbindlist,idcol="contrast")
 visdes <- rbindlist(visdes)
 
+# direct labels as transferred DE
+dirde <- readRDS("processed-data/07_StraightVisLabelDE/02-VisLabelsAsTransferred_voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
+dirde <- lapply(dirde,function(z){
+    z2 <- z$detab
+    z2 <- rbindlist(z2,idcol="contrast",fill=T)
+    return(z2)
+})
+dirde <- rbindlist(dirde)
+
+# direct as transferred, except for LC cells outside of all 3 LC domain defs
+dirf <- readRDS("processed-data/07_StraightVisLabelDE/04-VisLabelsAsTransferred_LCcellsFilteredtoLCDom_voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2.RDS")
+
+dirf <- lapply(dirf,function(z){
+    z2 <- z$detab
+    z2 <- rbindlist(z2,idcol="contrast",fill=T)
+    return(z2)
+})
+dirf <- rbindlist(dirf)
+
+# xenium de sets -- OMFG the gene_name fix still didn't take for the ancestry-APOE comparisons ugh
+totde <- list(dirf,dirde)
+totde <- lapply(totde,function(x){
+  x[,gene_name:=rn]
+  return(x)
+})
+
 totde <- lapply(totde,function(d){
   z <- d
-  z[,contrast:=gsub(contrast,pattern="LCdomain",replacement="LC")]
   z <- z[contrast %in% c(unique(visdes$contrast))]
   z <- z[,.(contrast,gene_name,P.Value,logFC)]
   setnames(z,c("P.Value","logFC"),c("Xen.P.unadj","xlfc"))
-  z <- merge.data.table(z,visdes[adj.P.Val<0.05,.(contrast,gene_name,adj.P.Val,logFC)],by=c("contrast","gene_name"))
+  z <- merge.data.table(z,visdes[,.(contrast,gene_name,adj.P.Val,logFC)],by=c("contrast","gene_name"),all.x=T)
   return(z)
 })
 
 reps <- lapply(totde,function(d){
-  x <- d[,.N,by="contrast"]
+  x <- d[adj.P.Val<0.05,.N,by="contrast"]
   setnames(x,"N","VisFDR05_tested")
-  y <- d[Xen.P.unadj<0.05,.N,by="contrast"]
+  y <- d[Xen.P.unadj<0.05&adj.P.Val<0.05,.N,by="contrast"]
   setnames(y,"N","XenP05sig")
-  z <- d[Xen.P.unadj<0.05&(logFC*xlfc>0),.N,by="contrast"]
+  z <- d[adj.P.Val<0.05&Xen.P.unadj<0.05&(logFC*xlfc>0),.N,by="contrast"]
   setnames(z,"N","XenP05sig_concord")
   x <- merge.data.table(x,y,by="contrast",all.x=T)
   x <- merge.data.table(x,z,by="contrast",all.x=T)
@@ -72,23 +87,24 @@ reps <- lapply(totde,function(d){
   x[,discordrate:=(XenP05sig-XenP05sig_concord)/XenP05sig]
   return(x)
 })
-
+names(reps) <- c("StraightXfer","Xfer_w_LCdomainLCcellsonly")
 
 mapply(x=reps,n=names(reps),SIMPLIFY = FALSE,FUN = function(x,n){
-  fwrite(x,paste0("processed-data/06_DomainDE/05-Tabulate_VisDEreplication_results_percontrast_withSmooth",n,".txt"),sep='\t',quote=F,row.names=F,col.names=T)
+  fwrite(x,paste0("processed-data/07_StraightVisLabelDE/05-Tabulate_VisDEreplication_results_percontrast_withSmooth",n,".txt"),sep='\t',quote=F,row.names=F,col.names=T)
 })
 
-rep0528 <- reps$dom0528[,.(contrast,VisFDR05_tested,reprate)]
-setnames(rep0528,"reprate","reprate0528")
-rep1020 <- reps$dom1020[,.(contrast,reprate)]
-setnames(rep1020,"reprate","reprate1020")
-rep1512 <- reps$dom1512[,.(contrast,reprate)]
-setnames(rep1512,"reprate","reprate1512")
+straightxfer <- reps$StraightXfer[,.(contrast,VisFDR05_tested,reprate)]
+setnames(straightxfer,"reprate","reprate_straightxfer")
 
-reps2 <- merge.data.table(rep0528,rep1020,by="contrast")
-reps2 <- merge.data.table(reps2,rep1512,by="contrast")
+lccellprefilt <- reps$Xfer_w_LCdomainLCcellsonly[,.(contrast,reprate)]
+setnames(lccellprefilt,"reprate","reprate_withLCcellsDomainLimd")
 
-fwrite(reps2,"processed-data/06_DomainDE/05-Replication_Rates_by_DomainDefinition.txt",sep='\t',quote=F,row.names=T)
+reps2 <- merge.data.table(straightxfer,lccellprefilt,by="contrast")
+
+repsdom <- fread("processed-data/06_DomainDE/05-Replication_Rates_by_DomainDefinition.txt")
+repsdom <- merge.data.table(repsdom,reps2[,.(contrast,reprate_straightxfer,reprate_withLCcellsDomainLimd)],by="contrast")
+
+fwrite(repsdom,"processed-data/07_StraightVisLabelDE/05-Replication_Rates_by_DomainDefinition_or_DirLabelXfer.txt",sep='\t',quote=F,row.names=F,col.names=T)
 ```
 
 ```{r}

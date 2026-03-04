@@ -42,7 +42,7 @@ unloadNamespace("datasets")
 
 load spe
 ```{r}
-lcx <- readRDS("processed-data/01_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+lcx <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 ```
 
 ```{r}
@@ -62,10 +62,10 @@ do.call("grid.arrange",c(plts,nrow=3))
 dev.off()
 
 ## how many have any one of these genes > 3.75
-ctt[DBH>3.75 | SLC6A2>3.75 | TH>3.75] ## 11785
+ctt[DBH>3.75 | SLC6A2>3.75 | TH>3.75] ## 11029
 
 ## how many all 3 over
-ctt[DBH>3.75 & SLC6A2>3.75 & TH>3.75] ## 5490
+ctt[DBH>3.75 & SLC6A2>3.75 & TH>3.75] ## 5394
 
 ## we only need those three genes the data so remake
 tmpct <- c("DBH", "SLC6A2", "TH")
@@ -119,17 +119,16 @@ outt <- ctt[,.(rn,LCloose,LCstrict)]
 
 now let's see if we can infer which cells were new additions based on the NM segmentation. (cells that were not modified by adding the NM segmentation seemed to wind up with the same cell ID as before)
 ```{r}
-oglc <- readRDS("processed-data/01_spe/DAPIraw_combined_spe.RDS")
-# make cell ID formats the same as lcx
-oglc$brnum <- gsub(oglc$brnum,pattern="-",replacement="")
-oglc$brnum <- gsub(oglc$brnum,pattern=" $",replacement="")
-colnames(oglc) <- paste0(oglc$brnum,"_",oglc$cell_id)
+oglc <- readRDS("processed-data/01_spe/DAPI_rawSPE/raw_combined_spe.RDS")
+# cell ID formats are same as lcx--importantly, the cell ID stays the same if everyfuckingthing aabout the cell remains unchanged (based on my own experience rerunning data thru xeniumranger with what turned out to be the exact same settings as the onboard processing already used)
 
 # see what cell IDs are new to the NM-DAPI seg
 newcell <- colnames(lcx)[!(colnames(lcx) %in% colnames(oglc))]
-sum(colnames(lcx) %in% colnames(oglc)) # 2
+sum(colnames(lcx) %in% colnames(oglc)) # 0
 
 ## okay that approach is a no go. what about doing it by coordinates
+colnames(oglc) <- oglc$unique_cellid
+rownames(colData(oglc)) <- colnames(oglc)
 rownames(spatialCoords(oglc)) <- colnames(oglc)
 
 ogspc <- as.data.table(spatialCoords(oglc),keep.rownames=T)
@@ -139,24 +138,27 @@ lcspc <- as.data.table(spatialCoords(lcx),keep.rownames=T)
 lcspcmatch <- merge.data.table(ogspc,lcspc,by.x=c("x_centroid_og","y_centroid_og"),by.y=c("x_centroid","y_centroid"))
 length(unique(lcspcmatch$rn.y))
 
-## hrm this only gets us 434320 cells. so the NM+ cells are probably among the remaining 66k, but so would be others..
+####################################
+#### LEFT OFF HERE 030326 9pm #####
+####################################
+
+## hrm this only gets us 444575 cells. so the NM+ cells are probably among the remaining 46k, but so would be others..
 
 newcells <- lcx[,!(colnames(lcx) %in% lcspcmatch$rn.y)]
-ncol(newcells)
 
 ## well, lets try this. how many of these nm-gained cells are in the LC definitions?
 outt2 <- outt[rn %in% colnames(newcells)]
-outt2[,.N,by="LCstrict"] # 4335 of 5490 (79%)
-outt2[,.N,by="LCloose"] # 7293 of 11785 (62%)
+outt2[,.N,by="LCstrict"] # 4157 of 5394 (77%)
+outt2[,.N,by="LCloose"] # 6205 of 11029 (56%)
 
 
 # cool. so we can identify the majority of LC cells that were gained (or altered in terms of centroids) by the NM segmentation. useful for benchmarking purposes at least
 
-outt <- outt[,NMgained_or_altered_LCstrict:="No"]
-outt <- outt[rn %in% colnames(newcells)&LCstrict=="LC",NMgained_or_altered_LCstrict:="Yes"]
+outt <- outt[,gained_or_altered_byNMseg_and_LCstrict:="No"]
+outt <- outt[rn %in% colnames(newcells)&LCstrict=="LC",gained_or_altered_byNMseg_and_LCstrict:="Yes"]
 
-outt[,NMgained_or_altered_LCloose:="No"]
-outt <- outt[rn %in% colnames(newcells)&LCloose=="LC",NMgained_or_altered_LCloose:="Yes"]
+outt[,gained_or_altered_byNMseg_and_LCloose:="No"]
+outt <- outt[rn %in% colnames(newcells)&LCloose=="LC",gained_or_altered_byNMseg_and_LCstrict:="Yes"]
 
 fwrite(outt,"processed-data/03_ManualLC/01-XprBasedLClabels_and_cellSegsGainedorAlteredByNM.txt",sep='\t',quote=F,row.names=F,col.names=T)
 ```

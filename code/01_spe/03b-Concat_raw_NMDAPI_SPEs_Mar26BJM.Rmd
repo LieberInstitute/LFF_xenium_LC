@@ -1,0 +1,59 @@
+---
+title: "03b-Concat_raw_NMDAPI_SPEs_Mar26BJM"
+author: "Bernie Mulvey"
+date: "03-03-26"
+output: html_document
+---
+
+```{r}
+library(data.table)
+library(here)
+library(SpatialExperiment)
+library(SingleCellExperiment)
+library(readxl)
+library(tidyverse)
+
+#files <- list.files(here('processed-data/xenium/NM_DAPI_rawSPE/'), pattern = "\\.RDS$", full.names = TRUE)
+files <- list.files(here('processed-data/01_spe/NMDAPI_rawSPE'), pattern = "\\.RDS$", full.names = TRUE)
+
+# 1) Read all SPEs and tag brnum
+spe_list <- lapply(files, function(f) {
+  spe <- readRDS(f)
+  br  <- gsub(f,pattern="^.*/01_spe/NMDAPI_rawSPE/(.*)\\.RDS$",replacement="\\1")
+  br <- gsub(br,pattern="-",replacement="")
+  colData(spe)$brnum <- br
+  colData(spe)$sample_id <- br # make the spe-recognized sample ids unique
+  colData(spe)$unique_cellid <- paste0(spe$brnum,"_",spe$Barcode)
+  spe
+})
+
+combined_spe <- do.call(cbind, spe_list)
+colnames(combined_spe) <- combined_spe$unique_cellid
+
+## append metadata
+demos <- fread(here("../LFF_spatial_LC/raw-data/demos.txt"))
+demos <- unique(demos[,.(Donors,Age,Sex,Ancestry,Rin,APOE,hemisphere)])
+demos[hemisphere=="L",Donors:=paste0(Donors,"L")]
+demos[Donors=="Br6119(re-dis)",Donors:="Br6119"]
+demos <- demos[Donors %in% unique(combined_spe$brnum)]
+stopifnot(all(unique(combined_spe$brnum) %in% demos$Donors))
+
+tmpcd <- as.data.table(colData(combined_spe),keep.rownames=T)
+tmpcd <- merge.data.table(tmpcd,demos,by.x="brnum",by.y="Donors")
+
+tmpcd[,donor:=gsub(brnum,pattern="L",replacement="")]
+
+## append YRI/CEU/CHB estimates
+flares <- fread(here("../LFF_spatial_LC/raw-data/ancestryAndHaplotypes/FLARE/global_ancestry_estimates.txt"))
+flares <- flares[ID %in% tmpcd$donor]
+tmpcd <- merge.data.table(tmpcd,flares,by.x="donor",by.y="ID")
+
+stopifnot(nrow(tmpcd)==ncol(combined_spe))
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(combined_spe),]
+tmpcd$rn <- NULL # redundant with unique_cellid
+tmpcd$hemisphere <- NULL
+tmpcd$Genotype <- NULL
+colData(combined_spe) <- tmpcd
+
+saveRDS(combined_spe, here("processed-data/01_SPE/", "NMDAPI_raw_combined_spe.RDS"))
+```

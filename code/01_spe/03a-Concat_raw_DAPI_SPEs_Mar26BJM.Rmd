@@ -1,0 +1,33 @@
+---
+title: "03a-Concat_raw_DAPI_SPEs_Mar26BJM"
+author: "Bernie Mulvey"
+date: "03-03-26"
+output: html_document
+---
+
+```{r}
+library(here)
+library(SpatialExperiment)
+library(SingleCellExperiment)
+library(readxl)
+library(tidyverse)
+
+#files <- list.files(here('processed-data/xenium/NM_DAPI_rawSPE/'), pattern = "\\.RDS$", full.names = TRUE)
+files <- list.files(here('processed-data/01_spe/DAPI_rawSPE'), pattern = "\\.RDS$", full.names = TRUE)
+
+# 1) Read all SPEs and tag brnum
+spe_list <- lapply(files, function(f) {
+  spe <- readRDS(f)
+  br  <- gsub(f,pattern="^.*/01_spe/DAPI_rawSPE/(.*)\\.RDS$",replacement="\\1")
+  br <- gsub(br,pattern="-",replacement="")
+  colData(spe)$brnum <- br
+  colData(spe)$sample_id <- br # make the spe-recognized sample ids unique
+  colData(spe)$unique_cellid <- paste0(spe$brnum,"_",spe$Barcode)
+  spe
+})
+
+combined_spe <- do.call(cbind, spe_list)
+
+#saveRDS(combined_spe, here("processed-data/xenium/NM_DAPI_rawSPE/", "raw_combined_spe.RDS"))
+saveRDS(combined_spe, here("processed-data/01_spe/", "raw_combined_spe.RDS"))
+```
