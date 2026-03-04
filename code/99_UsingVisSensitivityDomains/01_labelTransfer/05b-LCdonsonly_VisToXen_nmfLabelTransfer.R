@@ -23,7 +23,6 @@ colLabels(lcv) <- louvs$anno
 
 rm(vdom,vanno)
 
-unique(lcv$brnum)
 lcv$brnum[lcv$brnum=="Br6119(re-dis)"] <- "Br6119"
 ## drop donors with limited LC; keep br 1691 (have left hemi on Xenium)
 lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(5517,5276,5712)))]
@@ -40,6 +39,7 @@ lcx$donor <- lcx$brnum
 lcx$donor[lcx$donor=="Br2305L"] <- "Br2305"
 lcx$donor[lcx$donor=="Br1039L"] <- "Br1039"
 lcx$donor[lcx$donor=="Br5854L"] <- "Br5854"
+lcx$donor[lcx$donor=="Br1691L"] <- "Br1691"
 
 stopifnot(all(unique(lcx$donor) %in% unique(lcv$brnum)))
 stopifnot(all(unique(lcv$brnum) %in% unique(lcx$donor)))
