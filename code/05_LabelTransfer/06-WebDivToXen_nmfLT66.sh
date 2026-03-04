@@ -2,6 +2,7 @@
 #SBATCH --job-name=lxfr
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=300G
+#SBATCH --constraint="sapphirerapids"
 #SBATCH --output=logs/06_nmfLT66.txt
 #SBATCH --error=logs/06_nmfLT66.txt
 #SBATCH --mail-type=END

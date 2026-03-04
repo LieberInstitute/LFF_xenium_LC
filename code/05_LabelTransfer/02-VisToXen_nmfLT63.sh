@@ -2,6 +2,7 @@
 #SBATCH --job-name=cv
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=300G
+#SBATCH --constraint="sapphirerapids"
 #SBATCH --output=logs/02_nmfLT63.txt
 #SBATCH --error=logs/02_nmfLT63.txt
 #SBATCH --mail-type=END
