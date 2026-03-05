@@ -42,12 +42,12 @@ unloadNamespace("datasets")
 
 first let's make some plots of the relationship between visium registration scores and manual LC label inclusion
 ```{r}
-regs <- fread("processed-data/05_LabelTransfer/07c-NMF_to_KNNksmoothedLCs_regist_to_manXenLC_visLC.txt")
+regs <- fread("processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/07c-NMF_to_KNNksmoothedLCs_regist_to_manXenLC_visLC.txt")
 
 regsplt1 <- regs[Ntopdommks %in% c(10,40,70,100,130,160,190,220,250,280,300)]
 regsplt1 <- melt.data.table(regsplt1,id.vars = c("domainDef","Ntopdommks","looseInDom","strictInDom","k1","k2"))
 
-pdf("plots/05_Visdomaintransfer/07a_LFFvis_regist_andStrictManCellprop_top300mks_k2facet.pdf",height=10,width=5.5)
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07a_LFFvis_regist_andStrictManCellprop_top300mks_k2facet.pdf",height=10,width=5.5)
 ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Visium"],aes(x=strictInDom,y=value,color=factor(k1)))+
   geom_point()+
   facet_wrap(~k2,ncol=4)+
@@ -56,7 +56,7 @@ dev.off()
 
 #
 
-pdf("plots/05_Visdomaintransfer/07b_XenManStrict_regist_andStrictManCellprop_top300mks_k2facet.pdf",height=7,width=5.5)
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07b_XenManStrict_regist_andStrictManCellprop_top300mks_k2facet.pdf",height=7,width=5.5)
 ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Xenium_strict"],aes(x=strictInDom,y=value,color=factor(k1)))+
   geom_point()+
   facet_wrap(~k2,ncol=4)+
@@ -65,34 +65,60 @@ dev.off()
 
 #
 
-pdf("plots/05_Visdomaintransfer/07c_XenLoose_regist_andStrictManCellprop_top300mks_k2facet.pdf",height=7,width=5.5)
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07c_XenLoose_regist_andStrictManCellprop_top300mks_k2facet.pdf",height=7,width=5.5)
 ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Xenium_loose"],aes(x=strictInDom,y=value,color=factor(k1)))+
   geom_point()+
   facet_wrap(~k2,ncol=4)+
   ylab("Registration to Loose-Definition Xenium Manual LC Cells")
 dev.off()
 
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07d_XenLoose_regist_andLooseManCellprop_top300mks_k2facet.pdf",height=18,width=5.5)
+ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Xenium_loose"],aes(x=looseInDom,y=value,color=factor(k1)))+
+  geom_point()+
+  facet_wrap(~k2,ncol=4)+
+  ylab("Registration to Loose-Definition Xenium Manual LC Cells")
+dev.off()
+
 ## how much better does each  domain definition register to Visium compared to strictly defined LC cells alone?
-pdf("plots/05_Visdomaintransfer/07d_LFFvis-LFFXenstrict_registdiff_top300mks_k1facet.pdf",height=7,width=5.5)
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07e_LFFvis-LFFXenstrict_registdiff_top300mks_k1facet.pdf",height=7,width=5.5)
 ggplot(regs[Ntopdommks==300],aes(y=(LFF_Visium-LFF_Xenium_strict),x=k2))+
   geom_point()+
   facet_wrap(~k1)
 dev.off()
 
-pdf("plots/05_Visdomaintransfer/07e_LFFvis-LFFXenstrict_registdiff_top50mks_k1facet.pdf",height=7,width=5.5)
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07e_LFFvis-LFFXenstrict_registdiff_top50mks_k1facet.pdf",height=7,width=5.5)
 ggplot(regs[Ntopdommks==50],aes(y=(LFF_Visium-LFF_Xenium_strict),x=k2))+
   geom_point()+
   facet_wrap(~k1)
 dev.off()
 
-pdf("plots/05_Visdomaintransfer/07e_LFFvis-LFFXenstrict_registdiff_top20mks_k1facet.pdf",height=7,width=5.5)
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07e_LFFvis-LFFXenstrict_registdiff_top20mks_k1facet.pdf",height=7,width=5.5)
 ggplot(regs[Ntopdommks==20],aes(y=(LFF_Visium-LFF_Xenium_strict),x=k2))+
+  geom_point()+
+  facet_wrap(~k1)
+dev.off()
+
+### and loose?
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07f_LFFvis-LFFXenloose_registdiff_top300mks_k1facet.pdf",height=12,width=5.5)
+ggplot(regs[Ntopdommks==300],aes(y=(LFF_Visium-LFF_Xenium_loose),x=k2))+
+  geom_point()+
+  facet_wrap(~k1)
+dev.off()
+
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07f_LFFvis-LFFXenloose_registdiff_top50mks_k1facet.pdf",height=12,width=5.5)
+ggplot(regs[Ntopdommks==50],aes(y=(LFF_Visium-LFF_Xenium_loose),x=k2))+
+  geom_point()+
+  facet_wrap(~k1)
+dev.off()
+
+pdf("plots/99_UsingVisSensitivityDomains/01_labelTransfer/07f_LFFvis-LFFXenloose_registdiff_top20mks_k1facet.pdf",height=12,width=5.5)
+ggplot(regs[Ntopdommks==20],aes(y=(LFF_Visium-LFF_Xenium_loose),x=k2))+
   geom_point()+
   facet_wrap(~k1)
 dev.off()
 ```
 
-## where I'm looking: k1=0.05 and k2=0.12/0.28/0.36; k=0.1 and k2 0.12/0.28(!)/0.36(!)/0.44/0.52 and k1=0.15 w k2= 0.12/0.2/.52/.6
+## where I'm looking (k1,k2):
 
 ```{r}
 dualscores <- readRDS("processed-data/05_LabelTransfer/06b-LCknnsmoothing_step2k75.RDS")

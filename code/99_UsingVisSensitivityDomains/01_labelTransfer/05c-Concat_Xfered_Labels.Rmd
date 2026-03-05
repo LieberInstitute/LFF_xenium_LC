@@ -1,7 +1,7 @@
 ---
 title: "05c-Concat_Xfered_Labels"
 author: "Bernie Mulvey"
-date: "02-24-2026"
+date: "03-04-2026"
 output: html_document
 ---
 
@@ -33,7 +33,7 @@ unloadNamespace("datasets")
 ```
 
 ```{r}
-lx <- readRDS("processed-data/05_LabelTransfer/05b-LCdonsonly_VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
+lx <- readRDS("processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/05b-LCdonsonly_VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
 
 lx <- lx$targets
 lx <- lapply(lx,function(x){
@@ -44,7 +44,7 @@ lx <- lapply(lx,function(x){
 })
 
 lx <- rbindlist(lx)
-fwrite(lx,"processed-data/05_LabelTransfer/05c-LCdonsonly_labelxfer_concattab.txt",sep='\t',quote=F,row.names=F,col.names=T)
+fwrite(lx,"processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/05c-LCdonsonly_labelxfer_concattab.txt",sep='\t',quote=F,row.names=F,col.names=T)
 ```
 
 ```{r}

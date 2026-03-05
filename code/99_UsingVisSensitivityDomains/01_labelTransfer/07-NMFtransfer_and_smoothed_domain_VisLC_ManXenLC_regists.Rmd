@@ -1,7 +1,7 @@
 ---
 title: "07-NMFtransfer_and_smoothed_domain_VisLC_ManXenLC_regist"
 format: html
-date: "02-17-2026"
+date: "03-04-2026"
 ---
 
 ```{r setup, include=FALSE}
@@ -41,13 +41,13 @@ unloadNamespace('datasets')
 load smoothings, xenium, and manual xenium LC assignments
 ```{r}
 ## smoothings
-dualscores <- readRDS("processed-data/05_LabelTransfer/06b-LCknnsmoothing_step2k75.RDS")
+dualscores <- readRDS("processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/06b-LCknnsmoothing_step2k75.RDS")
 ### lc xenium
 lcx <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 assays(lcx) <- assays(lcx)[1] #dont need normed counts or log counts
 
 ### xenium manual LC definition
-manlc <- fread("processed-data/03_ManualLC/01-XprBasedLClabels.txt")
+manlc <- fread("processed-data/03_ManualLC/01-XprBasedLClabels_and_cellSegsGainedorAlteredByNM.txt")
 manlc <- DataFrame(manlc,row.names=manlc$rn)[colnames(lcx),]
 lcx$LCloose <- manlc$LCloose
 lcx$LCstrict <- manlc$LCstrict
@@ -58,24 +58,36 @@ manlc <- as.data.table(manlc)
 
 ### check that these k1/k2 thresholds that will result in at least 20 LC cells per group, and iterate through each smoothing definition under consideration (plots/05_LabelTransfer/files starting with 06): k1 0.05,0.1,0.15 are the only plausible options. cover the full range of k2 thresholds plotted there (0.04-0.6) in steps of 6/75 (0.08).
 ```{r}
-threshrange <- lapply(seq(0.05,0.15,0.05),function(k1){
-    o <-lapply(seq(0.04,0.6,0.08),function(k2){
-        tmpdt <- copy(dualscores[[paste0("k1thresh","_",k1)]])
-        tmpdt[,newcol:=ifelse(lcpred.smooth1.k20>=k1 & lcpred.smooth2.k75>=k2,"LC","Other")]
-        ret <- ifelse(length(unique(tmpdt$newcol))>1&nrow(tmpdt[newcol=="LC"])>19,"OK","no")
-        return(ret)
-    })
-    names(o) <- paste0("k2_",seq(0.04,0.6,0.08))
-    return(o)
+threshrange <- lapply(round(seq(0.05,0.3,0.05),2),function(k1){
+  o<- lapply(round(seq((3/75),(60/75),(6/75)),2),function(k2){
+    tmpdt <- copy(dualscores[[paste0("k1thresh_",k1)]])
+    tmpdt[,newcol:=ifelse(lcpred.smooth1.k20>=k1 & lcpred.smooth2.k75>=k2,"LC","Other")]
+    ret <- ifelse(length(unique(tmpdt$newcol))>1,"OK","no")
+    tmpdt2 <- tmpdt[,.N,by=c("newcol","brnum")][newcol=="LC"&N>=20]
+    ret <- ifelse(nrow(tmpdt2)>16,ret,"no")
+    return(ret)
+  })
+  
+  names(o) <- paste0("k2_",round(seq((3/75),(60/75),(6/75)),2))
+  return(o)
 })
-names(threshrange) <- paste0("k1_",seq(0.05,0.15,0.05))
-threshrange2 <- rbindlist(threshrange)
-## all pass.
+
+names(threshrange) <- paste0("k1_",seq(0.05,0.3,0.05))
+threshrange2 <- rbindlist(threshrange,idcol="k1thresh")
+## k1=0.25 only up thru k2=0.44; k1=0.3 only up to 0.2
 rm(threshrange,threshrange2)
 
+## make a table reflecting this ^
+k2maxlut <- as.data.table(cbind(seq(0.05,0.3,0.05),c(0.76,0.76,0.76,0.68,0.44,0.2)))
+setnames(k2maxlut,c("curk1","curk2max"))
+## avoid floating point bullshit
+k2maxlut[,curk1:=round(curk1,2)]
+k2maxlut[,curk2max:=round(curk2max,2)]
+
 setDTthreads(1,restore_after_fork = FALSE)
-regperthresh <- lapply(seq(0.05,0.15,0.05),function(k1){
-    regs <- lapply(seq(0.04,0.6,0.08),function(k2){
+regperthresh <- lapply(round(seq(0.05,0.3,0.05),2),function(k1){
+  k2max <- k2maxlut[curk1==k1,curk2max]  
+  regs <- lapply(round(seq((3/75),k2max,(6/75)),2),function(k2){
         setDTthreads(1,restore_after_fork = FALSE)
         
         tmpdt <- copy(dualscores[[paste0("k1thresh","_",k1)]])
@@ -97,12 +109,12 @@ regperthresh <- lapply(seq(0.05,0.15,0.05),function(k1){
             return(outtab)
         }
     })
-    names(regs) <- paste0("k2_",seq(0.04,0.6,0.08))
+    names(regs) <- paste0("k2_",seq((3/75),k2max,(6/75)))
     return(regs)
 })
-names(regperthresh) <- paste0("k1_",seq(0.05,0.15,0.05))
+names(regperthresh) <- paste0("k1_",seq(0.05,0.3,0.05))
 
-saveRDS(regperthresh,file="processed-data/05_LabelTransfer/07a-LCsmooth_knnstep1_k20_step2_k75_registPerThresh.RDS")
+saveRDS(regperthresh,file="processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/07a-LCsmooth_knnstep1_k20_step2_k75_registPerThresh.RDS")
 ```
 
 ## calculate registration stats for xenium manuals and visium domains, then can remove those datasets from sesh
@@ -132,10 +144,10 @@ gc(full=T)
 ```{r}
 lcv <- readRDS("../LFF_spatial_LC/processed-data/06-LCposDonorsOnly_countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
 
-clus <- fread("../LFF_spatial_LC/processed-data/07_2_LCsampsonly_featureSelection_dimred_harmony_clustering/04_2-LConly_HDG_SVG_2575_Louv1_clustering.txt")
+clus <- fread("../LFF_spatial_LC/processed-data/16_sensitivityanalysis_reproc_wo3donors/Sens1_LCsampsonly_featureSelection_dimred_harmony_clustering/04_2-LConly_HDG_SVG_2575_Louv1_clustering.txt")
 setnames(clus,2,"clusid")
 
-anno <- fread("../LFF_spatial_LC/processed-data/07_2_LCsampsonly_featureSelection_dimred_harmony_clustering/08_2-25hdg75svg_louv1_annots.txt")
+anno <- fread("../LFF_spatial_LC/processed-data/16_sensitivityanalysis_reproc_wo3donors/Sens1_LCsampsonly_featureSelection_dimred_harmony_clustering/08_2-25hdg75svg_louv1_annots.txt")
 # this will just be LC/other for registration purposes
 
 anno[,anno:=ifelse(anno=="LC","LC","Other")]
@@ -147,9 +159,6 @@ lcv$vislab <- anno$anno
 ## subset Visium to samples we want to retain in both assays
 unique(lcv$brnum)
 lcv$brnum[lcv$brnum=="Br6119(re-dis)"] <- "Br6119"
-
-# drop 1691 from Visium -- not in Xenium, tissue was v low qual.
-lcv <- lcv[,lcv$brnum!="Br1691"]
 
 ## check all donors overlap
 lcx$donor <- gsub(lcx$brnum,pattern="L",replacement="")
@@ -209,18 +218,29 @@ gc(full=T)
 
 ### also get proportion of cells with LC label in each xenium manual annot that are labeled as LC domain
 ```{r}
-## only going up to k1=0.15
-dualscores <- dualscores[1:3]
+## only going up to k1=0.3
+dualscores <- dualscores[1:6]
 propsindoms <- mcmapply(d=dualscores,n=names(dualscores),SIMPLIFY=FALSE,mc.cores=3,FUN=function(d,n){
     k1 <- as.numeric(gsub(n,pattern="k1thresh_(.*)",replacement="\\1"))
     tmp <- merge.data.table(copy(d),manlc,by="rn")
-    regs <- lapply(seq(0.04,0.6,0.08),function(k2){
+    k2max <- k2maxlut[curk1==k1,curk2max]
+    regs <- lapply(round(seq((3/75),k2max,(6/75)),2),function(k2){      
         setDTthreads(1,restore_after_fork = FALSE)
         
         tmpdt <- copy(tmp)
         tmpdt[,newcol:=ifelse(lcpred.smooth1.k20>=k1 & lcpred.smooth2.k75>=k2,"LC","Other")]
-        looseprop <- nrow(tmpdt[newcol=="LC"&LCloose=="LC"])/nrow(tmpdt[LCloose=="LC"])
-        strictprop <- nrow(tmpdt[newcol=="LC"&LCstrict=="LC"])/nrow(tmpdt[LCstrict=="LC"])
+        looseprop <- ifelse(nrow(tmpdt[LCloose=="LC"])==0,
+                            0,
+                            nrow(tmpdt[newcol=="LC"&LCloose=="LC"])/
+                              nrow(tmpdt[LCloose=="LC"])
+        )
+        
+        strictprop <- ifelse(nrow(tmpdt[LCstrict=="LC"])==0,
+                            0,
+                            nrow(tmpdt[newcol=="LC"&LCstrict=="LC"])/
+                              nrow(tmpdt[LCstrict=="LC"])
+        )
+
 
         od <- data.frame(matrix(nrow=1,ncol=4))
         od[1,1] <- k1
@@ -237,7 +257,7 @@ propsindoms <- mcmapply(d=dualscores,n=names(dualscores),SIMPLIFY=FALSE,mc.cores
 })
 propsindoms <- rbindlist(propsindoms)
 
-fwrite(propsindoms,"processed-data/05_LabelTransfer/07b-prop_manualLCcells_inEach_k1k2smoothDom.txt",sep='\t',quote=F,row.names=F)
+fwrite(propsindoms,"processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/07b-prop_manualLCcells_inEach_k1k2smoothDom.txt",sep='\t',quote=F,row.names=F)
 
 ```
 
@@ -338,7 +358,7 @@ regres4[,domainDef:=gsub(domainDef,pattern="k1_k1",replacement="_k1")]
 
 regres4 <- merge.data.table(regres4,propsindoms,by="domainDef")
 
-fwrite(regres4,"processed-data/05_LabelTransfer/07c-NMF_to_KNNksmoothedLCs_regist_to_manXenLC_visLC.txt",quote=F,row.names=F,sep='\t')
+fwrite(regres4,"processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/07c-NMF_to_KNNksmoothedLCs_regist_to_manXenLC_visLC.txt",quote=F,row.names=F,sep='\t')
 ```
 
 seshinf

@@ -48,18 +48,14 @@ unloadNamespace("datasets")
 ```{r}
 spe <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 
-labxf <- readRDS("processed-data/05_LabelTransfer/05b-LCdonsonly_VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
+## no samples to drop from the xenium data--the only difference is in the visium data, where we dropped c(5517,5276,5712) before doing any processing in this case (instead of processing+clustering, then dropping, as in the main).
 
-labxf2 <- lapply(labxf$targets,function(x){
-  y <- as.data.table(cbind(rownames(colData(x)),as.character(x$nmf_preds)))
-  setnames(y,c("rn","nmfpred"))
-})
+labxf <- fread("processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/05c-LCdonsonly_labelxfer_concattab.txt")
 
-labxf2 <- rbindlist(labxf2)
-labxf2 <- DataFrame(labxf2,row.names=labxf2$rn)[colnames(spe),]
-spe$nmfpred <- labxf2$nmfpred
+labxf <- DataFrame(labxf,row.names=labxf$rn)[colnames(spe),]
+spe$nmfpred <- labxf$nmf_preds
 
-rm(labxf,labxf2)
+rm(labxf)
 gc(full=T)
 ```
 
@@ -70,7 +66,7 @@ spe$ycoord <- spatialCoords(spe)[,2]
 xyspe <- as.data.table(colData(spe),keep.rownames=T)
 xyspe[,isLC:=0]
 xyspe[nmfpred=="LC",isLC:=1]
-sum(xyspe$isLC==1) #9470
+sum(xyspe$isLC==1) #7515
 
 xyspe <- xyspe[,.(rn,brnum,xcoord,ycoord,isLC)]
 gc(full=T)
@@ -115,15 +111,15 @@ xyspeout <- rbindlist(knnreslist)
 ## what would the domain definitions be just from these knns?
 # any LC neighbor
 # nrow(xyspeout[lcpred.smooth1.k20>0])
-#[1] 72881
+#[1] 67035
 
 #1 lc neighbor 
 # nrow(xyspeout[lcpred.smooth1.k20>0.05])
-# [1] 38594
+# [1] 32307
 
 
 ## save the resulting smoothing predictions as a table of cell ID, coords, and LCknn smoothing step 1 prediction values
-saveRDS(xyspeout,"processed-data/05_LabelTransfer/06a-LCknnsmoothing_step1k20.RDS")
+saveRDS(xyspeout,"processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/06a-LCknnsmoothing_step1k20.RDS")
 ```
 
 seshinf

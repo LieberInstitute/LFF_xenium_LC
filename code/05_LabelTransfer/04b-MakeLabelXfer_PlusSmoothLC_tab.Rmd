@@ -37,14 +37,17 @@ theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = '#000000'
 unloadNamespace('datasets')
 ```
 
+0.15 0.12
+0.1 0.36
+0.05 0.36
 ```{r}
 smooves <- readRDS("processed-data/05_LabelTransfer/03-LCknnsmoothing_step2k75.RDS")
-smoove0528 <- smooves$k1thresh_0.05
-smoove1020 <- smooves$k1thresh_0.1
+smoove0536 <- smooves$k1thresh_0.05
+smoove1036 <- smooves$k1thresh_0.1
 smoove1512 <- smooves$k1thresh_0.15
 
-smoove0528[,LCsmooth0528:=ifelse(lcpred.smooth1.k20>=0.05 & lcpred.smooth2.k75>=0.28,"LCdomain","Other")]
-smoove1020[,LCsmooth1020:=ifelse(lcpred.smooth1.k20>=0.1 & lcpred.smooth2.k75>=0.2,"LCdomain","Other")]
+smoove0536[,LCsmooth0536:=ifelse(lcpred.smooth1.k20>=0.05 & lcpred.smooth2.k75>=0.36,"LCdomain","Other")]
+smoove1036[,LCsmooth1036:=ifelse(lcpred.smooth1.k20>=0.1 & lcpred.smooth2.k75>=0.36,"LCdomain","Other")]
 smoove1512[,LCsmooth1512:=ifelse(lcpred.smooth1.k20>=0.15 & lcpred.smooth2.k75>=0.12,"LCdomain","Other")]
 
 labelxfers <- readRDS("processed-data/05_LabelTransfer/02-VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
@@ -55,27 +58,22 @@ preds <- lapply(labelxfers$targets,function(x){
 })
 preds <- rbindlist(preds)
 
-preds <- merge.data.table(preds,smoove0528[,.(rn,LCsmooth)],by="rn")
-preds <- merge.data.table(preds,smoove1020[,.(rn,LCsmooth1020)],by="rn")
+preds <- merge.data.table(preds,smoove0536[,.(rn,LCsmooth0536)],by="rn")
+preds <- merge.data.table(preds,smoove1036[,.(rn,LCsmooth1036)],by="rn")
 preds <- merge.data.table(preds,smoove1512[,.(rn,LCsmooth1512)],by="rn")
 
-nrow(preds[LCsmooth0528=="LCdomain"&nmfpred=="LC"])/nrow(preds[nmfpred=="LC"]) # 73.7% of LC cells in domain
-nrow(preds[LCsmooth1020=="LCdomain"&nmfpred=="LC"])/nrow(preds[nmfpred=="LC"]) # 68.2% of LC cells in domain
-nrow(preds[LCsmooth1512=="LCdomain"&nmfpred=="LC"])/nrow(preds[nmfpred=="LC"]) # 59.6% of LC cells in domain
+nrow(preds[LCsmooth0536=="LCdomain"&nmfpred=="LC"])/nrow(preds[nmfpred=="LC"]) # 64.4% of LC cells in domain
+nrow(preds[LCsmooth1036=="LCdomain"&nmfpred=="LC"])/nrow(preds[nmfpred=="LC"]) # 55.8% of LC cells in domain
+nrow(preds[LCsmooth1512=="LCdomain"&nmfpred=="LC"])/nrow(preds[nmfpred=="LC"]) # 48.3% of LC cells in domain
 
 ### create a set of overriding transferred label columns, where a cell keeps its transferred label unless its in the LC domain
 ### for handling out-of-smoothed-domain LC cells, change those labels to be clear about what they are
-preds[,LCsmooth0528_orxfer:=ifelse(LCsmooth0528=="LCdomain","LCdomain",nmfpred)]
-preds[LCsmooth0528_orxfer=="LC",LCsmooth0528_orxfer:="LC_outOfDomain"]
-preds[,LCsmooth1020_orxfer:=ifelse(LCsmooth1020=="LCdomain","LCdomain",nmfpred)]
-preds[LCsmooth1020_orxfer=="LC",LCsmooth1020_orxfer:="LC_outOfDomain"]
+preds[,LCsmooth0536_orxfer:=ifelse(LCsmooth0536=="LCdomain","LCdomain",nmfpred)]
+preds[LCsmooth0536_orxfer=="LC",LCsmooth0536_orxfer:="LC_outOfDomain"]
+preds[,LCsmooth1036_orxfer:=ifelse(LCsmooth1036=="LCdomain","LCdomain",nmfpred)]
+preds[LCsmooth1036_orxfer=="LC",LCsmooth1036_orxfer:="LC_outOfDomain"]
 preds[,LCsmooth1512_orxfer:=ifelse(LCsmooth1512=="LCdomain","LCdomain",nmfpred)]
 preds[LCsmooth1512_orxfer=="LC",LCsmooth1512_orxfer:="LC_outOfDomain"]
-
-### total # of LC out of domain per smoothing:
-# 0528: 2567
-# 1020: 3112
-# 1512: 3957
 
 fwrite(preds,"processed-data/05_LabelTransfer/04d-TransferredLabels_and_SmoothLCdomain_assigns.txt",sep='\t',quote=F,row.names=F)
 ```

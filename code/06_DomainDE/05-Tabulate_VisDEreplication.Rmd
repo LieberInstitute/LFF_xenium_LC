@@ -1,7 +1,7 @@
 ---
 title: "05-Tabulate VisDE Replication"
 author: "Bernie Mulvey"
-date: "03-01-26"
+date: "03-05-26"
 output: html_document
 ---
 
@@ -31,6 +31,7 @@ library(parallel)
 unloadNamespace("datasets")
 ```
 
+## with LC as a smoothed domain
 ```{r}
 totde <- readRDS("processed-data/06_DomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
 totde <- lapply(totde,function(x){
@@ -78,18 +79,86 @@ mapply(x=reps,n=names(reps),SIMPLIFY = FALSE,FUN = function(x,n){
   fwrite(x,paste0("processed-data/06_DomainDE/05-Tabulate_VisDEreplication_results_percontrast_withSmooth",n,".txt"),sep='\t',quote=F,row.names=F,col.names=T)
 })
 
-rep0528 <- reps$dom0528[,.(contrast,VisFDR05_tested,reprate)]
-setnames(rep0528,"reprate","reprate0528")
-rep1020 <- reps$dom1020[,.(contrast,reprate)]
-setnames(rep1020,"reprate","reprate1020")
+rep0536 <- reps$dom0536[,.(contrast,VisFDR05_tested,reprate)]
+setnames(rep0536,"reprate","reprate0536")
+rep1036 <- reps$dom1036[,.(contrast,reprate)]
+setnames(rep1036,"reprate","reprate1036")
 rep1512 <- reps$dom1512[,.(contrast,reprate)]
 setnames(rep1512,"reprate","reprate1512")
 
-reps2 <- merge.data.table(rep0528,rep1020,by="contrast")
+reps2 <- merge.data.table(rep0536,rep1036,by="contrast")
 reps2 <- merge.data.table(reps2,rep1512,by="contrast")
 
-fwrite(reps2,"processed-data/06_DomainDE/05-Replication_Rates_by_DomainDefinition.txt",sep='\t',quote=F,row.names=T)
+fwrite(reps2,"processed-data/06_DomainDE/05a-Replication_Rates_by_DomainDefinition_withLCsmoothing.txt",sep='\t',quote=F,row.names=T)
 ```
+
+### with direct label xfer
+```{r}
+totde <- readRDS("processed-data/06_DomainDE/04-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_withinLCVisLabs.RDS")
+totde <- lapply(totde,function(x){
+  y <- lapply(x,function(z){
+    z2 <- z$detab
+    z2 <- rbindlist(z2,idcol="contrast",fill=T)
+    return(z2)
+  })
+  rbindlist(y,idcol="modelset")
+})
+
+
+visde <- readRDS("../LFF_spatial_LC/processed-data/12_DEanalyses_removedsampsAndFinalNMseg/02b-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_noMixClusts_YRIcontAndCat_JUL2025.RDS")
+visdes <- list(visde$cont_ances$E2E4label$detabs,visde$cont_ances$sexlabel$detabs,visde$cat_ances$YRIAPOlabel$detabs)
+names(visdes) <- c("E2E4label","sexlabel","YRIAPOlabel")
+visdes <- lapply(visdes,rbindlist,idcol="contrast")
+visdes <- rbindlist(visdes)
+
+totde <- lapply(totde,function(d){
+  z <- d
+  z[,contrast:=gsub(contrast,pattern="LCdomain",replacement="LC")]
+  z <- z[contrast %in% c(unique(visdes$contrast))]
+  z <- z[,.(contrast,gene_name,P.Value,logFC)]
+  setnames(z,c("P.Value","logFC"),c("Xen.P.unadj","xlfc"))
+  z <- merge.data.table(z,visdes[adj.P.Val<0.05,.(contrast,gene_name,adj.P.Val,logFC)],by=c("contrast","gene_name"))
+  return(z)
+})
+
+reps <- lapply(totde,function(d){
+  x <- d[,.N,by="contrast"]
+  setnames(x,"N","VisFDR05_tested")
+  y <- d[Xen.P.unadj<0.05,.N,by="contrast"]
+  setnames(y,"N","XenP05sig")
+  z <- d[Xen.P.unadj<0.05&(logFC*xlfc>0),.N,by="contrast"]
+  setnames(z,"N","XenP05sig_concord")
+  x <- merge.data.table(x,y,by="contrast",all.x=T)
+  x <- merge.data.table(x,z,by="contrast",all.x=T)
+  x[,reprate:=XenP05sig_concord/VisFDR05_tested]
+  x[,discordrate:=(XenP05sig-XenP05sig_concord)/XenP05sig]
+  return(x)
+})
+
+
+mapply(x=reps,n=names(reps),SIMPLIFY = FALSE,FUN = function(x,n){
+  fwrite(x,paste0("processed-data/06_DomainDE/05-Tabulate_VisDEreplication_results_withinLCdomainONLY_percontrast",n,".txt"),sep='\t',quote=F,row.names=F,col.names=T)
+})
+
+rep0536 <- reps$dom0536[,.(contrast,VisFDR05_tested,reprate)]
+setnames(rep0536,"reprate","reprate0536")
+rep1036 <- reps$dom1036[,.(contrast,reprate)]
+setnames(rep1036,"reprate","reprate1036")
+rep1512 <- reps$dom1512[,.(contrast,reprate)]
+setnames(rep1512,"reprate","reprate1512")
+
+reps2 <- merge.data.table(rep0536,rep1036,by="contrast")
+reps2 <- merge.data.table(reps2,rep1512,by="contrast")
+
+fwrite(reps2,"processed-data/06_DomainDE/05b-Vis domain DE replication per label only within smoothed LC.txt",sep='\t',quote=F,row.names=T)
+
+
+
+
+ 
+```
+
+
 
 ```{r}
 sessionInfo()

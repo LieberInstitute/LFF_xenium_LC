@@ -1,7 +1,7 @@
 ---
 title: "06b-LCsmoothing_knnstep2_k75"
 author: "Bernie Mulvey"
-date: "02-17-2026"
+date: "03-04-2026"
 output: html_document
 ---
 
@@ -39,7 +39,7 @@ unloadNamespace("datasets")
 
 load KNN step 1 results
 ```{r}
-labxf <- readRDS("processed-data/05_LabelTransfer/06a-LCknnsmoothing_step1k20.RDS")
+labxf <- readRDS("processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/06a-LCknnsmoothing_step1k20.RDS")
 
 ## split back to samplewise
 labxf_list <- split(labxf,labxf$brnum)
@@ -53,7 +53,7 @@ rm(labxf)
 #### however, this approach is more transparent in that the user can take an entry of xyspe_list into the environment as v and step through the bplapply to see what's being done here, and can see that cells are always matched in the process (as opposed to working with vectors where we don't have cell ids matched up anymore. which always makes me unccomfortable, however rationally/irrationally.)
 ```{r}
 setDTthreads(1,restore_after_fork = FALSE)
-thresh1 <- seq(0.05,0.5,by=0.05) # thresholds above 0.5 pretty much negate LC from most samples
+thresh1 <- round(seq(0.05,0.3,by=0.05),2) # thresholds above 0.3 pretty much negate LC from most samples
 
 perthresh <- lapply(thresh1,function(t){
   knnreslist <- mclapply(labxf_list,mc.cores=8,FUN=function(v){
@@ -97,7 +97,7 @@ perthresh <- lapply(perthresh2,function(x){
   
 })
 
-saveRDS(perthresh2,"processed-data/05_LabelTransfer/06b-LCknnsmoothing_step2k75.RDS")
+saveRDS(perthresh2,"processed-data/99_UsingVisSensitivityDomains/01_labelTransfer/06b-LCknnsmoothing_step2k75.RDS")
 ```
 
 seshinf

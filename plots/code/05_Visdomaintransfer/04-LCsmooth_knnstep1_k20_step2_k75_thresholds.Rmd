@@ -1,7 +1,7 @@
 ---
 title: "04-LCsmooth_knnstep1_k20_step2_k75_thresholdsViz"
 author: "Bernie Mulvey"
-date: "02-26-2026"
+date: "03-05-2026"
 output: html_document
 ---
 
@@ -121,8 +121,6 @@ ggplot(regs[Ntopdommks==20],aes(y=(LFF_Visium-LFF_Xenium_loose),x=k2))+
 dev.off()
 ```
 
-## where I'm looking (k1,k2): 
-
 ```{r}
 dualscores <- readRDS("processed-data/05_LabelTransfer/03-LCknnsmoothing_step2k75.RDS")
 
@@ -159,31 +157,33 @@ colLabels(lcv) <- vdom$anno
 rm(vdom,vanno)
 
 lcv$brnum[lcv$brnum=="Br6119(re-dis)"] <- "Br6119"
-## drop donors with limited LC and br 1691 (tentatively dropping from Xenium)
-lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(1691,5517,5276,5712)))]
+## drop donors with limited LC
+lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(5517,5276,5712)))]
 
 ## we also want to match left/right sections here so change brnum to reflect the hemi of origin
 lcv$brnum <- paste0(lcv$brnum,lcv$hemisphere)
 lcv$brnum <- gsub(lcv$brnum,pattern="(Br.*)R",replacement="\\1")
 sum(unique(lcv$brnum) %in% unique(spe$brnum))==length(unique(spe$brnum)) # k we good
+```
 
 ### same plotting function as above, but one plot file per threshold set and incorporating visium samples
-k1thresh <- seq(0.05,0.3,0.05)
+
+## for selected k1/k2 pairs based on plots 04a-f. initial sweep leads me to these (k1,k2):
+.05 / 0.04, 0.36, 0.44, 0.52, 0.6
+.1 / 0.04-0.36
+.15 / 0.04-0.28
+
+```{r}
+k1thresh <- round(seq(0.05,0.15,0.05),2)
 setDTthreads(1,restore_after_fork = FALSE)
 lapply(k1thresh,function(k1){
   if (k1==0.05){
-    k2s <- seq(0.28,0.6,by=0.08)
+    k2s <- c(0.04,0.36,0.44,0.52,0.6)
   } else if (k1==0.1){
-    k2s <- seq(0.2,0.6,0.08)
+    k2s <- round(seq(0.04,0.36,0.08),2)
   } else if (k1==0.15){
-    k2s <- 0.04 # k2s <- seq(0.04,0.12,0.36,0.08)
-  } else if (k1==0.2){
-    k2s <- seq(0.04,0.36,0.08)
-  } else if (k1==0.25) {
-    k2s <- seq(0.04,0.2,0.08)
-  } else if (k1==0.3){
-    k2s <- c(0.04,0.12)
-  }
+    k2s <- round(seq(0.04,0.28,0.08),2)
+  } 
 
   n <- paste0("k1thresh_",k1)
   d <- copy(dualscores[[n]]) # single brackets don't return a d.t. i guess, but double brackets do
