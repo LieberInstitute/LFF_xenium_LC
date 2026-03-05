@@ -1,7 +1,7 @@
 ---
 title: "02-TestLCsmoothing_knnstep1_k20"
 author: "Bernie Mulvey"
-date: "02-09-2026`"
+date: "03-04-26"
 output: html_document
 ---
 
@@ -70,7 +70,7 @@ spe$ycoord <- spatialCoords(spe)[,2]
 xyspe <- as.data.table(colData(spe),keep.rownames=T)
 xyspe[,isLC:=0]
 xyspe[nmfpred=="LC",isLC:=1]
-sum(xyspe$isLC==1) #9788
+sum(xyspe$isLC==1) #7815
 
 xyspe <- xyspe[,.(rn,brnum,xcoord,ycoord,isLC)]
 gc(full=T)
@@ -115,11 +115,11 @@ xyspeout <- rbindlist(knnreslist)
 ## what would the domain definitions be just from these knns?
 # any LC neighbor
 # nrow(xyspeout[lcpred.smooth1.k20>0])
-#[1] 76073
+#[1] 70085
 
 #1 lc neighbor 
 # nrow(xyspeout[lcpred.smooth1.k20>0.05])
-# [1] 39559
+# [1] 33281
 
 
 ## save the resulting smoothing predictions as a table of cell ID, coords, and LCknn smoothing step 1 prediction values
