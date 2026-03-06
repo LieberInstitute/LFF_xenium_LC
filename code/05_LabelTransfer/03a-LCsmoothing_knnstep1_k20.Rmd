@@ -1,7 +1,7 @@
 ---
 title: "02-TestLCsmoothing_knnstep1_k20"
 author: "Bernie Mulvey"
-date: "03-04-26"
+date: "03-06-26"
 output: html_document
 ---
 
@@ -72,6 +72,7 @@ xyspe[,isLC:=0]
 xyspe[nmfpred=="LC",isLC:=1]
 sum(xyspe$isLC==1) #7815
 
+## brnum (donor+hemisphere) is unique to sample (one tiss sect per donorhem)
 xyspe <- xyspe[,.(rn,brnum,xcoord,ycoord,isLC)]
 gc(full=T)
 
@@ -117,8 +118,8 @@ xyspeout <- rbindlist(knnreslist)
 # nrow(xyspeout[lcpred.smooth1.k20>0])
 #[1] 70085
 
-#1 lc neighbor 
-# nrow(xyspeout[lcpred.smooth1.k20>0.05])
+# 2+ lc neighbor (2/20 = 0.1)
+# nrow(xyspeout[greaterOrEqual(lcpred.smooth1.k20,0.1)])
 # [1] 33281
 
 

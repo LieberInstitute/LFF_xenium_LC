@@ -1,7 +1,7 @@
 ---
 title: "03-LCsmoothing_knnstep2_k75"
 author: "Bernie Mulvey"
-date: "03-04-2026"
+date: "03-06-2026"
 output: html_document
 ---
 
@@ -32,6 +32,19 @@ options(parallelly.fork.enable=TRUE)
 library(parallel)
 
 
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+
+
 ## ggplot defaults
 ## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
 unloadNamespace("datasets")
@@ -53,14 +66,16 @@ rm(labxf)
 #### however, this approach is more transparent in that the user can take an entry of xyspe_list into the environment as v and step through the bplapply to see what's being done here, and can see that cells are always matched in the process (as opposed to working with vectors where we don't have cell ids matched up anymore. which always makes me unccomfortable, however rationally/irrationally.)
 ```{r}
 setDTthreads(1,restore_after_fork = FALSE)
-thresh1 <- seq(0.05,0.5,by=0.05) # thresholds above 0.5 pretty much negate LC from most samples
+thresh1 <- round(seq(0.05,0.5,by=0.05),2) # thresholds above 0.5 pretty much negate LC from most samples; round to avoid machine decimal errors.
 
 perthresh <- lapply(thresh1,function(t){
   knnreslist <- mclapply(labxf_list,mc.cores=8,FUN=function(v){
     setDTthreads(1,restore_after_fork = FALSE)
     ## reset LC designation based on KNN step 1 and current threshold for KNN1 LC designation
     v[,isLC:=NULL]
-    v[,isLC:=ifelse(lcpred.smooth1.k20>=t,1,0)]
+    ## avoid floating point errors in the k1 output (some entries come out to
+    ## like 0.050000000000000000002, even though k1 is whole fractions of 20).
+    v[,isLC:=ifelse(greaterOrEqual(lcpred.smooth1.k20,t),1,0)]
     # get nearest neighbors for each cell in the sample
     knnout <- FNN::get.knn(v[,c("xcoord","ycoord")],k = 75) # previously tried with 200, but this designates probably overlarge areas as LC
     
@@ -73,7 +88,7 @@ perthresh <- lapply(thresh1,function(t){
     
     # now, get the mean of LC y/n for the k nearest neighbors indexed for each cell
     # (in knnout, the first list item, nn.index, has v's row indices corresponding to those neighbors) 
-    # this value is thus a probability 0-1 that, a given cell is a LC type given the LC/nonLC identity of its 20 spatial neighbors
+    # this value is thus a probability 0-1 that, a given cell is a LC type given the LC/nonLC identity of its 75 spatial neighbors
     v[,lcpred.smooth2.k75:=
           apply(.SD, MARGIN = 1, FUN=function(x){
               mean(v[neighborslist[[x]],isLC])}
