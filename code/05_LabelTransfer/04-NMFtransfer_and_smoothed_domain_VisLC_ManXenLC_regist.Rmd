@@ -52,6 +52,17 @@ manlc <- DataFrame(manlc,row.names=manlc$rn)[colnames(lcx),]
 lcx$LCloose <- manlc$LCloose
 lcx$LCstrict <- manlc$LCstrict
 
+### nmf-transferred labels
+xferlab <- readRDS("processed-data/05_LabelTransfer/02-VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
+
+preds <- lapply(xferlab$targets,function(x){
+    y <- as.data.table(cbind(rownames(colData(x)),as.character(x$nmf_preds)))
+    setnames(y,c("rn","nmfpred"))
+    return(y)
+})
+preds <- rbindlist(preds)
+rm(xferlab)
+
 ### keep manLC for tabulating % overlap with domain and cells later
 manlc <- as.data.table(manlc)
 ```
@@ -229,6 +240,7 @@ dualscores <- dualscores[1:6]
 propsindoms <- mcmapply(d=dualscores,n=names(dualscores),SIMPLIFY=FALSE,mc.cores=8,FUN=function(d,n){
     k1 <- as.numeric(gsub(n,pattern="k1thresh_(.*)",replacement="\\1"))
     tmp <- merge.data.table(copy(d),manlc,by="rn")
+    tmp <- merge.data.table(tmp,preds,by="rn")
     k2max <- k2maxlut[curk1==k1,curk2max]
     regs <- lapply(round(seq((3/75),k2max,(6/75)),2),function(k2){
         setDTthreads(1,restore_after_fork = FALSE)
@@ -246,14 +258,21 @@ propsindoms <- mcmapply(d=dualscores,n=names(dualscores),SIMPLIFY=FALSE,mc.cores
                             nrow(tmpdt[newcol=="LC"&LCstrict=="LC"])/
                               nrow(tmpdt[LCstrict=="LC"])
         )
+        
+        nmfprop <- ifelse(nrow(tmpdt[nmfpred=="LC"])==0,
+                            0,
+                            nrow(tmpdt[newcol=="LC"&nmfpred=="LC"])/
+                              nrow(tmpdt[nmfpred=="LC"])
+        )
 
         od <- data.frame(matrix(nrow=1,ncol=4))
         od[1,1] <- k1
         od[1,2] <- k2
         od[1,3] <- looseprop
         od[1,4] <- strictprop
+        od[1,5] <- nmfprop
         od <- as.data.table(od)
-        setnames(od,c("k1","k2","looseInDom","strictInDom"))
+        setnames(od,c("k1","k2","looseInDom","strictInDom","nmfpredInDom"))
 
         return(od)
     })
