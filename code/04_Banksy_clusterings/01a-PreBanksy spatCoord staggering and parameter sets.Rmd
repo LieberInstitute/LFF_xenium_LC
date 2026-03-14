@@ -1,7 +1,7 @@
 ---
 title: "01a-PreBanksy spatCoord staggering and parameter sets"
 author: "Bernie Mulvey"
-date: "2025-12-02"
+date: "2026-03-14"
 output: html_document
 ---
 
@@ -83,17 +83,18 @@ saveRDS(lcx,"processed-data/04_Banksy_clusterings/01-staggeredCoord_spe_genetarg
 ```
 
 ## make table of Banksy run parameter sets (weighting of spatial information, number of nearest neighbor cells to be used, leiden clustering resolution on the resulting dimred). each JHPCE job will pull in a row of this table and pass the variables to R/banksy.
+we can't parallelize louv/leiden clustering (though we can parallelize banksy steps), so we'll run three resolutions on a multicpu job. so the job params dont need separate resolutions.
 ```{r}
 ## set arguments, which we'll try a variety of
 lam <- c(0,0.2,0.4,0.6,0.8,1) # 0=spatial info disregarded; 0.2 = suggested "cell typing" setting, 0.8= suggested "domain" setting, 1=fullly spatial weighting, 0.6-0.8 recommended for spatially-informed clusters. So test  (6 values)
-res <- seq(1,2) # leiden/louvain resolution (2 values)
+
 gabor <- c(TRUE,FALSE) # some cryptic parameter that has something to do with spatial patterns. still don't have a good answer for like what it does exactly so use both ways. 2 values
 
 # note that kgeom (number of neighboring cells to consider for spatial dimred) is suggested by banksy to range 15-30 for cell-resolution data.
 kgeom <- c(15,30) # (2 values)
-# 6*2*2*2 = 48 parameter combos total. get a table with all unique combinations of these 4 things
-paramgrid <- as.data.table(expand.grid(lam,res,gabor,kgeom))
-setnames(paramgrid,c("lam","res","gabor","kgeom"))
+# 6*2*2 = 24 parameter combos total, each will be clustered at 3 resolutions in one job. get a table with all unique combinations of these 4 things
+paramgrid <- as.data.table(expand.grid(lam,gabor,kgeom))
+setnames(paramgrid,c("lam","gabor","kgeom"))
 fwrite(paramgrid,"processed-data/04_Banksy_clusterings/01-BanksyParamSets.txt",sep='\t',quote=F,row.names=F,col.names = T)
 ```
 
