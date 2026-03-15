@@ -1,0 +1,221 @@
+Unloading conda_R/4.5
+Loading conda_R/4.5
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: generics
+
+Attaching package: ‘generics’
+
+The following objects are masked from ‘package:base’:
+
+    as.difftime, as.factor, as.ordered, intersect, is.element, setdiff,
+    setequal, union
+
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, aperm, append, as.data.frame, basename, cbind,
+    colnames, dirname, do.call, duplicated, eval, evalq, Filter, Find,
+    get, grep, grepl, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, saveRDS, table, tapply, unique,
+    unsplit, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following objects are masked from ‘package:data.table’:
+
+    first, second
+
+The following object is masked from ‘package:utils’:
+
+    findMatches
+
+The following objects are masked from ‘package:base’:
+
+    expand.grid, I, unname
+
+Loading required package: IRanges
+
+Attaching package: ‘IRanges’
+
+The following object is masked from ‘package:data.table’:
+
+    shift
+
+Loading required package: Seqinfo
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+here() starts at /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC
+Computing neighbors...
+Spatial mode is kNN_median
+Parameters: k_geom=30
+Done
+Computing neighbors...
+Spatial mode is kNN_median
+Parameters: k_geom=30
+Done
+Done
+Done
+Warning message:
+In asMethod(object) :
+  sparse->dense coercion: allocating vector of size 1.3 GiB
+Scaling normcounts
+Group: Br0942
+Group: Br0946
+Group: Br1039L
+Group: Br1039
+Group: Br1105
+Group: Br1285
+Group: Br1556
+Group: Br1691L
+Group: Br1706
+Group: Br1884
+Group: Br2305L
+Group: Br2305
+Group: Br2582
+Group: Br3974
+Group: Br5367
+Group: Br5368
+Group: Br5415
+Group: Br5426
+Group: Br5460
+Group: Br5529
+Group: Br5634
+Group: Br5854L
+Group: Br5854
+Group: Br5941
+Group: Br6085
+Group: Br6098
+Group: Br6119
+Group: Br6222
+Group: Br6263
+Group: Br6297
+Group: Br6423
+Group: Br6476
+Group: Br6538
+Scaling harmonic m = 0
+Group: Br0942
+Group: Br0946
+Group: Br1039L
+Group: Br1039
+Group: Br1105
+Group: Br1285
+Group: Br1556
+Group: Br1691L
+Group: Br1706
+Group: Br1884
+Group: Br2305L
+Group: Br2305
+Group: Br2582
+Group: Br3974
+Group: Br5367
+Group: Br5368
+Group: Br5415
+Group: Br5426
+Group: Br5460
+Group: Br5529
+Group: Br5634
+Group: Br5854L
+Group: Br5854
+Group: Br5941
+Group: Br6085
+Group: Br6098
+Group: Br6119
+Group: Br6222
+Group: Br6263
+Group: Br6297
+Group: Br6423
+Group: Br6476
+Group: Br6538
+Scaling harmonic m = 1
+Group: Br0942
+Group: Br0946
+Group: Br1039L
+Group: Br1039
+Group: Br1105
+Group: Br1285
+Group: Br1556
+Group: Br1691L
+Group: Br1706
+Group: Br1884
+Group: Br2305L
+Group: Br2305
+Group: Br2582
+Group: Br3974
+Group: Br5367
+Group: Br5368
+Group: Br5415
+Group: Br5426
+Group: Br5460
+Group: Br5529
+Group: Br5634
+Group: Br5854L
+Group: Br5854
+Group: Br5941
+Group: Br6085
+Group: Br6098
+Group: Br6119
+Group: Br6222
+Group: Br6263
+Group: Br6297
+Group: Br6423
+Group: Br6476
+Group: Br6538
+Using seed=42
+Warning message:
+In asMethod(object) :
+  sparse->dense coercion: allocating vector of size 1.3 GiB
+Using seed=42
+Using seed=42
+Using seed=42

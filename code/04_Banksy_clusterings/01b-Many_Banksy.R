@@ -127,7 +127,7 @@ outtabname <- paste0(outtabname,"_kgeom",kgeom,"_louv05_louv1_louv2.txt")
 
 fwrite(outtab,
        paste0("processed-data/04_Banksy_clusterings/01-banksy_clustruns_outs/",
-              names(outtab)[2],
+              outtabname,
               ".txt"),
        sep='\t',
        quote=F,
