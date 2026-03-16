@@ -150,20 +150,14 @@ dists3 <- mclapply(dists2,
                    FUN=function(v){
   setDTthreads(1,restore_after_fork = FALSE)
   ret <- lapply(v,function(a){
-    ## only get info for neighbors of NE cells
-    ## and only for NE cells that are within the lc domain
+    ## only get info for neighbors of LC cells. keep the LC cells domain info so we can stratify by in or out of domain later if we want.
     ## we simultaneously will get the number of cells of each type (nmfpred2) that are paired to each remaining cell1 (query, i.e. intra-domain LC cell) 
-    nperclus8 <- a[webdiv_label1=="NE"] 
-    nperclus8 <- nperclus8[domain8266_cell1=="LC",.(.N,webdiv_label1),by=c("cell1","webdiv_label2")]
-    nperclus8 <- unique(nperclus8)
     
-    nperclus12 <- a[webdiv_label1=="NE"] 
-    nperclus12 <- nperclus12[domain12252_cell1=="LC",.(.N,webdiv_label1),by=c("cell1","webdiv_label2")]
-    nperclus12 <- unique(nperclus12)
+    nperclus <- a[webdiv_label1=="NE"] 
+    nperclus <- nperclus[,.(.N,domain12252_cell1,domain8266_cell1,webdiv_label1),by=c("cell1","webdiv_label2")]
+    nperclus <- unique(nperclus)
     
-    retlist <- list(nperclus8,nperclus12)
-    names(retlist) <- c("neighbortotals_dom8266","neighbortotals_dom12252")
-    return(retlist)
+    return(nperclus)
   })
   names(ret) <- names(v)
   return(ret)
@@ -172,28 +166,25 @@ dists3 <- mclapply(dists2,
 
 build...THE MEGA TABLE
 ```{r}
+
 alldists <- lapply(dists3,function(x){
-  z <- lapply(x,function(y){
-    y<-rbindlist(y,idcol="domain")
-    y[,domain:=gsub(domain,pattern="neighbortotals_",replacement="")]
+    y<-rbindlist(x,idcol="rad")
     return(y)
-  })
-  rbindlist(z,idcol="rad")
 })
-alldist <- rbindlist(alldists,idcol="samp")
-rm(alldists,dists,dists1,dists2,dists3)
+alldists <- rbindlist(alldists,idcol="brnum")
+
+rm(dists,dists2,dists3)
 gc()
 
-setnames(alldist,"N","N_webdiv_label2")
-reord <- c("samp","rad","domain","cell1","webdiv_label1","webdiv_label2","N_webdiv_label2")
+setnames(alldists,"N","N_webdiv_label2")
+reord <- c("brnum","rad","domain8266_cell1","domain12252_cell1","webdiv_label1","webdiv_label2","N_webdiv_label2","cell1")
 alldist <- alldist[,..reord]
-setnames(alldist,"domain","cell1domain")
 
 ## append metadata for demos matching
 tmpcd <- rbindlist(samps)
 tmpcd <- unique(tmpcd[,.(brnum,APOE,Age,Sex,Ancestry)])
-alldist <- merge.data.table(alldist,tmpcd,by.x="samp",by.y="brnum")
-saveRDS(alldist,"processed-data/08_LC_ProximalAstros/02-WebDivNMFpredNeighborCounts_forLCdomain_NEcells.RDS")
+alldists <- merge.data.table(alldists,tmpcd,by.x="samp",by.y="brnum")
+saveRDS(alldists,"processed-data/08_LC_ProximalAstros/02-WebDivNMFpredNeighborCounts_for_NEcells_2DomDefs_ByNECellDomDesig.RDS")
 # clean up
 rm(tmpcd,samps,reord)
 gc(full=T)
@@ -201,16 +192,29 @@ gc(full=T)
 
 violin plots of neighbors at rad500
 ```{r}
-ad5 <- alldist[rad=="d300"&cell1domain=="dom8266"&webdiv_label2 %in% grep(webdiv_label2,pattern="ast",value=T)]
-ad5 <- alldist[rad=="d100"&cell1domain=="dom8266"]
+
+ad5 <- melt.data.table(alldists,id.vars = c("brnum","rad","webdiv_label1","webdiv_label2","cell1","APOE","Age","Sex","Ancestry","N_webdiv_label2"))
+ad5[,variable:=as.character(variable)]
+ad5[,variable:=gsub(variable,pattern="domain(.*)_.*$",replacement=paste0("d","\\1"))]
+ad5[,Domain_and_Domainparam:=paste0(variable,"_",value)]
+
+ad5 <- ad5[rad=="d400"&webdiv_label2 %in% grep(webdiv_label2,pattern="ast",value=T)]
+## astrocytes_29 is probably a bullshit cell type so drop it
+ad5 <- ad5[webdiv_label2!="astrocytes_29"]
 ad5[,APOE:=ifelse(APOE %in% c("E2hom","E2het"),"E2","E4")]
 ad5[,APOE:=factor(APOE,levels=c("E2","E4"))]
 
 #ad5[,medneigh:=median(Nnmfpred2),by=c("samp","nmfpred2")]
 #ad5 <- unique(ad5[,.(samp,APOE,medneigh,nmfpred2,nmfpred1)])
-ggplot(ad5,aes(y=N_webdiv_label2,x=APOE,fill=APOE))+
+ggplot(ad5,aes(y=N_webdiv_label2,x=Domain_and_Domainparam,fill=APOE))+
   geom_violin()+
   facet_wrap(webdiv_label2~webdiv_label1,scales="free")
+
+ggplot(ad5[variable=="d12252"],aes(x=value,y=N_webdiv_label2,fill=APOE))+
+  geom_violin()+
+  facet_wrap(webdiv_label2~webdiv_label1,scales="free")+
+  xlab("Domain designation of NE cell (Domain '12252')")+
+  ylab("Number of Astrocytes within\n400µm of NE cell centroid")
 ```
 
 seshinf

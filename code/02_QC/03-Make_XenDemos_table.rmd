@@ -1,0 +1,133 @@
+---
+title: "03-Make_XenDemos_table"
+format: html
+date: "03-16-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(SpatialExperiment)
+unloadNamespace('datasets')
+```
+
+```{r}
+### gah we still don't have a plain demos tsv here, need to pull from spe.
+lcx <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+demos <- as.data.table(colData(lcx))
+demos <- unique(demos[,.(brnum,Age,Sex,Ancestry,Rin,APOE,CEU,YRI,CHB)])
+demos[,APOEcarriertype:=ifelse(APOE %in% c("E4hom","E4het"),"E4","E2")]
+reordn <- names(demos)[]
+demos[,donorID:=gsub(brnum,pattern="L$",replacement="")]
+reordn <- c("donorID",reordn)
+demos <- demos[,..reordn]
+fwrite(demos,"raw-data/demos_with_hemispheres.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
+
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices
+[5] utils     methods   base     
+
+other attached packages:
+ [1] SpatialExperiment_1.20.0   
+ [2] SingleCellExperiment_1.32.0
+ [3] SummarizedExperiment_1.40.0
+ [4] Biobase_2.70.0             
+ [5] GenomicRanges_1.62.1       
+ [6] Seqinfo_1.0.0              
+ [7] IRanges_2.44.0             
+ [8] S4Vectors_0.48.0           
+ [9] BiocGenerics_0.56.0        
+[10] generics_0.1.4             
+[11] MatrixGenerics_1.22.0      
+[12] matrixStats_1.5.0          
+[13] data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+ [1] cli_3.6.5           knitr_1.51         
+ [3] magick_2.9.0        rlang_1.1.7        
+ [5] xfun_0.56           otel_0.2.0         
+ [7] DelayedArray_0.36.0 rjson_0.2.23       
+ [9] rprojroot_2.1.1     grid_4.5.2         
+[11] evaluate_1.0.5      abind_1.4-8        
+[13] compiler_4.5.2      Rcpp_1.1.1         
+[15] XVector_0.50.0      here_1.0.2         
+[17] lattice_0.22-7      SparseArray_1.10.8 
+[19] magrittr_2.0.4      Matrix_1.7-4       
+[21] tools_4.5.2         S4Arrays_1.10.1    
+─ Session info ──────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       Positron
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2026-03-16
+ pandoc   NA
+ quarto   1.8.27 @ /Applications/Positron.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ──────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ cli                    3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ data.table           * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ DelayedArray           0.36.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ evaluate               1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ generics             * 0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ here                   1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ knitr                  1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ lattice                0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ magick                 2.9.0    2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ Matrix                 1.7-4    2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0    2025-01-07 [1] CRAN (R 4.5.0)
+ otel                   0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rprojroot              2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ S4Arrays               1.10.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8   2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ xfun                   0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
