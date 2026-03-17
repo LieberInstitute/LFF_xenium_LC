@@ -1,7 +1,7 @@
 ---
 title: "02-OneInteractionPerRun_VisDoms_DE"
 author: "Bernie Mulvey"
-date: "03-05-26"
+date: "03-17-26"
 output: html_document
 ---
 
@@ -36,22 +36,17 @@ unloadNamespace("datasets")
 ```{r}
 dgels <- readRDS("processed-data/06_DomainDE/01a-unfilt_unnorm_pbulk_domain_DGElists_2kctsampmin.RDS")
 
-colnames(dgels$LCsmooth0536_orxfer$samples)[colnames(dgels$LCsmooth0536_orxfer$samples)=="clus"] <- "label"
-colnames(dgels$LCsmooth1036_orxfer$samples)[colnames(dgels$LCsmooth1036_orxfer$samples)=="clus"] <- "label"
-colnames(dgels$LCsmooth1512_orxfer$samples)[colnames(dgels$LCsmooth1512_orxfer$samples)=="clus"] <- "label"
+colnames(dgels$LCsmooth8266_orxfer$samples)[colnames(dgels$LCsmooth8266_orxfer$samples)=="clus"] <- "label"
+colnames(dgels$LCsmooth12252_orxfer$samples)[colnames(dgels$LCsmooth12252_orxfer$samples)=="clus"] <- "label"
 
-dgels$LCsmooth0536_orxfer$samples$donor <- gsub(dgels$LCsmooth0536_orxfer$samples$brnum,pattern="L",replacement="")
-dgels$LCsmooth1036_orxfer$samples$donor <- gsub(dgels$LCsmooth1036_orxfer$samples$brnum,pattern="L",replacement="")
-dgels$LCsmooth1512_orxfer$samples$donor <- gsub(dgels$LCsmooth1512_orxfer$samples$brnum,pattern="L",replacement="")
+dgels$LCsmooth8266_orxfer$samples$donor <- gsub(dgels$LCsmooth8266$samples$brnum,pattern="L",replacement="")
+dgels$LCsmooth12252_orxfer$samples$donor <- gsub(dgels$LCsmooth12252_orxfer$samples$brnum,pattern="L",replacement="")
 
-dgels$LCsmooth0536_orxfer$genes <- as.data.frame(rownames(dgels$LCsmooth0536_orxfer$counts),row.names=rownames(dgels$LCsmooth0536_orxfer$counts))
-colnames(dgels$LCsmooth0536_orxfer$genes) <- "gene_name"
+dgels$LCsmooth8266_orxfer$genes <- as.data.frame(rownames(dgels$LCsmooth8266_orxfer$counts),row.names=rownames(dgels$LCsmooth8266_orxfer$counts))
+colnames(dgels$LCsmooth8266_orxfer$genes) <- "gene_name"
 
-dgels$LCsmooth1036_orxfer$genes <- as.data.frame(rownames(dgels$LCsmooth1036_orxfer$counts),row.names=rownames(dgels$LCsmooth1036_orxfer$counts))
-colnames(dgels$LCsmooth1036_orxfer$genes) <- "gene_name"
-
-dgels$LCsmooth1512_orxfer$genes <- as.data.frame(rownames(dgels$LCsmooth1512_orxfer$counts),row.names=rownames(dgels$LCsmooth1512_orxfer$counts))
-colnames(dgels$LCsmooth1512_orxfer$genes) <- "gene_name"
+dgels$LCsmooth12252_orxfer$genes <- as.data.frame(rownames(dgels$LCsmooth12252_orxfer$counts),row.names=rownames(dgels$LCsmooth12252_orxfer$counts))
+colnames(dgels$LCsmooth12252_orxfer$genes) <- "gene_name"
 ```
 
 
@@ -355,23 +350,18 @@ gc(full=T)
 
 ## load the tmp RDSes
 ```{r}
-dom0536 <- list.files("processed-data/06_DomainDE/MODULARIZEDTMP_OUT",pattern="0536_orxfer.RDS",full.names = TRUE)
-dom1036 <- list.files("processed-data/06_DomainDE/MODULARIZEDTMP_OUT",pattern="1036_orxfer.RDS",full.names = TRUE)
-dom1512 <- list.files("processed-data/06_DomainDE/MODULARIZEDTMP_OUT",pattern="1512_orxfer.RDS",full.names = TRUE)
+dom8266 <- list.files("processed-data/06_DomainDE/MODULARIZEDTMP_OUT",pattern="8266_orxfer.RDS",full.names = TRUE)
+dom12252 <- list.files("processed-data/06_DomainDE/MODULARIZEDTMP_OUT",pattern="12252_orxfer.RDS",full.names = TRUE)
 
 
 ## combine into one metalist
-dom0536out <- lapply(dom0536,readRDS)
-names(dom0536out) <- gsub(dom0536,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+dom8266out <- lapply(dom8266,readRDS)
+names(dom8266out) <- gsub(dom8266,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
 
-dom1036out <- lapply(dom1036,readRDS)
-names(dom1036out) <- gsub(dom1036,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+dom12252out <- lapply(dom12252,readRDS)
+names(dom12252out) <- gsub(dom12252,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
 
-dom1512out <- lapply(dom1512,readRDS)
-names(dom1512out) <- gsub(dom1512,pattern="processed-data/06_DomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
-
-
-outlist <- list(dom0536=dom0536out, dom1036=dom1036out, dom1512=dom1512out)
+outlist <- list(dom8266=dom8266out, dom12252=dom12252out)
 
 saveRDS(outlist,"processed-data/06_DomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
 ```

@@ -1,7 +1,7 @@
 ---
 title: "03-Make_LCdomain_restricted_DGELists"
 author: "Bernie Mulvey"
-date: "03-05-26"
+date: "03-17-26"
 output: html_document
 ---
 
@@ -42,15 +42,17 @@ DE of cells within the LC domain alone.
 xlc <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 tmpcd <- as.data.table(colData(xlc),keep.rownames=T)
 
-lcd <- fread("processed-data/05_LabelTransfer/04d-TransferredLabels_and_SmoothLCdomain_assigns.txt")
+lcd <- fread("processed-data/05_LabelTransfer/05b-LCsmoothings_LUT.txt")
+lcd[,LCsmooth8266_orxfer:=ifelse(domain8266=="LC","LC",nmfpred)]
+lcd[,LCsmooth12252_orxfer:=ifelse(domain12252=="LC","LC",nmfpred)]
 
-tmpcd <- merge.data.table(tmpcd,lcd[,.(rn,nmfpred,LCsmooth0536_orxfer,LCsmooth1036_orxfer,LCsmooth1512_orxfer)],by="rn")
+tmpcd <- merge.data.table(tmpcd,lcd[,.(rn,nmfpred,LCsmooth8266_orxfer,LCsmooth12252_orxfer)],by="rn")
 
 tmpcd[,APOEsimple:=ifelse(APOE %in% c("E4hom","E4het"),"E4","E2")]
 
 ## this time we need separate SPEs altogether
-dgels0 <- lapply(c("LCsmooth0536_orxfer","LCsmooth1036_orxfer","LCsmooth1512_orxfer"),function(d){
-  tmpcd2 <- tmpcd[get(d)=="LCdomain"]
+dgels0 <- lapply(c("LCsmooth8266_orxfer","LCsmooth12252_orxfer"),function(d){
+  tmpcd2 <- tmpcd[get(d)=="LC"]
   subspe <- xlc[,colnames(xlc) %in% tmpcd2$rn]
   tmpcd[rn %in% colnames(xlc)]
   tmpcd[,LCdomcell:=nmfpred]
@@ -58,7 +60,7 @@ dgels0 <- lapply(c("LCsmooth0536_orxfer","LCsmooth1036_orxfer","LCsmooth1512_orx
   subspe$rn <- NULL
   return(subspe)
 })
-names(dgels0) <- c("LCsmooth0536_orxfer","LCsmooth1036_orxfer","LCsmooth1512_orxfer")
+names(dgels0) <- c("LCsmooth8266_orxfer","LCsmooth12252_orxfer")
 rm(xlc,tmpcd,lcd)
 gc(full=T)
 ```

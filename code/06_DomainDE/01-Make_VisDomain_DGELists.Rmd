@@ -1,7 +1,7 @@
 ---
 title: "01-Make_VisDomain_DGELists"
 author: "Bernie Mulvey"
-date: "03-05-26"
+date: "03-17-26"
 output: html_document
 ---
 
@@ -40,9 +40,11 @@ unloadNamespace("datasets")
 xlc <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 tmpcd <- as.data.table(colData(xlc),keep.rownames=T)
 
-lcd <- fread("processed-data/05_LabelTransfer/04d-TransferredLabels_and_SmoothLCdomain_assigns.txt")
+lcd <- fread("processed-data/05_LabelTransfer/05b-LCsmoothings_LUT.txt")
+lcd[,LCsmooth8266_orxfer:=ifelse(domain8266=="LC","LC",nmfpred)]
+lcd[,LCsmooth12252_orxfer:=ifelse(domain12252=="LC","LC",nmfpred)]
 
-tmpcd <- merge.data.table(tmpcd,lcd[,.(rn,LCsmooth0536_orxfer,LCsmooth1036_orxfer,LCsmooth1512_orxfer)],by="rn")
+tmpcd <- merge.data.table(tmpcd,lcd[,.(rn,LCsmooth8266_orxfer,LCsmooth12252_orxfer)],by="rn")
 
 tmpcd[,APOEsimple:=ifelse(APOE %in% c("E4hom","E4het"),"E4","E2")]
 tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(xlc),]
@@ -55,7 +57,7 @@ rm(tmpcd,lcd)
 
 pseudobulk
 ```{r}
-dgels <- lapply(c("LCsmooth0536_orxfer","LCsmooth1036_orxfer","LCsmooth1512_orxfer"),function(d){
+dgels <- lapply(c("LCsmooth8266_orxfer","LCsmooth12252_orxfer"),function(d){
   ag <- dreamlet::aggregateToPseudoBulk(xlc,assay="counts",sample_id="brnum",cluster_id = d,BPPARAM = MulticoreParam(8))
   
   agcd <- as.data.table(colData(ag),keep.rownames=T)
@@ -95,7 +97,7 @@ dgels <- lapply(c("LCsmooth0536_orxfer","LCsmooth1036_orxfer","LCsmooth1512_orxf
   return(dge)
   
 })
-names(dgels) <- c("LCsmooth0536_orxfer","LCsmooth1036_orxfer","LCsmooth1512_orxfer")
+names(dgels) <- c("LCsmooth8266_orxfer","LCsmooth12252_orxfer")
 
 saveRDS(dgels,"processed-data/06_DomainDE/01a-unfilt_unnorm_pbulk_domain_DGElists_2kctsampmin.RDS")
 ```
