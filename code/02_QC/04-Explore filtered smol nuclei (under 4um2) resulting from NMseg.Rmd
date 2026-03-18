@@ -1,0 +1,109 @@
+---
+title: "Explore filtered smol nuclei (under 4um2) resulting from NMseg"
+format: html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options('styler.addins_style_transformer' = 'biocthis::bioc_style()')
+##
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost='localhost')
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = '#000000'), axis.title.x = element_text(size = 9,color = '#000000'), axis.text.y = element_text(size = 8,color = '#000000'), axis.title.y = element_text(size =9,color = '#000000'), plot.title = element_markdown(size = 10,hjust=0.5,color = '#000000'), strip.text = element_text(size=11), legend.text = element_text(size=7,color = '#000000'), legend.title = element_text(size=8,hjust=0.5,color = '#000000'),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position='plot'))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+## smol cell RDS
+```{r}
+verysmol <- readRDS("processed-data/02_QC/01c-spe_NMDAPI_nuclei_under4umSq_only.RDS")
+# drop negative probesets
+dropg <- grep(rownames(verysmol),pattern="Deprecated|NegControl|Unassigned",value=T)
+verysmol <- verysmol[!(rownames(verysmol) %in% dropg),]
+d <- cbind(colnames(verysmol),colSums(counts(verysmol)))
+colnames(d) <- c("rn","colsum")
+d <- as.data.table(d)
+d[,colsum:=as.numeric(colsum)]
+ggplot(d[colsum>0],aes(x=log10(colsum)))+geom_histogram()
+
+keepcell <- d[colsum>25] ## 11k cells
+
+verysmol <- verysmol[,keepcell$rn]
+
+keepg <- rowSums(counts(verysmol))!=0 #366
+verysmol <- verysmol[keepg,]
+
+library(scater)
+verysmol <- computeLibraryFactors(verysmol)
+verysmol <- logNormCounts(verysmol)
+
+verysmol <- runPCA(verysmol,ntop=nrow(verysmol))
+
+## walktrap n=10 -> louvain
+
+library(bluster)
+colLabels(verysmol) <- clusterRows(
+  reducedDim(verysmol, "PCA"),
+  NNGraphParam(k = 10, cluster.fun = "louvain")
+)
+verysmol$label2 <- paste0("X",verysmol$label)
+verysmol$APOEsimple <- ifelse(verysmol$APOE %in% grep(verysmol$APOE,pattern="E4",value=T),"E4","E2")
+library(spatialLIBD)
+regwrap <- registration_wrapper(verysmol,var_registration = "label2",var_sample_id="brnum",gene_ensembl = "ID",gene_name = "Symbol",covars = c("APOEsimple","YRI","Age","Sex"),min_ncells = 5)
+
+mk <- regwrap$enrichment
+keepn <- c("gene",grep(names(mk),pattern="t_stat|logFC",value=T))
+mk <- as.data.table(mk)[,..keepn]
+mk2 <- melt.data.table(mk,id.vars="gene")
+mk2[,clus:=gsub(variable,pattern="^.*_(X.)$",replacement="\\1")]
+mk2[,statistic:=gsub(variable,pattern="^(.*)_X.$",replacement="\\1")]
+mk2[,variable:=NULL] 
+mk3 <- dcast(mk2,gene+clus~statistic)
+
+View(mk3[mk3[, .I[head(order(-t_stat), 5)], by = "clus"]$V1])
+nperclus <- as.data.table(table(verysmol$label2))
+```
+
+These appear to represent a smattering of all cell types. X1-X5 1k-3k cells each, X6-X8 200-700 cells each.:
+X1: Mixed neuronal (17A6, NPTN, GAD1 and 2)
+X2: LC-NE 
+X3: Astrocyte
+X4: Oligo? Microglia? (MOBP, PDGFRA, CX3CR1)
+X5: Neuropeptidergic (TAC1, PENK, CRHR1, GAD1)
+X6: Vascular (PECAM1, FLT1)
+X7: Myelinating oligo (MYRF, MAG)
+X8: Serotonergic (6A4 TPH2 and SLC18A2)

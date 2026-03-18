@@ -1,7 +1,7 @@
 ---
 title: "05-Tabulate VisDE Replication"
 author: "Bernie Mulvey"
-date: "03-05-26"
+date: "03-18-26"
 output: html_document
 ---
 
@@ -16,6 +16,17 @@ require(colorout)
 ColorOut()
 options("styler.addins_style_transformer" = "biocthis::bioc_style()")
 ##
+
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
 
 ## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
 # OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
@@ -79,20 +90,41 @@ mapply(x=reps,n=names(reps),SIMPLIFY = FALSE,FUN = function(x,n){
   fwrite(x,paste0("processed-data/06_DomainDE/05-Tabulate_VisDEreplication_results_percontrast_withSmooth",n,".txt"),sep='\t',quote=F,row.names=F,col.names=T)
 })
 
-rep0536 <- reps$dom0536[,.(contrast,VisFDR05_tested,reprate)]
-setnames(rep0536,"reprate","reprate0536")
-rep1036 <- reps$dom1036[,.(contrast,reprate)]
-setnames(rep1036,"reprate","reprate1036")
-rep1512 <- reps$dom1512[,.(contrast,reprate)]
-setnames(rep1512,"reprate","reprate1512")
+rep8266 <- reps$dom8266[,.(contrast,VisFDR05_tested,reprate)]
+setnames(rep8266,"reprate","reprate8266")
+rep12252 <- reps$dom12252[,.(contrast,reprate)]
+setnames(rep12252,"reprate","reprate12252")
 
-reps2 <- merge.data.table(rep0536,rep1036,by="contrast")
-reps2 <- merge.data.table(reps2,rep1512,by="contrast")
+reps2 <- merge.data.table(rep8266,rep12252,by="contrast")
+
 
 fwrite(reps2,"processed-data/06_DomainDE/05a-Replication_Rates_by_DomainDefinition_withLCsmoothing.txt",sep='\t',quote=F,row.names=T)
 ```
 
-### with direct label xfer
+### which E4-E2 genes replicate for the LC domain?
+```{r}
+lce4.8266 <- totde$dom8266[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xlfc*logFC>0]
+lce4.12252 <- totde$dom12252[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xlfc*logFC>0]
+sharedg <- lce4.8266[gene_name %in% lce4.12252$gene_name,.(xlfc,gene_name)]
+```
+AIF1
+AQP4
+C3
+EGFR
+FGFR3
+GJA1
+IDH2
+ITGB8
+NPY
+NTSR2
+PLPP3
+SLC7A11
+SPARC
+SPON1
+TRIL
+
+
+### with intra-LC only, direct label transfers
 ```{r}
 totde <- readRDS("processed-data/06_DomainDE/04-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_withinLCVisLabs.RDS")
 totde <- lapply(totde,function(x){
@@ -140,22 +172,14 @@ mapply(x=reps,n=names(reps),SIMPLIFY = FALSE,FUN = function(x,n){
   fwrite(x,paste0("processed-data/06_DomainDE/05-Tabulate_VisDEreplication_results_withinLCdomainONLY_percontrast",n,".txt"),sep='\t',quote=F,row.names=F,col.names=T)
 })
 
-rep0536 <- reps$dom0536[,.(contrast,VisFDR05_tested,reprate)]
-setnames(rep0536,"reprate","reprate0536")
-rep1036 <- reps$dom1036[,.(contrast,reprate)]
-setnames(rep1036,"reprate","reprate1036")
-rep1512 <- reps$dom1512[,.(contrast,reprate)]
-setnames(rep1512,"reprate","reprate1512")
+rep8266 <- reps$dom8266[,.(contrast,VisFDR05_tested,reprate)]
+setnames(rep8266,"reprate","reprate8266")
+rep12252 <- reps$dom12252[,.(contrast,reprate)]
+setnames(rep12252,"reprate","reprate12252")
 
-reps2 <- merge.data.table(rep0536,rep1036,by="contrast")
-reps2 <- merge.data.table(reps2,rep1512,by="contrast")
+reps2 <- merge.data.table(rep8266,rep12252,by="contrast")
 
-fwrite(reps2,"processed-data/06_DomainDE/05b-Vis domain DE replication per label only within smoothed LC.txt",sep='\t',quote=F,row.names=T)
-
-
-
-
- 
+fwrite(reps2,"processed-data/06_DomainDE/05b-Vis domain DE replication per label only within smoothed LC.txt",sep='\t',quote=F,row.names=T) 
 ```
 
 
