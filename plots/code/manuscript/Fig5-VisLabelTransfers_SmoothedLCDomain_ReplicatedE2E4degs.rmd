@@ -1,0 +1,487 @@
+---
+title: "Fig5-VisLabelTransfers_SmoothedLCDomain_ReplicatedE2E4degs"
+format: html
+date: "03-20-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+library(ggrastr)
+library(escheR)
+library(jaffelab)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+options('styler.addins_style_transformer' = 'biocthis::bioc_style()')
+##
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost='localhost')
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = '#000000'), axis.title.x = element_text(size = 9,color = '#000000'), axis.text.y = element_text(size = 8,color = '#000000'), axis.title.y = element_text(size =9,color = '#000000'), plot.title = element_markdown(size = 10,hjust=0.5,color = '#000000'), strip.text = element_text(size=11), legend.text = element_text(size=7,color = '#000000'), legend.title = element_text(size=8,hjust=0.5,color = '#000000'),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position='plot'))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+## Plot from a previously-plotted sample, showing transferred labels themselves, with similar anat to its visium counterpart
+## poss brs: Fig 2 (Br5941, Br0946, Br6538, Br1105) or Fig 1 (Br3974)
+## try Br3974, Br6538
+
+```{r}
+pal <- readRDS("../LFF_spatial_LC/plots/finalpal_somuchfornorainbows.RDS")
+
+xlc <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+lxf <- fread("processed-data/05_LabelTransfer/05b-LCsmoothings_LUT.txt")
+## use the strict domain for plotting
+lxf <- lxf[,.(rn,domain12252,nmfpred)]
+## convert working names to plotting names for cluster labels
+lxf[nmfpred=="Astro_Oligo",nmfpred:="Astro-Oligo Mixed"]
+lxf[nmfpred=="Oligo_Astro",nmfpred:="Oligo-Astro Mixed"]
+lxf[nmfpred=="ACHE_SERT_Npep",nmfpred:="*ACHE*, *SERT*,<br>Neuropept. Mixed"]
+lxf[nmfpred=="ACHE_SERT_LC_WM",nmfpred:="*ACHE*, *SERT*,<br>LC, Oligo Mixed"]
+lxf[nmfpred=="Oligo_Complex",nmfpred:="Oligo-Other<br>Types Mixed"]
+
+names(pal)[2] <- "*ACHE*, *SERT*,<br>LC, Oligo Mixed"
+names(pal)[3] <- "*ACHE*, *SERT*,<br>Neuropept. Mixed"
+names(pal)[9] <- "Oligo-Other<br>Types Mixed"
+
+stopifnot(all(lxf$nmfpred %in% names(pal)))
+
+## add to coldata
+tmpcd <- as.data.table(colData(xlc),keep.rownames=T)
+tmpcd <- merge.data.table(tmpcd,lxf,by="rn")
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(xlc),]
+tmpcd$rn <- NULL
+colData(xlc) <- tmpcd
+
+rm(lxf)
+```
+
+### make the plots. we'll do whatever rotating is necess. to match visium orientation in illustrator.
+```{r}
+nmfpredpans <- list(Br3974=xlc[,xlc$brnum=="Br3974"],Br6538=xlc[,xlc$brnum=="Br6538"])
+
+sizepal <- c(0.5,rep(0.2,8))
+names(sizepal) <- names(pal)
+
+lapply(names(nmfpredpans),function(n){
+    x <- nmfpredpans[[n]]
+    plt <- make_escheR(x,y_reverse=FALSE)
+    plt <- plt |> add_fill("nmfpred",size=0.2,point_size = 0.2)
+   
+    ## override the escheR size settings to pass our size pal
+    plt@layers[[1]]$aes_params$size <- NULL
+    plt <- plt+aes(size=nmfpred)+
+      scale_size_manual(values=sizepal)
+    
+    p <- plt+   #guides(color="none")+
+    labs(fill="Transferred\nVisium Label")+
+    guides(fill=guide_legend(override.aes=list(size=1.5)),size="none")+
+    scale_fill_manual(values=pal)
+    if (n=="Br6538"){
+        p <- p + ggtitle("Br6538 (E2/E3), EA, M)")
+    } else if (n=="Br3974"){
+        p <- p + ggtitle("Br3974 (E3/E4), AA, M)")
+    }
+    p <- p+
+    theme(panel.grid = element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
+        legend.key.size = ggplot2::unit(0.075,"in"),
+        legend.title=element_text(size=7,hjust=0.5),
+        legend.background = element_blank(),
+        legend.box = element_blank(),
+        legend.box.spacing = ggplot2::unit(0,"in"),
+        legend.key = element_blank(),
+        legend.key.height=ggplot2::unit(0.0125,"in"),
+        legend.key.width=ggplot2::unit(0.0125,"in"),
+        legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+        title=element_text(size=10,hjust=0.5))
+        # legend.position.inside = c(0.19,0.165),
+        # legend.position="inside")
+   p <- rasterize(p,layers="Points",dpi=600,dev="cairo_png")
+   pdf(paste0("plots/manuscript/Fig5_astrogenes_in_LC/Fig5W-Predlabels_",n,".pdf"),height=2,width=3.25)
+   print(p)
+   dev.off()
+})
+
+rm(nmfpredpans)
+```
+
+We looked at whether the Astro cells or the LC cells expressed astrocyte markers identified as Visium LC APOE-DEGs, including PLPP3, FGFR3, NTSR2. (Pseudobulk expression plots of these and DBH, TH in these two Xenium clusters, ostensibly showing that the expression is in the Astro cluster.)
+```{r}
+xactxfer <- readRDS("processed-data/06_DomainDE/07-visLabsAsXfered_voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_withinLCVisLabs.RDS")
+
+xact.12252 <- xactxfer$E2E4label$voomLFt$EList$E[c("DBH","PLPP3","FGFR3","NTSR2"),]
+# reconfigure data for jaffelab::cleaningy
+# get sample metadata in the same arrangement for LC and astro pbulks
+keepsamps <- grep(colnames(xact.12252),pattern="^LC_Br|^Astro_Br",value=T)
+xcd <- xactxfer$E2E4label$dgel$samples[keepsamps,]
+xact.12252 <- xact.12252[,keepsamps]
+
+# plot: domain 8266
+# ensure factors are set for model matrix
+xcd$APOEsimple <- factor(xcd$APOEsimple,levels = c("E2","E4"))
+xcd$Sex <- factor(xcd$Sex)
+xcd$Age <- as.numeric(xcd$Age)
+xcd$YRI <- as.numeric(xcd$YRI)
+# model matrix
+
+modmat <- model.matrix(~APOEsimple+Sex+Age+YRI,data = xcd)
+## correcting for all covars (i.e., retaining no variables in the model matrix)
+testres <- jaffelab::cleaningY(xact.12252,modmat,1)
+
+
+pltg <- as.data.table(cbind(t(testres),xcd$label,xcd$brnum))
+setnames(pltg,c((ncol(pltg)-1):ncol(pltg)),c("label","brnum"))
+pltg <- as.data.table(cbind(pltg[,lapply(.SD,as.numeric),.SDcols=c(1:(ncol(pltg)-2))],pltg[,.(label,brnum)]))
+
+pltg <- melt.data.table(pltg,id.vars=c("label","brnum"))
+pltg[,titleg:=paste0("*",variable,"*")]
+pltg[,label:=as.character(label)]
+
+pdf("plots/manuscript/Fig5_astrogenes_in_LC/Fig5X-bulk_Xpr_DBH_and_astroDEGs.pdf",height=3,width=2.5)
+ggplot(pltg,aes(x=label,y=value,col=label))+
+    geom_boxplot(outliers = F,linewidth=0.375)+
+    geom_point(alpha=0.7,size=1,stroke = 0.1,position = position_jitter(width=0.2))+
+    facet_wrap(.~titleg,nrow=2)+
+    xlab("Cell Label Transferred from Visium")+
+    ylab("Pseudobulk Expression (Corrected for Age,\nSex, APOE Status, Genomic Ancestry)")+
+    scale_color_manual(values=pal)+
+    guides(color="none")+
+    theme(panel.grid.major = element_line(linewidth=0.25),
+         panel.grid.minor=element_line(linewidth=0.125),
+         axis.text.x=element_text(size=8),
+         axis.text.y=element_text(size=8),
+         axis.title.x=element_text(size=9),
+         axis.title.y=element_text(size=9),
+         strip.text = element_markdown(size=9,margin=margin(0,0,-0.025,0,"in")),
+         axis.ticks = element_line(linewidth=0.25),
+         strip.background = element_blank())
+dev.off()
+
+rm(pltg,modmat,testres,xact.12252,xcd,xactxfer)
+```
+
+show an LC smoothing on Br5941. we'll do whatever rotation necess to match visium panels' orientation in illustrator
+```{r}
+smoove <- xlc[,xlc$brnum=="Br5941"]
+dompal <- c(pal[1],"#C3C3C3")
+names(dompal) <- c("LC","Other")
+sizepal <- c(0.5,0.25)
+names(sizepal) <- c("LC","Other")
+
+plt <- make_escheR(smoove,y_reverse=FALSE)
+plt <- plt |> add_fill("domain12252",size=0.2,point_size = 0.2)
+
+## override the escheR size settings to pass our size pal
+plt@layers[[1]]$aes_params$size <- NULL
+plt <- plt+aes(size=domain12252)+
+    scale_size_manual(values=sizepal)
+
+p <- plt+ 
+labs(fill="Domain")+
+ggtitle("Br5941 (E4/E4\nAA, M)")+
+guides(fill=guide_legend(override.aes=list(size=1.5)),size="none")+
+scale_fill_manual(values=dompal)+
+theme(panel.grid = element_blank(),
+    axis.text.x=element_blank(),
+    axis.text.y=element_blank(),
+    axis.title.x=element_blank(),
+    axis.title.y=element_blank(),
+    axis.ticks = element_blank(),
+    legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
+    legend.key.size = ggplot2::unit(0.075,"in"),
+    legend.title=element_text(size=7,hjust=0.5),
+    legend.background = element_blank(),
+    legend.margin = margin(0,-0.3,0,0,"in"),
+    legend.box = element_blank(),
+    legend.box.spacing = ggplot2::unit(0,"in"),
+    legend.key = element_blank(),
+    legend.key.height=ggplot2::unit(0.0125,"in"),
+    legend.key.width=ggplot2::unit(0.0125,"in"),
+    legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+    title=element_text(size=10,hjust=0.5))
+    # legend.position.inside = c(0.19,0.165),
+    # legend.position="inside")
+p <- rasterize(p,layers="Points",dpi=600,dev="cairo_png")
+pdf(paste0("plots/manuscript/Fig5_astrogenes_in_LC/Fig5Y-SmoothedLC_Br5941.pdf"),height=2.25,width=1.5)
+print(p)
+dev.off()
+```
+
+pseudobulk cleaning y plots for Xenium-replicated LC domain astrocyte DEGs
+```{r}
+domde <- readRDS("processed-data/06_DomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
+
+dom.12252 <- domde$dom12252$E2E4label$voomLFt$EList$E[c("PLPP3","FGFR3","NTSR2"),]
+# reconfigure data for jaffelab::cleaningy
+# get sample metadata in the same arrangement for LC and astro pbulks
+keepsamps <- grep(colnames(dom.12252),pattern="LC_Br",value=T)
+xcd <- domde$dom12252$E2E4label$dgel$samples[keepsamps,]
+dom.12252 <- dom.12252[,keepsamps]
+
+# plot: domain 8266
+# ensure factors are set for model matrix
+xcd$APOEsimple <- factor(xcd$APOEsimple,levels = c("E2","E4"))
+xcd$Sex <- factor(xcd$Sex)
+xcd$Age <- as.numeric(xcd$Age)
+xcd$YRI <- as.numeric(xcd$YRI)
+
+modmat <-  model.matrix(~0+APOEsimple+Age+YRI+Sex,data = xcd)
+degs <- jaffelab::cleaningY(dom.12252,modmat,2) # correct for terms that arent the two levels of APOEsimple
+
+pltg <- as.data.table(cbind(t(degs),xcd$APOEsimple,xcd$brnum))
+setnames(pltg,c((ncol(pltg)-1):ncol(pltg)),c("APOE","brnum"))
+pltg <- as.data.table(cbind(pltg[,lapply(.SD,as.numeric),.SDcols=c(1:(ncol(pltg)-2))],pltg[,.(APOE,brnum)]))
+
+pltg <- melt.data.table(pltg,id.vars=c("APOE","brnum"))
+pltg[,titleg:=paste0("*",variable,"*")]
+pltg[,APOE:=as.character(APOE)]
+pltg[,APOE:=ifelse(APOE=="1","E2","E4")]
+
+pdf("plots/manuscript/Fig5_astrogenes_in_LC/Fig5Z-Pbulk_astrogenes_byAPOE_inLCdomain12252.pdf",height=1.5,width=3)
+ggplot(pltg,aes(x=APOE,y=value,col=APOE))+
+    geom_boxplot(outliers = F,linewidth=0.375)+
+    geom_point(alpha=0.7,size=1,stroke = 0.1,position = position_jitter(width=0.2))+
+    facet_wrap(.~titleg,nrow=1,scales = "free_y")+
+    xlab("APOE Status")+
+    ylab("LC Domain Expression")+
+    scale_color_manual(values=c("E2"="#009E73","E4"="#D55E00"))+
+    guides(color="none")+
+    theme(panel.grid.major = element_line(linewidth=0.25),
+         panel.grid.minor=element_line(linewidth=0.125),
+         axis.text.x=element_text(size=8),
+         axis.text.y=element_text(size=8),
+         axis.title.x=element_text(size=9),
+         axis.title.y=element_text(size=9),
+         strip.text = element_markdown(size=9,margin=margin(0,0,-0.025,0,"in")),
+         axis.ticks = element_line(linewidth=0.25),
+         strip.background = element_blank())
+dev.off()
+```
+
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices
+[5] utils     methods   base     
+
+other attached packages:
+ [1] jaffelab_0.99.34           
+ [2] rafalib_1.0.4              
+ [3] BiocParallel_1.44.0        
+ [4] parallelly_1.46.1          
+ [5] escheR_1.10.0              
+ [6] ggrastr_1.0.2              
+ [7] SpatialExperiment_1.20.0   
+ [8] SingleCellExperiment_1.32.0
+ [9] SummarizedExperiment_1.40.0
+[10] Biobase_2.70.0             
+[11] GenomicRanges_1.62.1       
+[12] Seqinfo_1.0.0              
+[13] IRanges_2.44.0             
+[14] S4Vectors_0.48.0           
+[15] BiocGenerics_0.56.0        
+[16] generics_0.1.4             
+[17] MatrixGenerics_1.22.0      
+[18] matrixStats_1.5.0          
+[19] gridExtra_2.3              
+[20] ggtext_0.1.2               
+[21] ggplot2_4.0.2              
+[22] data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.2.1    dplyr_1.2.0        
+ [3] vipor_0.4.7         farver_2.1.2       
+ [5] S7_0.2.1            lifecycle_1.0.5    
+ [7] statmod_1.5.1       magrittr_2.0.4     
+ [9] compiler_4.5.2      rlang_1.1.7        
+[11] tools_4.5.2         knitr_1.51         
+[13] S4Arrays_1.10.1     labeling_0.4.3     
+[15] here_1.0.2          DelayedArray_0.36.0
+[17] xml2_1.5.2          RColorBrewer_1.1-3 
+[19] abind_1.4-8         purrr_1.2.1        
+[21] withr_3.0.2         grid_4.5.2         
+[23] googledrive_2.1.2   edgeR_4.8.2        
+[25] paletteer_1.7.0     scales_1.4.0       
+[27] MASS_7.3-65         dichromat_2.0-0.1  
+[29] cli_3.6.5           ragg_1.5.0         
+[31] otel_0.2.0          rjson_0.2.23       
+[33] sessioninfo_1.2.3   commonmark_2.0.0   
+[35] ggbeeswarm_0.7.3    stringr_1.6.0      
+[37] splines_4.5.2       parallel_4.5.2     
+[39] XVector_0.50.0      vctrs_0.7.1        
+[41] Matrix_1.7-4        litedown_0.9       
+[43] beeswarm_0.4.0      systemfonts_1.3.1  
+[45] magick_2.9.0        locfit_1.5-9.12    
+[47] limma_3.66.0        glue_1.8.0         
+[49] rematch2_2.1.2      codetools_0.2-20   
+[51] stringi_1.8.7       gtable_0.3.6       
+[53] tibble_3.3.1        pillar_1.11.1      
+[55] R6_2.6.1            textshaping_1.0.4  
+[57] rprojroot_2.1.1     evaluate_1.0.5     
+[59] lattice_0.22-7      markdown_2.0       
+[61] gridtext_0.1.5      segmented_2.2-1    
+[63] gargle_1.6.1        Rcpp_1.1.1         
+[65] SparseArray_1.10.8  nlme_3.1-168       
+[67] xfun_0.56           fs_1.6.6           
+[69] pkgconfig_2.0.3    
+> sessioninfo::session_info()
+─ Session info ──────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       Positron
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2026-03-19
+ pandoc   NA
+ quarto   1.8.27 @ /Applications/Positron.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ──────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [1] CRAN (R 4.5.0)
+ beeswarm               0.4.0    2021-06-01 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocParallel         * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ cli                    3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ codetools              0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
+ commonmark             2.0.0    2025-07-07 [1] CRAN (R 4.5.0)
+ data.table           * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ DelayedArray           0.36.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ dichromat              2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
+ dplyr                  1.2.0    2026-02-03 [1] CRAN (R 4.5.2)
+ edgeR                  4.8.2    2025-12-23 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ escheR               * 1.10.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ evaluate               1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ farver                 2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
+ fs                     1.6.6    2025-04-12 [1] CRAN (R 4.5.0)
+ gargle                 1.6.1    2026-01-29 [1] CRAN (R 4.5.2)
+ generics             * 0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ ggbeeswarm             0.7.3    2025-11-29 [1] CRAN (R 4.5.2)
+ ggplot2              * 4.0.2    2026-02-03 [1] CRAN (R 4.5.2)
+ ggrastr              * 1.0.2    2023-06-01 [1] CRAN (R 4.5.0)
+ ggtext               * 0.1.2    2022-09-16 [1] CRAN (R 4.5.0)
+ glue                   1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
+ googledrive            2.1.2    2025-09-10 [1] CRAN (R 4.5.0)
+ gridExtra            * 2.3      2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext               0.1.5    2022-09-16 [1] CRAN (R 4.5.0)
+ gtable                 0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
+ here                   1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ jaffelab             * 0.99.34  2026-02-24 [1] Github (LieberInstitute/jaffelab@e7a26ca)
+ knitr                  1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ labeling               0.4.3    2023-08-29 [1] CRAN (R 4.5.0)
+ lattice                0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ limma                  3.66.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ litedown               0.9      2025-12-18 [1] CRAN (R 4.5.2)
+ locfit                 1.5-9.12 2025-03-05 [1] CRAN (R 4.5.0)
+ magick                 2.9.0    2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ markdown               2.0      2025-03-23 [1] CRAN (R 4.5.0)
+ MASS                   7.3-65   2025-02-28 [1] CRAN (R 4.5.2)
+ Matrix                 1.7-4    2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0    2025-01-07 [1] CRAN (R 4.5.0)
+ nlme                   3.1-168  2025-03-31 [1] CRAN (R 4.5.2)
+ otel                   0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ paletteer              1.7.0    2026-01-08 [1] CRAN (R 4.5.2)
+ parallelly           * 1.46.1   2026-01-08 [1] CRAN (R 4.5.2)
+ pillar                 1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig              2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
+ purrr                  1.2.1    2026-01-09 [1] CRAN (R 4.5.2)
+ R6                     2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
+ rafalib              * 1.0.4    2025-04-08 [1] CRAN (R 4.5.0)
+ ragg                   1.5.0    2025-09-02 [1] CRAN (R 4.5.0)
+ RColorBrewer           1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rematch2               2.1.2    2020-05-01 [1] CRAN (R 4.5.0)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rprojroot              2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ S4Arrays               1.10.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ S7                     0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
+ scales                 1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
+ segmented              2.2-1    2026-01-29 [1] CRAN (R 4.5.2)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8   2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ statmod                1.5.1    2025-10-09 [1] CRAN (R 4.5.0)
+ stringi                1.8.7    2025-03-27 [1] CRAN (R 4.5.0)
+ stringr                1.6.0    2025-11-04 [1] CRAN (R 4.5.0)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ systemfonts            1.3.1    2025-10-01 [1] CRAN (R 4.5.0)
+ textshaping            1.0.4    2025-10-10 [1] CRAN (R 4.5.0)
+ tibble                 3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect             1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
+ vctrs                  0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
+ vipor                  0.4.7    2023-12-18 [1] CRAN (R 4.5.0)
+ withr                  3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
+ xfun                   0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ xml2                   1.5.2    2026-01-17 [1] CRAN (R 4.5.2)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+─────────────────────────────────────────────
