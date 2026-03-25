@@ -4,13 +4,16 @@ author: "Bernie Mulvey"
 date: "2026-03-25"
 output: html_document
 ---
+---
+title: "Untitled"
+author: "Bernie Mulvey"
+date: "`r Sys.Date()`"
+output: html_document
+---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
-#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
-knitr::opts_knit$set(root.dir = here::here())
-
 library(data.table)
+library(SpatialExperiment)
 library(imager)
 
 ## >= and <= comparators that account for floating point error
@@ -24,36 +27,39 @@ lessOrEqual <- function(x,y){
     (x <= y) | (abs(x-y) <= precision)
 }
 
-## rstudio GUI tweaks
-options("styler.addins_style_transformer" = "biocthis::bioc_style()")
-##
-
-library(parallel)
 library(parallelly)
+library(parallel)
+
 ```
 
-### actually run this bit thru a R terminal session, since spatialExperiment doesn't work with jhpce-rstudio-server
+### running this all thru JHPCE conda_R/4.5 interactive command line. code placed here for concurrent markdown.
 ```{r}
+## if necess
+## setwd("/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC")
+
 ## load filtered xenium data
-# spe <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
-# 
-# ## get image filepaths
-# brainz <- list.files("processed-data/xenium_imageProcessing/",recursive = FALSE)
-# brainz.dt <- as.data.table(cbind(brainz,gsub(brainz,pattern="-L",replacement="L")))
-# setnames(brainz.dt,c("dir","brnum"))
-# brainz.dt <- brainz.dt[brnum %in% spe$brnum]
-# 
-# stopifnot(all(unique(spe$brnum) %in% brainz.dt$brnum))
-# fwrite(brainz.dt,"processed-data/02_QC/05-tmpbrainzdt.txt",sep='\t',quote=F,row.names=F,col.names=T)
+spe <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+## get image filepaths
+brainz <- list.files("processed-data/xenium_imageProcessing/",recursive = FALSE)
+brainz.dt <- as.data.table(cbind(brainz,gsub(brainz,pattern="-L",replacement="L")))
+setnames(brainz.dt,c("dir","brnum"))
+brainz.dt <- brainz.dt[brnum %in% spe$brnum]
+
+stopifnot(all(unique(spe$brnum) %in% brainz.dt$brnum))
+fwrite(brainz.dt,"processed-data/02_QC/05-tmpbrainzdt.txt",sep='\t',quote=F,row.names=F,col.names=T)
+
 ```
-## now over here on jhpce rstudio, load that table
+
+load it
 ```{r}
 brainz.dt <- fread("processed-data/02_QC/05-tmpbrainzdt.txt")
 ```
 
-make and save the lowres images and scalefactors. we're on a 12-cpu job on JHPCE, so spare 1 core for the session's thread. 
+guess we can't parallelize something png-y here. so iterate...
 ```{r}
-mclapply(seq(1,nrow(brainz.dt),1),mc.cores = 11,function(b){
+b<-1
+for (b in c(1:nrow(brainz.dt))){
     samp <- brainz.dt[b,brnum]
     dir <- paste0("processed-data/xenium_imageProcessing/",brainz.dt[b,dir])
     
@@ -88,27 +94,157 @@ mclapply(seq(1,nrow(brainz.dt),1),mc.cores = 11,function(b){
     write(
         rjson::toJSON(sr_json),
         file.path(paste0(outdir,"scalefactors_json.json")))
-})
+    
+    rm(fullres,outimg,sr_json,lowres_scalefact,low_over_hi,outdir,samp,dir)
+    gc(full=T)
+}
 ```
 
 ```{r}
+spes <- lapply(unique(spe$brnum),function(b){spe[,spe$brnum==b]})
+names(spes) <- unique(spe$brnum)
 
+newspes <- mcmapply(d=spes,n=names(spes),mc.cores=10,SIMPLIFY=FALSE,function(d,n){
+    img <- readImgData(path=paste0("processed-data/xenium_imageProcessing/HE_DAPIregist_lowres/",n,"/"),sample_id = n,scaleFactors = paste0("processed-data/xenium_imageProcessing/HE_DAPIregist_lowres/",n,"/scalefactors_json.json"))
+    
+    newspe <- SpatialExperiment(assays=list(counts=counts(d)),sample_id = n,spatialCoords = spatialCoords(d),imgData = img,colData=colData(d),rowData=rowData(d))
 
+    return(newspe)    
+})
+names(newspes) <- names(spes)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+i<-1
+for (i in c(1:length(newspes))){
+    
+    if(i==1){
+        outspe <- newspes[[i]]
+    }
+    else {
+        outspe <- cbind(outspe,newspes[[i]])
+    }
+}
+stopifnot(dim(outspe)==dim(spe))
+dim(outspe) ## 
+length(unique(outspe$brnum)) ##
 ```
+
+save
+```{r}
+saveRDS(outspe,"processed-data/02_QC/05-spe_filtered_genetargonly_log-and-nonlog-norms_withLowresHEs.RDS")
+```
+
+
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.0 Patched (2025-05-21 r88220)
+Platform: x86_64-conda-linux-gnu
+Running under: Rocky Linux 9.4 (Blue Onyx)
+
+Matrix products: default
+BLAS:   /jhpce/shared/community/core/conda_R/4.5/R/lib64/R/lib/libRblas.so 
+LAPACK: /jhpce/shared/community/core/conda_R/4.5/R/lib64/R/lib/libRlapack.so;  LAPACK version 3.12.1
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+time zone: US/Eastern
+tzcode source: system (glibc)
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices datasets  utils    
+[8] methods   base     
+
+other attached packages:
+ [1] imager_1.0.8                magrittr_2.0.4             
+ [3] SpatialExperiment_1.20.0    SingleCellExperiment_1.32.0
+ [5] SummarizedExperiment_1.40.0 Biobase_2.70.0             
+ [7] GenomicRanges_1.62.1        Seqinfo_1.0.0              
+ [9] IRanges_2.44.0              S4Vectors_0.48.0           
+[11] BiocGenerics_0.56.0         generics_0.1.4             
+[13] MatrixGenerics_1.22.0       matrixStats_1.5.0          
+[15] data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+ [1] Matrix_1.7-4        compiler_4.5.0      rjson_0.2.23       
+ [4] Rcpp_1.1.1          stringr_1.6.0       magick_2.9.1       
+ [7] bmp_0.3.1           png_0.1-8           lattice_0.22-9     
+[10] XVector_0.50.0      S4Arrays_1.10.1     igraph_2.2.2       
+[13] DelayedArray_0.36.0 readbitmap_0.1.5    tiff_0.1-12        
+[16] rlang_1.1.7         stringi_1.8.7       SparseArray_1.10.9 
+[19] cli_3.6.5           grid_4.5.0          lifecycle_1.0.5    
+[22] vctrs_0.7.1         glue_1.8.0          abind_1.4-8        
+[25] purrr_1.2.1         tools_4.5.0         jpeg_0.1-11        
+[28] pkgconfig_2.0.3    
+
+─ Session info ───────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.0 Patched (2025-05-21 r88220)
+ os       Rocky Linux 9.4 (Blue Onyx)
+ system   x86_64, linux-gnu
+ ui       X11
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       US/Eastern
+ date     2026-03-25
+ pandoc   3.7.0.1 @ /jhpce/shared/community/core/conda_R/4.5/bin/pandoc
+ quarto   NA
+
+─ Packages ───────────────────────────────────────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [2] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ bmp                    0.3.1    2025-09-22 [1] CRAN (R 4.5.0)
+ cli                    3.6.5    2025-04-23 [2] CRAN (R 4.5.0)
+ data.table           * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.0)
+ DelayedArray           0.36.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ generics             * 0.1.4    2025-05-09 [2] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.0)
+ glue                   1.8.0    2024-09-30 [2] CRAN (R 4.5.0)
+ igraph                 2.2.2    2026-02-12 [1] CRAN (R 4.5.0)
+ imager               * 1.0.8    2025-12-23 [1] CRAN (R 4.5.0)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ jpeg                   0.1-11   2025-03-21 [2] CRAN (R 4.5.0)
+ lattice                0.22-9   2026-02-09 [1] CRAN (R 4.5.0)
+ lifecycle              1.0.5    2026-01-08 [1] CRAN (R 4.5.0)
+ magick                 2.9.1    2026-02-28 [1] CRAN (R 4.5.0)
+ magrittr             * 2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ Matrix                 1.7-4    2025-08-28 [1] CRAN (R 4.5.0)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ matrixStats          * 1.5.0    2025-01-07 [2] CRAN (R 4.5.0)
+ pkgconfig              2.0.3    2019-09-22 [2] CRAN (R 4.5.0)
+ png                    0.1-8    2022-11-29 [2] CRAN (R 4.5.0)
+ purrr                  1.2.1    2026-01-09 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.0)
+ readbitmap             0.1.5    2018-06-27 [1] CRAN (R 4.5.0)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.0)
+ S4Arrays               1.10.1   2025-12-01 [1] Bioconductor 3.22 (R 4.5.0)
+ S4Vectors            * 0.48.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ sessioninfo            1.2.3    2025-02-05 [2] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ SparseArray            1.10.9   2026-03-06 [1] Bioconductor 3.22 (R 4.5.0)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ stringi                1.8.7    2025-03-27 [2] CRAN (R 4.5.0)
+ stringr                1.6.0    2025-11-04 [1] CRAN (R 4.5.0)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+ tiff                   0.1-12   2023-11-28 [2] CRAN (R 4.5.0)
+ vctrs                  0.7.1    2026-01-23 [1] CRAN (R 4.5.0)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.0)
+
+ [1] /users/bmulvey/R/4.5
+ [2] /jhpce/shared/community/core/conda_R/4.5/R/lib64/R/site-library
+ [3] /jhpce/shared/community/core/conda_R/4.5/R/lib64/R/library
+ [4] /users/bmulvey/R/4.3
+ * ── Packages attached to the search path.
+
+──────────────────────────────────────────────────────────────────────────────
