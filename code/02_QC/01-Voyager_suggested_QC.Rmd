@@ -121,7 +121,7 @@ rasterize(plotColData(lcx,y="cell_area",x="nucleus_area",bins=1000))
 dev.off()
 ```
 
-## look at cell area over spatial dimensions. (presumably, the neuron-rich VMH/ARC will have larger cells/nuclei compared to e.g., WM)
+## look at cell area over spatial dimensions. (presumably, the neuron-rich LC will have larger cells/nuclei compared to e.g., WM)
 ```{r}
 library(escheR)
 options("ggrastr.default.dpi"=300)

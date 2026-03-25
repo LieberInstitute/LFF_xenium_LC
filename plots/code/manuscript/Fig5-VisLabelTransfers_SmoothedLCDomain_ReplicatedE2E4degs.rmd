@@ -52,7 +52,7 @@ unloadNamespace('datasets')
 
 ## Plot from a previously-plotted sample, showing transferred labels themselves, with similar anat to its visium counterpart
 ## poss brs: Fig 2 (Br5941, Br0946, Br6538, Br1105) or Fig 1 (Br3974)
-## try Br3974, Br6538
+## try Br5941, Br6538
 
 ```{r}
 pal <- readRDS("../LFF_spatial_LC/plots/finalpal_somuchfornorainbows.RDS")
@@ -87,7 +87,7 @@ rm(lxf)
 
 ### make the plots. we'll do whatever rotating is necess. to match visium orientation in illustrator.
 ```{r}
-nmfpredpans <- list(Br3974=xlc[,xlc$brnum=="Br3974"],Br6538=xlc[,xlc$brnum=="Br6538"])
+nmfpredpans <- list(Br5941=xlc[,xlc$brnum=="Br5941"],Br6538=xlc[,xlc$brnum=="Br6538"])
 
 sizepal <- c(0.5,rep(0.2,8))
 names(sizepal) <- names(pal)
@@ -107,9 +107,9 @@ lapply(names(nmfpredpans),function(n){
     guides(fill=guide_legend(override.aes=list(size=1.5)),size="none")+
     scale_fill_manual(values=pal)
     if (n=="Br6538"){
-        p <- p + ggtitle("Br6538 (E2/E3), EA, M)")
-    } else if (n=="Br3974"){
-        p <- p + ggtitle("Br3974 (E3/E4), AA, M)")
+        p <- p + ggtitle("Br6538 (E2/E3, EA, M)")
+    } else if (n=="Br5941"){
+        p <- p + ggtitle("Br5941 (E4/E4, AA, M)")
     }
     p <- p+
     theme(panel.grid = element_blank(),
@@ -195,51 +195,60 @@ dev.off()
 rm(pltg,modmat,testres,xact.12252,xcd,xactxfer)
 ```
 
-show an LC smoothing on Br5941. we'll do whatever rotation necess to match visium panels' orientation in illustrator
+show an LC smoothing on Br5941 or Br6538. we'll do whatever rotation necess to match visium panels' orientation in illustrator
 ```{r}
-smoove <- xlc[,xlc$brnum=="Br5941"]
+smoovepans <- list(Br5941=xlc[,xlc$brnum=="Br5941"],Br6538=xlc[,xlc$brnum=="Br6538"])
+
 dompal <- c(pal[1],"#C3C3C3")
 names(dompal) <- c("LC","Other")
-sizepal <- c(0.5,0.25)
+sizepal <- c(0.4,0.25)
 names(sizepal) <- c("LC","Other")
 
-plt <- make_escheR(smoove,y_reverse=FALSE)
-plt <- plt |> add_fill("domain12252",size=0.2,point_size = 0.2)
+lapply(names(smoovepans),function(n){
+    smoove <- smoovepans[[n]]
+    plt <- make_escheR(smoove,y_reverse=FALSE)
+    plt <- plt |> add_fill("domain12252",size=0.2,point_size = 0.2)
 
-## override the escheR size settings to pass our size pal
-plt@layers[[1]]$aes_params$size <- NULL
-plt <- plt+aes(size=domain12252)+
-    scale_size_manual(values=sizepal)
+    ## override the escheR size settings to pass our size pal
+    plt@layers[[1]]$aes_params$size <- NULL
+    plt <- plt+aes(size=domain12252)+
+        scale_size_manual(values=sizepal)
 
-p <- plt+ 
-labs(fill="Domain")+
-ggtitle("Br5941 (E4/E4\nAA, M)")+
-guides(fill=guide_legend(override.aes=list(size=1.5)),size="none")+
-scale_fill_manual(values=dompal)+
-theme(panel.grid = element_blank(),
-    axis.text.x=element_blank(),
-    axis.text.y=element_blank(),
-    axis.title.x=element_blank(),
-    axis.title.y=element_blank(),
-    axis.ticks = element_blank(),
-    legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
-    legend.key.size = ggplot2::unit(0.075,"in"),
-    legend.title=element_text(size=7,hjust=0.5),
-    legend.background = element_blank(),
-    legend.margin = margin(0,-0.3,0,0,"in"),
-    legend.box = element_blank(),
-    legend.box.spacing = ggplot2::unit(0,"in"),
-    legend.key = element_blank(),
-    legend.key.height=ggplot2::unit(0.0125,"in"),
-    legend.key.width=ggplot2::unit(0.0125,"in"),
-    legend.key.spacing.y = ggplot2::unit(0.04,"in"),
-    title=element_text(size=10,hjust=0.5))
-    # legend.position.inside = c(0.19,0.165),
-    # legend.position="inside")
-p <- rasterize(p,layers="Points",dpi=600,dev="cairo_png")
-pdf(paste0("plots/manuscript/Fig5_astrogenes_in_LC/Fig5Y-SmoothedLC_Br5941.pdf"),height=2.25,width=1.5)
-print(p)
-dev.off()
+    
+    if(n=="Br6538"){ # Br6538 (E2/E3, EA, M)
+        p <- plt + ggtitle(paste0(n," (E2/E3\nEA, M)"))
+    } else if (n=="Br5941"){ # Br5941 (E4/E4, AA, M)
+        p <- plt + ggtitle(paste0(n," (E4/E4\nAA, M)"))
+    }
+    p <- p+ 
+    labs(fill="Domain")+
+    guides(fill=guide_legend(override.aes=list(size=1.5)),size="none")+
+    scale_fill_manual(values=dompal)+
+    theme(panel.grid = element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
+        legend.key.size = ggplot2::unit(0.075,"in"),
+        legend.title=element_text(size=7,hjust=0.5),
+        legend.background = element_blank(),
+        legend.margin = margin(0,-0.3,0,0,"in"),
+        legend.box = element_blank(),
+        legend.box.spacing = ggplot2::unit(0,"in"),
+        legend.key = element_blank(),
+        legend.key.height=ggplot2::unit(0.0125,"in"),
+        legend.key.width=ggplot2::unit(0.0125,"in"),
+        legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+        title=element_text(size=10,hjust=0.5))
+        # legend.position.inside = c(0.19,0.165),
+        # legend.position="inside")
+    p <- rasterize(p,layers="Points",dpi=600,dev="cairo_png")
+    pdf(paste0("plots/manuscript/Fig5_astrogenes_in_LC/Fig5Y-SmoothedLC_",n,".pdf"),height=2.25,width=1.5)
+    print(p)
+    dev.off()
+})
 ```
 
 pseudobulk cleaning y plots for Xenium-replicated LC domain astrocyte DEGs
