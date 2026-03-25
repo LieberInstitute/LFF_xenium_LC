@@ -1,0 +1,114 @@
+---
+title: "05-Lowres_Xenium_HEimages_for_SPE"
+author: "Bernie Mulvey"
+date: "2026-03-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(imager)
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+## rstudio GUI tweaks
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+library(parallel)
+library(parallelly)
+```
+
+### actually run this bit thru a R terminal session, since spatialExperiment doesn't work with jhpce-rstudio-server
+```{r}
+## load filtered xenium data
+# spe <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+# 
+# ## get image filepaths
+# brainz <- list.files("processed-data/xenium_imageProcessing/",recursive = FALSE)
+# brainz.dt <- as.data.table(cbind(brainz,gsub(brainz,pattern="-L",replacement="L")))
+# setnames(brainz.dt,c("dir","brnum"))
+# brainz.dt <- brainz.dt[brnum %in% spe$brnum]
+# 
+# stopifnot(all(unique(spe$brnum) %in% brainz.dt$brnum))
+# fwrite(brainz.dt,"processed-data/02_QC/05-tmpbrainzdt.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
+## now over here on jhpce rstudio, load that table
+```{r}
+brainz.dt <- fread("processed-data/02_QC/05-tmpbrainzdt.txt")
+```
+
+make and save the lowres images and scalefactors. we're on a 12-cpu job on JHPCE, so spare 1 core for the session's thread. 
+```{r}
+mclapply(seq(1,nrow(brainz.dt),1),mc.cores = 11,function(b){
+    samp <- brainz.dt[b,brnum]
+    dir <- paste0("processed-data/xenium_imageProcessing/",brainz.dt[b,dir])
+    
+    ## make an output directory for our files
+    if (!dir.exists(paste0("processed-data/xenium_imageProcessing/HE_DAPIregist_lowres/",samp))){
+      dir.create(paste0("processed-data/xenium_imageProcessing/HE_DAPIregist_lowres/",samp))
+    }
+    
+    outdir <- paste0("processed-data/xenium_imageProcessing/HE_DAPIregist_lowres/",samp,"/")
+    
+    # load the full res HE-DAPI registered image
+    fullres <- load.image(file.path(dir,"HE_registered_to_DAPI.tif"))
+    
+    ## calculate scale factors for a 800 px max-dimension image
+    lowres_max_size=800
+    hires_scalef=0.2125# um/px
+
+    low_over_hi <- lowres_max_size / max(dim(fullres)[seq(2)])
+    lowres_scalefact <- low_over_hi/hires_scalef
+    sr_json <- list(
+        tissue_hires_scalef = hires_scalef,
+        tissue_lowres_scalef = lowres_scalefact,
+        spot_diameter_fullres = (5/hires_scalef)) # 5um nuclei / (.2125 um/px) = px 
+    
+    outimg <- imager::resize(
+    fullres,
+    as.integer(low_over_hi * dim(fullres)[1]),
+    as.integer(low_over_hi * dim(fullres)[2]))
+    
+    imager::save.image(outimg,paste0(outdir,"tissue_lowres_image.png"))
+    
+    write(
+        rjson::toJSON(sr_json),
+        file.path(paste0(outdir,"scalefactors_json.json")))
+})
+```
+
+```{r}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
