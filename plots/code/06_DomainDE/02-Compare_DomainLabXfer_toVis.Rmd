@@ -142,14 +142,14 @@ pltset <- function(con){
 
 ### one with all tests
 plts <- pltset(keepcont)
-png("plots/06_DomainDE/02-Systematic_VisXen_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
+png("plots/06_SRTxferDomainDE/02-Systematic_VisXen_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
 grid.arrange(grobs=plts,ncol=1)
 dev.off()
 
 ## another without single-geno tests
 maincont <- grep(keepcont,pattern="hom|het",value=T,invert=T)
 plts <- pltset(maincont)
-png("plots/06_DomainDE/02b-Systematic_VisXen_tstat_comparisons_mainDEtestsonly.png",height=length(maincont)*3,width=9,unit="in",res=150)
+png("plots/06_SRTxferDomainDE/02b-Systematic_VisXen_tstat_comparisons_mainDEtestsonly.png",height=length(maincont)*3,width=9,unit="in",res=150)
 grid.arrange(grobs=plts,ncol=1)
 dev.off()
 ```

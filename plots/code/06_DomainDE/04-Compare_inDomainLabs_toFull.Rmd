@@ -166,14 +166,14 @@ pltset <- function(con){
 
 ### all tests
 allplt <- pltset(keepcont)
-png("plots/06_DomainDE/04a-Systematic_FullXen_LCXenDom_labelwise_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
+png("plots/06_SRTxferDomainDE/04a-Systematic_FullXen_LCXenDom_labelwise_tstat_comparisons.png",height=length(keepcont)*3,width=9,unit="in",res=150)
 grid.arrange(grobs=allplt,ncol=1)
 dev.off()
 
 ### non single-geno tests
 keepcont <- grep(keepcont,pattern="hom|het",value=T,invert=T)
 mainsplt <- pltset(keepcont)
-png("plots/06_DomainDE/04b-Systematic_FullXen_LCXenDom_labelwise_tstat_comparisons_mainDEtestsonly.png",height=length(keepcont)*3,width=9,unit="in",res=150)
+png("plots/06_SRTxferDomainDE/04b-Systematic_FullXen_LCXenDom_labelwise_tstat_comparisons_mainDEtestsonly.png",height=length(keepcont)*3,width=9,unit="in",res=150)
 grid.arrange(grobs=mainsplt,ncol=1)
 dev.off()
 
@@ -236,14 +236,14 @@ pltset <- function(con){
 }
 
 plts <- pltset(lccont)
-png("plots/06_DomainDE/04c-Systematic_LCdomCells_nonDomLCcells_LCwholedom_DEtstat_comparisons.png",height=length(lccont)*9,width=9,unit="in",res=150)
+png("plots/06_SRTxferDomainDE/04c-Systematic_LCdomCells_nonDomLCcells_LCwholedom_DEtstat_comparisons.png",height=length(lccont)*9,width=9,unit="in",res=150)
 grid.arrange(grobs=plts,ncol=1)
 dev.off()
 
 ## make a separate one thats cleaner without all the subgeno analyses
 keepcont <- grep(lccont,pattern="E4hom|E4het|E2hom|E2het",value=T,invert=T)
 plts <- pltset(keepcont)
-png("plots/06_DomainDE/04d-Systematic_LCdomCells_nonDomLCcells_LCwholedom_DEtstat_comparisons_mainDEtestsonly.png",height=length(keepcont)*9,width=9,unit="in",res=150)
+png("plots/06_SRTxferDomainDE/04d-Systematic_LCdomCells_nonDomLCcells_LCwholedom_DEtstat_comparisons_mainDEtestsonly.png",height=length(keepcont)*9,width=9,unit="in",res=150)
 grid.arrange(grobs=plts,ncol=1)
 dev.off()
 

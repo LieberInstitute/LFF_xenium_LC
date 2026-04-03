@@ -17,6 +17,7 @@ library(SpatialExperiment)
 library(ggrastr)
 library(escheR)
 library(jaffelab)
+library(sf)
 # library(SpatialFeatureExperiment)
 
 ## rstudio GUI tweaks
@@ -59,7 +60,7 @@ pal <- readRDS("../LFF_spatial_LC/plots/finalpal_somuchfornorainbows.RDS")
 
 xlc <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 
-lxf <- fread("processed-data/05_LabelTransfer/05b-LCsmoothings_LUT.txt")
+lxf <- fread("processed-data/05_LabelTransfer/06-LCsmoothings_LUT.txt")
 ## use the strict domain for plotting
 lxf <- lxf[,.(rn,domain12252,nmfpred)]
 ## convert working names to plotting names for cluster labels
@@ -85,61 +86,154 @@ colData(xlc) <- tmpcd
 rm(lxf)
 ```
 
-### make the plots. we'll do whatever rotating is necess. to match visium orientation in illustrator.
+### make the plots of Br5941 with cell annots, LC domain perimeter drawn on, and an inset that zooms to just the domain part. we'll do whatever rotating is necess. to match visium orientation in illustrator.
+
+### first, determine the domain boundaries.
 ```{r}
-nmfpredpans <- list(Br5941=xlc[,xlc$brnum=="Br5941"],Br6538=xlc[,xlc$brnum=="Br6538"])
+pane <- xlc[,xlc$brnum=="Br5941"]
 
-sizepal <- c(0.5,rep(0.2,8))
-names(sizepal) <- names(pal)
-
-lapply(names(nmfpredpans),function(n){
-    x <- nmfpredpans[[n]]
-    plt <- make_escheR(x,y_reverse=FALSE)
-    plt <- plt |> add_fill("nmfpred",size=0.2,point_size = 0.2)
-   
-    ## override the escheR size settings to pass our size pal
-    plt@layers[[1]]$aes_params$size <- NULL
-    plt <- plt+aes(size=nmfpred)+
-      scale_size_manual(values=sizepal)
+d <- st_as_sf(as.data.frame(spatialCoords(pane[,pane$domain12252=="LC"])),coords = c("x_centroid","y_centroid"))
     
-    p <- plt+   #guides(color="none")+
-    labs(fill="Transferred\nVisium Label")+
-    guides(fill=guide_legend(override.aes=list(size=1.5)),size="none")+
-    scale_fill_manual(values=pal)
-    if (n=="Br6538"){
-        p <- p + ggtitle("Br6538 (E2/E3, EA, M)")
-    } else if (n=="Br5941"){
-        p <- p + ggtitle("Br5941 (E4/E4, AA, M)")
-    }
-    p <- p+
-    theme(panel.grid = element_blank(),
-        axis.text.x=element_blank(),
-        axis.text.y=element_blank(),
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank(),
-        axis.ticks = element_blank(),
-        legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
-        legend.key.size = ggplot2::unit(0.075,"in"),
-        legend.title=element_text(size=7,hjust=0.5),
-        legend.background = element_blank(),
-        legend.box = element_blank(),
-        legend.box.spacing = ggplot2::unit(0,"in"),
-        legend.key = element_blank(),
-        legend.key.height=ggplot2::unit(0.0125,"in"),
-        legend.key.width=ggplot2::unit(0.0125,"in"),
-        legend.key.spacing.y = ggplot2::unit(0.04,"in"),
-        title=element_text(size=10,hjust=0.5))
-        # legend.position.inside = c(0.19,0.165),
-        # legend.position="inside")
-   p <- rasterize(p,layers="Points",dpi=600,dev="cairo_png")
-   pdf(paste0("plots/manuscript/Fig5_astrogenes_in_LC/Fig5W-Predlabels_",n,".pdf"),height=2,width=3.25)
-   print(p)
-   dev.off()
-})
+dhullpt <- st_concave_hull(st_union(d),ratio = 0.2)
+## create the data table we will use for overlaying the boundary polygons. geom_path will need the first point to also be popped into the last slot to close the shape
+dompoly <- rbind(dhullpt[[1]][[1]],
+                  dhullpt[[1]][[1]][1,])
+dompoly <- cbind(dompoly,rep("LC",nrow(dompoly)))
 
-rm(nmfpredpans)
+dompoly <- as.data.table(dompoly)
+
+setnames(dompoly,c("xpol","ypol","dompol"))
+
+dompoly[,xpol:=as.numeric(xpol)]
+dompoly[,ypol:=as.numeric(ypol)]
+
+rm(d,dhullpt)
 ```
 
+### then, make full-section escher plot with the domain perimeter overlaid...
+```{r}
+# sizepal <- c(0.5,rep(0.2,8)) <- we need to pass a vector of point sizes to have the polygon-over-spot plotting scheme work here:
+
+sizesman <- ifelse(pane$nmfpred=="LC",0.5,0.2)
+
+plt <- make_escheR(pane,y_reverse=FALSE)
+plt <- plt |> add_fill("nmfpred",size=0.2,point_size = 0.2)
+
+
+## assign spot colors based on our existing palette
+p <- plt +
+  labs(fill="Transferred\nVisium Label")+
+  scale_fill_manual(values=pal)
+
+## override the escheR size settings with the spot sizes determined above:
+p@layers[[1]]$aes_params$size <- sizesman
+
+
+## draw LC domain boundary
+p <- p + 
+  geom_path(data=dompoly,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
+  scale_color_manual(values=pal)
+
+## legend specifications
+p <- p +
+  guides(fill=guide_legend(override.aes=list(size=1.5)),size="none",color="none")
+
+## title
+p <- p + ggtitle("Br5941 (E4/E4, AA, M)")
+
+## for consistency/illustrator editing simplifying
+p <- p+ theme(panel.grid = element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      axis.ticks = element_blank(),
+      legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
+      legend.key.size = ggplot2::unit(0.075,"in"),
+      legend.title=element_text(size=7,hjust=0.5),
+      legend.background = element_blank(),
+      legend.box = element_blank(),
+      legend.box.spacing = ggplot2::unit(0,"in"),
+      legend.key = element_blank(),
+      legend.key.height=ggplot2::unit(0.0125,"in"),
+      legend.key.width=ggplot2::unit(0.0125,"in"),
+      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+      title=element_text(size=10,hjust=0.5))
+      # legend.position.inside = c(0.19,0.165),
+      # legend.position="inside")
+
+p <- rasterize(p,layers="Points",dpi=600,dev="cairo_png")
+
+pdf(paste0("plots/manuscript/Fig5_astrogenes_in_LC/Fig5W-Predlabels_wDomainBounds_Br5941.pdf"),height=2,width=3.25)
+print(p)
+dev.off()
+```
+
+#### and an inset that just spans the LC area
+```{r}
+### get the min and max x and y coords of the LC polygon, add a little buffer space, and get cell IDs for all cells that correspond
+zoomcoord <- as.data.table(spatialCoords(pane),keep.rownames=T)
+range(dompoly$xpol) # 140-1277
+range(dompoly$ypol) # 2307-4030
+
+zoomcoord <- zoomcoord[greaterOrEqual(x_centroid,50)&lessOrEqual(x_centroid,1350)]
+zoomcoord <- zoomcoord[greaterOrEqual(y_centroid,2250)&lessOrEqual(y_centroid,4100)]
+
+pane2 <- pane[,zoomcoord$rn]
+
+
+sizesman <- ifelse(pane2$nmfpred=="LC",0.75,0.5)
+
+plt <- make_escheR(pane2,y_reverse=FALSE)
+plt <- plt |> add_fill("nmfpred",size=0.2,point_size = 0.2)
+
+
+## assign spot colors based on our existing palette
+p <- plt + 
+  scale_fill_manual(values=pal)
+
+## override the escheR size settings with the spot sizes determined above:
+p@layers[[1]]$aes_params$size <- sizesman
+
+
+## draw LC domain boundary
+p <- p + 
+  geom_path(data=dompoly,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
+  scale_color_manual(values=pal)
+
+## no legends needed
+p <- p +
+  guides(fill="none",size="none",color="none")
+
+## no title
+
+## for consistency/illustrator editing simplifying
+p <- p+ theme(panel.grid = element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      axis.ticks = element_blank(),
+      legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
+      legend.key.size = ggplot2::unit(0.075,"in"),
+      legend.title=element_text(size=7,hjust=0.5),
+      legend.background = element_blank(),
+      legend.box = element_blank(),
+      legend.box.spacing = ggplot2::unit(0,"in"),
+      legend.key = element_blank(),
+      legend.key.height=ggplot2::unit(0.0125,"in"),
+      legend.key.width=ggplot2::unit(0.0125,"in"),
+      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+      title=element_text(size=10,hjust=0.5))
+      # legend.position.inside = c(0.19,0.165),
+      # legend.position="inside")
+
+p <- rasterize(p,layers="Points",dpi=600,dev="cairo_png")
+
+pdf(paste0("plots/manuscript/Fig5_astrogenes_in_LC/Fig5Winset-Predlabels_wDomainBounds_Br5941.pdf"),height=2.25,width=1.5)
+print(p)
+dev.off()
+```
 We looked at whether the Astro cells or the LC cells expressed astrocyte markers identified as Visium LC APOE-DEGs, including PLPP3, FGFR3, NTSR2. (Pseudobulk expression plots of these and DBH, TH in these two Xenium clusters, ostensibly showing that the expression is in the Astro cluster.)
 ```{r}
 xactxfer <- readRDS("processed-data/06_DomainDE/07-visLabsAsXfered_voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_withinLCVisLabs.RDS")

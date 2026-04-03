@@ -105,7 +105,7 @@ testres2.8266[,titleg:=paste0("*",variable,"*")]
 testres2.8266[,APOE:=as.character(APOE)]
 testres2.8266[,APOE:=ifelse(APOE=="1","E2","E4")]
 
-pdf("plots/06_DomainDE/05-LCdomain_VisDE_replicatedE2E4gene_pbulkboxplots.pdf",height=9,width=6,onefile=TRUE)
+pdf("plots/06_SRTxferDomainDE/05-LCdomain_VisDE_replicatedE2E4gene_pbulkboxplots.pdf",height=9,width=6,onefile=TRUE)
 ggplot(testres2.8266,aes(x=APOE,y=value))+
     geom_boxplot(outliers = F,linewidth = 0.25)+
     geom_point(alpha=0.7,size=1,stroke = 0,position = position_jitter(width=0.2),aes(stroke="black",color=APOE))+
@@ -139,7 +139,7 @@ testres2.12252[, titleg := paste0("*", variable, "*")]
 testres2.12252[, APOE := as.character(APOE)]
 testres2.12252[, APOE := ifelse(APOE == "1", "E2", "E4")]
 
-pdf("plots/06_DomainDE/05-LCdomain_VisDE_replicatedE2E4gene_pbulkboxplots_StrictSmoothing.pdf", height = 9, width = 6)
+pdf("plots/06_SRTxferDomainDE/05-LCdomain_VisDE_replicatedE2E4gene_pbulkboxplots_StrictSmoothing.pdf", height = 9, width = 6)
 ggplot(testres2.12252, aes(x = APOE, y = value)) +
     geom_boxplot(outliers = FALSE, linewidth = 0.25) +
     geom_point(alpha = 0.7, size = 1, stroke = 0, position = position_jitter(width = 0.2), aes(color = APOE)) +
