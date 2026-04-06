@@ -1,7 +1,7 @@
 ---
 title: "07-OneThreshSmoothLC_webDivLabelsAndDomain_LUT.Rmd"
 format: html
-date: "04-03-2026"
+date: "04-06-2026"
 ---
 
 ```{r setup, include=FALSE}
@@ -44,29 +44,36 @@ options(parallelly.fork.enable=TRUE)
 unloadNamespace('datasets')
 ```
 
-two smoothings to use (let's see how different they are or maybe itll just be one)
+.04, 0.679
+0.12, 0.426
 load smoothings, xenium, and manual xenium LC assignments
 ```{r}
 ## smoothings
-dualscores <- readRDS("processed-data/05_LabelTransfer/03-LCknnsmoothing_step2k75.RDS")
-dualscores <- dualscores[c("k1thresh_0.08","k1thresh_0.12")]
+dualscores <- readRDS("processed-data/09_snSeqLabelTransfer/04b-WebDivLCknnsmoothing_step2k75.RDS")
+dualscores <- dualscores[c("k1thresh_0.04","k1thresh_0.12")]
 
-dualscores8266 <- dualscores$k1thresh_0.08[,domain8266:=ifelse(greaterOrEqual(lcpred.smooth2.k75,0.266),"LC","Other")]
+dualscores468 <- dualscores$k1thresh_0.04[,domain468:=ifelse(greaterOrEqual(lcpred.smooth2.k75,round(0.679,3)),"LC","Other")]
 
-dualscores12252 <- dualscores$k1thresh_0.12[,domain12252:=ifelse(greaterOrEqual(lcpred.smooth2.k75,0.252),"LC","Other")]
+dualscores1243 <- dualscores$k1thresh_0.12[,domain1243:=ifelse(greaterOrEqual(lcpred.smooth2.k75,round(0.426,3)),"LC","Other")]
 
-nrow(dualscores12252[domain=="LC"]) #36830
-nrow(dualscores8266[domain=="LC"]) #55761
-nrow(dualscores8266[domain=="LC" & rn %in% dualscores12252[domain=="LC",rn]]) # 36822, so all but 8 of the cells identified by in the .12/.252 smoothing are in the more permissive 0.08/.266 smoothing.
+## append nmf predictions
+projlabs <- fread("processed-data/09_snSeqLabelTransfer/03-WebDivToXen_xferedlabels.txt")
+dualscores468 <- merge.data.table(dualscores468,projlabs,by="rn")
+dualscores1243 <- merge.data.table(dualscores1243,projlabs,by="rn")
 
-# attach nmf-predicted labels to this
-preds <- fread("processed-data/09_snSeqLabelTransfer/03-WebDivToXen_xferedlabels.txt")
+nrow(dualscores468[WebDivLabel=="NE"]) #10783
+nrow(dualscores468[domain468=="LC"]) #45616
+nrow(dualscores468[domain468=="LC"&WebDivLabel=="NE"]) # 8643
 
-domlabs <- merge.data.table(dualscores8266,dualscores12252[,.(rn,domain12252)],by="rn")
-domlabs <- merge.data.table(domlabs,preds,by="rn")
+nrow(dualscores1243[WebDivLabel=="NE"]) # 10783 (total pred cells so same)
+nrow(dualscores1243[domain1243=="LC"]) # 35540
+nrow(dualscores1243[domain1243=="LC"&WebDivLabel=="NE"]) # 7864
 
-domlabs[,lcpred.smooth1.k25:=NULL]
-domlabs[,lcpred.smooth2.k75:=NULL]
+nrow(dualscores468[domain468=="LC" & rn %in% dualscores1243[domain1243=="LC",rn]]) 
+## ^ 33889; therefore 1651 unique cells exclusive to domain1243 and 11272 cells exclusive to domain468
+
+domlabs <- merge.data.table(dualscores468[,.(rn,WebDivLabel,domain468)],dualscores1243[,.(rn,domain1243)],by="rn")
+setnames(domlabs,"WebDivLabel","nmfpred")
 
 fwrite(domlabs,"processed-data/09_snSeqLabelTransfer/07-wdLCsmoothings_LUT.txt",sep='\t',quote=F,row.names=F,col.names=T)
 ```

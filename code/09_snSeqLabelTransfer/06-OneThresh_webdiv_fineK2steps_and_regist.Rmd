@@ -273,7 +273,7 @@ lcvreg <- registration_wrapper(sce=lcv,var_registration = "vislab",var_sample_id
 lcvreg <- as.data.table(lcvreg$enrichment)
 lcvreg <- lcvreg[,.(ensembl,t_stat_LC,t_stat_Other)]
 comparegs[[length(comparegs)+1]] <- lcvreg
-names(comparegs)[length(comparegs)] <- "LFF_Visium"
+names(comparegs)[length(comparegs)] <- "LFF_Visium_Domains"
 
 rm(lcv,lcvreg)
 gc(full=T)

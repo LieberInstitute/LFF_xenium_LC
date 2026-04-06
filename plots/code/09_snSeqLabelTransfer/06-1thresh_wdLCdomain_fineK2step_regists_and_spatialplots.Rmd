@@ -1,7 +1,7 @@
 ---
 title: "06-1thresh_wdLCdomain_fineK2step_regists_and_spatialplots"
 author: "Bernie Mulvey"
-date: "04-02-2026"
+date: "04-05-2026"
 output: html_document
 ---
 
@@ -53,178 +53,191 @@ unloadNamespace("datasets")
 ```
 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
-#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
-knitr::opts_knit$set(root.dir = here::here())
-
-library(data.table)
-library(ggplot2)
-library(ggtext)
-library(gridExtra)
-library(ggrastr)
-library(SpatialExperiment)
-library(escheR)
-
-
-## >= and <= comparators that account for floating point error
-greaterOrEqual <- function(x,y) {
-    precision <- sqrt(.Machine$double.eps)
-    (x >= y) | (abs(x-y) <= precision)
-}
-
-lessOrEqual <- function(x,y){
-    precision <- sqrt(.Machine$double.eps)
-    (x <= y) | (abs(x-y) <= precision)
-}
-
-## rstudio GUI tweaks
-require(colorout)
-ColorOut()
-options("styler.addins_style_transformer" = "biocthis::bioc_style()")
-##
-
-## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
-# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
-library(parallelly)
-options(parallelly.supportsMulticore.disableOn="")
-options(parallelly.fork.enable=TRUE)
-library(parallel)
-
-
-## ggplot defaults
-theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
-
-## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
-unloadNamespace("datasets")
-```
-
 first let's make some plots of the relationship between visium registration scores and manual LC label inclusion
 ```{r}
-regs <- fread("processed-data/09_snSeqLabelTransfer/05c-OneThresh_webdiv_smoothdLC_regist_to_VisLC_ManXenLC_srtNMFpred_wdNMFpred.txt")
+regs <- fread("processed-data/09_snSeqLabelTransfer/06c-1thresh_wdNMF_smoothedLCs_regist_to_manXenLC_visLC_SRTxferLC_finek2steps.txt")
+# sigh, something's still wonky about these values--some are 0.001 off from others. so let's fix that AGAIN here...
+regs[,k2:=as.character(k2)]
+regs[k2=="0.065",k2:="0.066"]
+regs[k2=="0.105",k2:="0.106"]
+regs[k2=="0.145",k2:="0.146"]
+regs[k2=="0.185",k2:="0.186"]
+regs[k2=="0.225",k2:="0.226"]
+regs[k2=="0.265",k2:="0.266"]
+regs[k2=="0.305",k2:="0.306"]
+regs[k2=="0.345",k2:="0.346"]
+regs[k2=="0.385",k2:="0.386"]
+regs[k2=="0.425",k2:="0.426"]
+regs[,k2:=round(as.numeric(k2),3)]
+
 
 regsplt1 <- regs[Ntopdommks %in% c(10,40,70,100,130,160,190,220,250,280,300)]
 regsplt1 <- melt.data.table(regsplt1,id.vars = c("domainDef","Ntopdommks","looseInDom","strictInDom","WebDivNMFInDom","k1","k2"))
 ```
 
-## make the plots like we did for 09/05:
+## make the plots like we did for 09/05, plus some line plots since there's a lot of k2 values stepped thru per k1 here:
 
 ```{r}
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05a_LFFvis_regist_and_PropWebDivNEinDom_top300mks_k2facet.pdf",height=18,width=5.5)
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06a_LFFvis_regist_and_PropWebDivNEinDom_top300mks_k2facet.pdf",height=12,width=30)
 ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Visium_Domains"],aes(x=WebDivNMFInDom,y=value,color=factor(k1)))+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  facet_wrap(~k2,ncol=10)+
   ylab("Registration to Visium LC")
 dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05a_LFFvis_regist_and_PropManLCStrict_top300mks_k2facet.pdf",height=18,width=5.5)
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06a_LFFvis_regist_and_PropManLCStrict_top300mks_k2facet.pdf",height=12,width=30)
 ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Visium_Domains"],aes(x=strictInDom,y=value,color=factor(k1)))+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  facet_wrap(~k2,ncol=10)+
   ylab("Registration to Visium LC")
 dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05a_LFFvis_regist_and_PropWebDivNEinDom_top40mks_k2facet.pdf",height=18,width=5.5)
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06a_LFFvis_regist_lines_top300mks_k2.pdf",height=5.5,width=12)
+ggplot(regsplt1[Ntopdommks==300&variable=="LFF_Visium_Domains"],aes(x=k2,y=value,color=factor(k1)))+
+  geom_line()+
+  geom_point()+
+  ylab("Registration to Visium LC")
+dev.off()
+
+
+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06a_LFFvis_regist_and_PropWebDivNEinDom_top40mks_k2facet.pdf",height=12,width=30)
 ggplot(regsplt1[Ntopdommks==40&variable=="LFF_Visium_Domains"],aes(x=WebDivNMFInDom,y=value,color=factor(k1)))+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  facet_wrap(~k2,ncol=10)+
   ylab("Registration to Visium LC")
 dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05a_LFFvis_regist_and_PropManLCStrict_top40mks_k2facet.pdf",height=18,width=5.5)
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06a_LFFvis_regist_and_PropManLCStrict_top40mks_k2facet.pdf",height=12,width=30)
 ggplot(regsplt1[Ntopdommks==40&variable=="LFF_Visium_Domains"],aes(x=strictInDom,y=value,color=factor(k1)))+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  facet_wrap(~k2,ncol=10)+
   ylab("Registration to Visium LC")
 dev.off()
 
-## proportion of label-xfered LC cells in domain and nmfpred LC cells registration
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06a_LFFvis_regist_lines_top40mks_k2.pdf",height=5.5,width=12)
+ggplot(regsplt1[Ntopdommks==40&variable=="LFF_Visium_Domains"],aes(x=k2,y=value,color=factor(k1)))+
+  geom_line()+
+  geom_point()+
+  ylab("Registration to Visium LC")
+dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05b_wdNMFLCcells_regist_and_NMFxferLCcellProp_top300mks_k2facet.pdf",height=12,width=5.5)
+
+## proportion of label-xfered LC cells in domain and nmfpred LC cells registration
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06b_wdNMFLCcells_regist_and_NMFxferLCcellProp_top300mks_k2facet.pdf",height=12,width=30)
 ggplot(regsplt1[Ntopdommks==300&variable=="nmfpred"],aes(x=WebDivNMFInDom,y=value,color=factor(k1)))+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  facet_wrap(~k2,ncol=10)+
   ylab("Registration to Cells NMF-Xfered WebDiv NE Label")
 dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05b_wdNMFLCcells_regist_and_NMFxferLCcellProp_top40mks_k2facet.pdf",height=12,width=5.5)
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06b_wdNMFLCcells_regist_and_NMFxferLCcellProp_top40mks_k2facet.pdf",height=12,width=30)
 ggplot(regsplt1[Ntopdommks==40&variable=="nmfpred"],aes(x=WebDivNMFInDom,y=value,color=factor(k1)))+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  facet_wrap(~k2,ncol=10)+
   ylab("Registration to Cells NMF-Xfered WebDiv NE Label")
 dev.off()
 
 
 ###### registrations to SRT label transfer domain 8266 and wdNMFNE cellprop #######
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05c_SRTdom8266_regist_and_NMFxferLCcellProp_top40mks_k2facet.pdf",height=18,width=5.5)
-ggplot(regsplt1[Ntopdommks==40&variable=="SRTdomain8266"],aes(x=looseInDom,y=value,color=factor(k1)))+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06c_SRTdom8266_regist_and_NMFxferLCcellProp_top40mks_k2facet.pdf",height=12,width=30)
+ggplot(regsplt1[Ntopdommks==40&variable=="SRTdomain8266"],aes(x=WebDivNMFInDom,y=value,color=factor(k1)))+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  facet_wrap(~k2,ncol=10)+
   ylab("Registration to SRT-Xfer Smoothed LC 8266")
 dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05c_SRTdom8266_regist_and_NMFxferLCcellProp_top300mks_k2facet.pdf",height=18,width=5.5)
-ggplot(regsplt1[Ntopdommks==300&variable=="SRTdomain8266"],aes(x=looseInDom,y=value,color=factor(k1)))+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06c_SRTdom8266_regist_and_NMFxferLCcellProp_top300mks_k2facet.pdf",height=12,width=30)
+ggplot(regsplt1[Ntopdommks==300&variable=="SRTdomain8266"],aes(x=WebDivNMFInDom,y=value,color=factor(k1)))+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  facet_wrap(~k2,ncol=10)+
   ylab("Registration to SRT-Xfer Smoothed LC 8266")
 dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05c_SRTdom12252_regist_and_NMFxferLCcellProp_top40mks_k2facet.pdf",height=18,width=5.5)
-ggplot(regsplt1[Ntopdommks==40&variable=="SRTdomain12252"],aes(x=looseInDom,y=value,color=factor(k1)))+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06c_SRTdom8266_regist_lines_top300_k2.pdf",height=5.5,width=12)
+ggplot(regsplt1[Ntopdommks==300&variable=="SRTdomain8266"],aes(x=k2,y=value,color=factor(k1)))+
+  geom_line()+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  ylab("Registration to SRT-Xfer Smoothed LC 8266")
+dev.off()
+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06c_SRTdom8266_regist_lines_top40_k2.pdf",height=5.5,width=12)
+ggplot(regsplt1[Ntopdommks==40&variable=="SRTdomain8266"],aes(x=k2,y=value,color=factor(k1)))+
+  geom_line()+
+  geom_point()+
+  ylab("Registration to SRT-Xfer Smoothed LC 8266")
+dev.off()
+
+
+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06c_SRTdom12252_regist_and_NMFxferLCcellProp_top40mks_k2facet.pdf",height=12,width=30)
+ggplot(regsplt1[Ntopdommks==40&variable=="SRTdomain12252"],aes(x=WebDivNMFInDom,y=value,color=factor(k1)))+
+  geom_point()+
+  facet_wrap(~k2,ncol=10)+
   ylab("Registration to SRT-Xfer Smoothed LC 12252")
 dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05c_SRTdom12252_regist_and_NMFxferLCcellProp_top300mks_k2facet.pdf",height=18,width=5.5)
-ggplot(regsplt1[Ntopdommks==300&variable=="SRTdomain12252"],aes(x=looseInDom,y=value,color=factor(k1)))+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06c_SRTdom12252_regist_and_NMFxferLCcellProp_top300mks_k2facet.pdf",height=12,width=30)
+ggplot(regsplt1[Ntopdommks==300&variable=="SRTdomain12252"],aes(x=WebDivNMFInDom,y=value,color=factor(k1)))+
   geom_point()+
-  facet_wrap(~k2,ncol=4)+
+  facet_wrap(~k2,ncol=10)+
+  ylab("Registration to SRT-Xfer Smoothed LC 12252")
+dev.off()
+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06c_SRTdom12252_regist_lines_top300_k2.pdf",height=5.5,width=12)
+ggplot(regsplt1[Ntopdommks==300&variable=="SRTdomain12252"],aes(x=k2,y=value,color=factor(k1)))+
+  geom_line()+
+  geom_point()+
+  ylab("Registration to SRT-Xfer Smoothed LC 12252")
+dev.off()
+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06c_SRTdom12252_regist_lines_top40_k2.pdf",height=5.5,width=12)
+ggplot(regsplt1[Ntopdommks==40&variable=="SRTdomain12252"],aes(x=k2,y=value,color=factor(k1)))+
+  geom_line()+
+  geom_point()+
   ylab("Registration to SRT-Xfer Smoothed LC 12252")
 dev.off()
 
 ## how much better does each  domain definition register to Visium compared to strictly defined LC cells alone?
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05d_SRT8266-wdNMFprojNEcells_registdiff_top40mks_k1facet.pdf",height=12,width=5.5)
-ggplot(regs[Ntopdommks==40],aes(y=(SRTdomain8266-nmfpred),x=k2))+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06d_SRT8266-wdNMFprojNEcells_registdiff_top40mks_k1facet.pdf",height=5.5,width=12)
+ggplot(regs[Ntopdommks==40],aes(y=(SRTdomain8266-nmfpred),x=k2,col=as.factor(k1)))+
   geom_point()+
-  facet_wrap(~k1)
+  geom_line()
 dev.off()
 
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05d_SRT8266-wdNMFprojNEcells_registdiff_top300mks_k1facet.pdf",height=12,width=5.5)
-ggplot(regs[Ntopdommks==300],aes(y=(SRTdomain8266-nmfpred),x=k2))+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06d_SRT8266-wdNMFprojNEcells_registdiff_top300mks_k1facet.pdf",height=5.5,width=12)
+ggplot(regs[Ntopdommks==300],aes(y=(SRTdomain8266-nmfpred),x=k2,col=as.factor(k1)))+
   geom_point()+
-  facet_wrap(~k1)
+  geom_line()
 dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05d_SRT12252-wdNMFprojNEcells_registdiff_top40mks_k1facet.pdf",height=12,width=5.5)
-ggplot(regs[Ntopdommks==40],aes(y=(SRTdomain12252-nmfpred),x=k2))+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06d_SRT12252-wdNMFprojNEcells_registdiff_top40mks_k1facet.pdf",height=5.5,width=12)
+ggplot(regs[Ntopdommks==40],aes(y=(SRTdomain12252-nmfpred),x=k2,col=as.factor(k1)))+
   geom_point()+
-  facet_wrap(~k1)
+  geom_line()
 dev.off()
 
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05d_SRT12252-wdNMFprojNEcells_registdiff_top300mks_k1facet.pdf",height=12,width=5.5)
-ggplot(regs[Ntopdommks==300],aes(y=(SRTdomain12252-nmfpred),x=k2))+
-  geom_point()+
-  facet_wrap(~k1)
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06d_SRT12252-wdNMFprojNEcells_registdiff_top300mks_k1facet.pdf",height=5.5,width=12)
+ggplot(regs[Ntopdommks==300],aes(y=(SRTdomain12252-nmfpred),x=k2,col=as.factor(k1)))+
+  geom_line()+
+  geom_point()
 dev.off()
 
 
 ## and Visium LC vs pseudobulking nmfpred LC cells?
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05e_VisiumLC-wdNMFprojNEcells_registdiff_top40mks_k1facet.pdf",height=12,width=5.5)
-ggplot(regs[Ntopdommks==40],aes(y=(LFF_Visium_Domains-nmfpred),x=k2))+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06e_VisiumLC-wdNMFprojNEcells_registdiff_top40mks_k1facet.pdf",height=5.5,width=12)
+ggplot(regs[Ntopdommks==40],aes(y=(LFF_Visium_Domains-nmfpred),x=k2,col=as.factor(k1)))+
   geom_point()+
-  facet_wrap(~k1)
+  geom_line()
 dev.off()
 
-pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05e_VisiumLC-wdNMFprojNEcells_registdiff_top300mks_k1facet.pdf",height=12,width=5.5)
-ggplot(regs[Ntopdommks==300],aes(y=(LFF_Visium_Domains-nmfpred),x=k2))+
+pdf("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06e_VisiumLC-wdNMFprojNEcells_registdiff_top300mks_k1facet.pdf",height=5.5,width=12)
+ggplot(regs[Ntopdommks==300],aes(y=(LFF_Visium_Domains-nmfpred),x=k2,col=as.factor(k1)))+
   geom_point()+
-  facet_wrap(~k1)
+  geom_line()
 dev.off()
 ```
 
@@ -293,28 +306,42 @@ lcv$brnum <- gsub(lcv$brnum,pattern="(Br.*)R",replacement="\\1")
 sum(unique(lcv$brnum) %in% unique(spe$brnum))==length(unique(spe$brnum)) # k we good
 ```
 
-### one plot file per threshold set and incorporating visium samples
+### one plot file per threshold set and incorporating visium samples.
 
-### LEFT OFF HERE ###
+### prioritization strategy: look at the line plots for stable regions of 2+ points w/r/t registration values; take notes on top peak registration k1, k2 pairs for each of 
+-300 marker Vis LFF regs
+-40 marker vis lff regs
+-300 marker visium srt label transfer 8266 LC
+-40 marker visium srt label transfer 8266 LC
+-300 marker visium srt label transfer 12252 LC
+-40 marker visium srt label transfer 12252 LC
+-300 marker (visium domain MINUS webdiv NMF-labeled LC cells).
 
-## for selected k1/k2 pairs based on plots 09/05a-e. initial sweep leads me to these (k1-k2), assuming we want/anticipate at least 50% of NE neurons (either strict-manual or nmfpred) within the domain, we need k1<=TBD:
-K1=: K2 ~TBD% of nmfpred; anotherK2 TBD%
-K1=: K2 ~TBD % of nmfpred; 2nd best XXXX regist score @ NNgenes, etc
+Then, pass those notes thru to gemini to create a frequency table of each k1, k2 pair across all of those sets to identify most prioritized k1/k2 pairs. Based on that, the following pairs emerge as consistently prioritized (note these k2 values are already shifted by -0.001 to avoid rounding and machine precision mistakes.):
+0.04: 0.666 (4x), 0.679 (4x)
+0.08: 0.506 (3x)
+0.12: 0.359 (3x), 0.426 (3x)
+0.16: 0.2 (3x), 0.226 (4x)
+0.2: 0.092 (3x), 0.106 (4x), 0.2 (3x), 0.212 (3x)
+## for selected k1/k2 pairs based on plots 09/06a-e. esp promising:
 
 ## QC visualization: for comparing Xenium and Visium domain structures. we can focus on a smaller subset with the cell type plots (subsequent block) once we have some good structural matches from here.
 ```{r}
-k1thresh <- round(seq(0.04,0.16,0.04),2)
+k1thresh <- round(seq(0.04,0.2,0.04),2)
 setDTthreads(1,restore_after_fork = FALSE)
 lapply(k1thresh,function(k1){
   if (k1==0.04){
-    k2s <- round(c(0.04,0.36,0.44,0.52,0.6,0.76),2)
+    k2s <- round(c(0.6660,0.6790),3)
   } else if (k1==0.08){
-    k2s <- round(c(0.28,0.36,0.44),2)
+    k2s <- round(c(0.5060),3)
   } else if (k1==0.12){
-    k2s <- round(c(0.2, 0.28, 0.36),2)
+    k2s <- round(c(0.3590, 0.4260),3)
   } else if (k1==0.16){
-    k2s <- round(c(0.12, 0.2, 0.28),2)
+    k2s <- round(c(0.2000, 0.2260),3)
+  } else if (k1==0.2){
+    k2s <- round(c(0.0920, 0.1060, 0.2000, 0.2120),3)
   }
+
 
   n <- paste0("k1thresh_",k1)
   d <- copy(dualscores[[n]]) # single brackets don't return a d.t. i guess, but double brackets do
@@ -359,7 +386,7 @@ lapply(k1thresh,function(k1){
       plts[[j]] <- retobj
     }
  
-    png(paste0("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/05f-NMFtransferLC_smoothedDom_knn25_k1_",k1,"_knn75_k2_",k2,"_VisCompare.png"),height=4*length(plts),width=14,units = "in",res=150)
+    png(paste0("plots/09_snSeqLabelTransfer/06_fineK2step_KNNsmoothLC_QC_and_spotplots/06f-NMFtransferLC_smoothedDom_knn25_k1_",k1,"_knn75_k2_",k2,"_VisCompare.png"),height=4*length(plts),width=14,units = "in",res=150)
     grid.arrange(grobs=plts,ncol=1)
     dev.off()
   })
@@ -373,7 +400,7 @@ lapply(k1thresh,function(k1){
 ```
 
 
-### QC visualization: emphasizing LC cells within and outside domain. 
+### QC visualization: emphasizing LC cells within and outside domain for a narrowed, top handful of above. 
 K1=TBD / K2 (TBD, TBD, TBD)
 etc
 
