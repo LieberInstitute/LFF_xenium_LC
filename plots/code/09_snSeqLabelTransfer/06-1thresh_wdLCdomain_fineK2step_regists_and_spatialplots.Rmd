@@ -18,7 +18,6 @@ library(ggrastr)
 library(SpatialExperiment)
 library(escheR)
 
-
 ## >= and <= comparators that account for floating point error
 greaterOrEqual <- function(x,y) {
     precision <- sqrt(.Machine$double.eps)
@@ -50,6 +49,8 @@ theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"
 
 ## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
 unloadNamespace("datasets")
+
+""
 ```
 
 

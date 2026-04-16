@@ -1,7 +1,7 @@
 ---
 title: "Plot NMF-projected LC labels w histology"
 author: "Bernie Mulvey"
-date: "03-28-26"
+date: "04-11-26"
 output: html_document
 ---
 
@@ -55,12 +55,12 @@ unloadNamespace("datasets")
 ```{r}
 spe <- readRDS("processed-data/02_QC/05-spe_filtered_genetargonly_log-and-nonlog-norms_withLowresHEs.RDS")
 
-nmfpred <- fread("processed-data/05_LabelTransfer/06-LCsmoothings_LUT.txt")
+nmfpred <- fread("processed-data/05_SRTlabelTransfer/06-LCsmoothings_LUT.txt")
 nmfpred <- DataFrame(nmfpred[,.(rn,nmfpred)],row.names=nmfpred$rn)[colnames(spe),]
 spe$label <- nmfpred$nmfpred
 
 ## only plot LC
-spe$label[!(spe$label %in% c("LC","ACHE_SERT_LC_WM"))] <- NA
+spe$label[!(spe$label %in% c("LC"))] <- NA
 rm(nmfpred)
 
 ## hacks to make spatialLIBD cooperate
@@ -72,11 +72,10 @@ spe$exclude_overlapping <- FALSE
 
 ```{r}
 pal <- readRDS("../LFF_spatial_LC/plots/finalpal_somuchfornorainbows.RDS")
-pal <- pal[c(1:2)]
-names(pal)[2] <- "ACHE_SERT_LC_WM"
+pal <- pal[1]
 pal <- c(pal,NA)
-names(pal)[3] <- NA
-plt <- vis_grid_clus(spe,clustervar = "label",return_plots = T,spatial=T,is_stitched = T,image_id = "lowres",alpha = 0.425,colors = pal,point_size = 17.5)
+names(pal)[2] <- NA
+plt <- vis_grid_clus(spe,clustervar = "label",return_plots = T,spatial=T,is_stitched = T,image_id = "lowres",alpha = 0.425,na_color = NA,colors = pal,point_size = 17.5)
 plt <- lapply(plt,function(p){
   q <- p+guides(fill="none",color="none")
   return(q)

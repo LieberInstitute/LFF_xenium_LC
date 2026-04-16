@@ -1,0 +1,102 @@
+---
+title: "03-Example_multiDBHcluster_Banksy_w_LCdomainoverlay"
+format: html
+date: "04-14-26"
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(ggrastr)
+library(SpatialExperiment)
+library(escheR)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options('styler.addins_style_transformer' = 'biocthis::bioc_style()')
+##
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost='localhost')
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = '#000000'), axis.title.x = element_text(size = 9,color = '#000000'), axis.text.y = element_text(size = 8,color = '#000000'), axis.title.y = element_text(size =9,color = '#000000'), plot.title = element_markdown(size = 10,hjust=0.5,color = '#000000'), strip.text = element_text(size=11), legend.text = element_text(size=7,color = '#000000'), legend.title = element_text(size=8,hjust=0.5,color = '#000000'),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position='plot'))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+clust_M0_lam0.2_k25_kgeom30_louv1
+
+```{r}
+spe <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+logcounts(spe) <- NULL #dont need it
+
+posslc <- readRDS("processed-data/04_Banksy_clusterings/03-noHarmo_banksys_putativeLCclusters.RDS")
+posslc <- posslc[["clust_M0_lam0.2_k25_kgeom30_louv1"]]
+# unique(posslc$clust_M0_lam0.2_k25_kgeom30_louv1$clust)
+# X 19, 25, 26, 27, 28, 29 - x27 is purest LC
+
+manyb <- readRDS("processed-data/04_Banksy_clusterings/01-AllBanksyClustsAssigns.RDS")
+wddom <- fread("processed-data/09_snSeqLabelTransfer/07-wdLCsmoothings_LUT.txt")
+
+wddom <- merge.data.table(wddom[,.(rn,domain1243)],manyb[,.(rn,clust_M0_lam0.2_k25_kgeom30_louv1)],by="rn")
+setnames(wddom,3,"testclusset")
+
+## we want to show LC domain for anything that is not in one of these 5 clusters, and then these 5 clusters everywhere
+wddom[testclusset=="X27",testclusset:="okLC"] # this is the pureish LC cluster
+wddom[testclusset %in% paste0("X",c(19,25,26,28,29)),testclusset:="badLC"]
+wddom[!(testclusset %in% c("okLC","badLC"))&domain1243=="LC",testclusset:="otherInLCDom"]
+wddom[!(testclusset %in% c("okLC","badLC","otherInLCDom"))&domain1243!="LC",testclusset:="other"]
+
+wddom <- DataFrame(wddom,row.names=wddom$rn)[colnames(spe),]
+spe$label <- wddom$testclusset
+```
+
+
+```{r}
+spe$label <- factor(spe$label,levels=c("okLC","badLC","otherInLCDom","other")) # why is this necessary with named palettes ugh
+pal <- c("#5555FF","#FF0000","#00FF00","#999999")
+names(pal) <- c("okLC","badLC","otherInLCDom","other")
+
+plts <- lapply(unique(spe$brnum),function(b){
+    px <- make_escheR(spe[,spe$brnum==b], y_reverse=FALSE)
+    px <- rasterize(add_fill(p = px,var="label",point_size=0.75),layers="Points",dpi=300,dev="cairo_png")
+    px <- px+scale_fill_manual(values = pal)
+    px <- px+guides(fill="none",color="none")
+    px <- px+ggtitle(b)
+
+    return(px)
+})
+ 
+png(paste0("plots/04_banksy_clusterings/03-M0l0.2k25kg30louv1_DBHclusts_and_wdLC.png"),height=length(plts),width=19,units = "in",res=300)
+do.call("grid.arrange",plts)
+dev.off()
+```
+
+well, that doesn't look great. on to nucleus-only data with the joint NM-DAPI segs, let's see if this persists there...
