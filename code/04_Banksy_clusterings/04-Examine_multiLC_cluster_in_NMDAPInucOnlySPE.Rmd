@@ -1,0 +1,375 @@
+---
+title: "04-Examine_multiLC_cluster_in_NMDAPInucOnlySPE"
+author: "Bernie Mulvey"
+date: "04-15-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(SpatialExperiment)
+library(spatialLIBD)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+library(parallel)
+library(bettermc) # for troubleshooting mclapply/better functionality
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+tldr: many of the banksy clusterings give >>1 DBH-enriched cluster; inspection reveals that usually there's 1 super-strong DBH enriched cluster and then the others are enriched for other cell type markers. suspicion here is that the NM-DAPI joining that created the dual-stain "nucleus" segmentations used for the Xenium reprocessing introduces artifacts, specifically because the "DAPI" part of that mask is the DAPI AND the 5µm expansion boundary Xenium used to draw a cell originally (i.e., in the DAPI only processing). So, if another cell type is next to an NM-containing LC neuron, that nucleus, the previously defined cell, and the NM all merge into one mega nucleus from which a new 5µm boundary is drawn in the reprocessing.
+
+one possibility is that its only this second expansion that's screwing things up, and that if we use the NMDAPI "nucleus" counts, this will go away...let's see if that's the case.
+
+a handy little shortcut we can use, thanks to nuclei and cells sharing identifiers, is taking the banksy results we got from cell level clustering and assigning those same labels to nucleus-counts-only data. we can then check a marker analysis for a clustering that generated multiple DBH clusters with non-LC markers, and see whether those enrichments are still here when we only consider nuclear counts for those same labels.
+
+preliminary poked around in a mid-granularity result that gave 5 DBH clusters, clust_M0_lam0.2_k25_kgeom30_louv1 , 4 of which were enriched for other markers besides LCNE. so we'll use that as our test case.
+```{r}
+nucspe <- readRDS("processed-data/01_spe/04_NMDAPI_nuclearCounts_SPE_retainedNMDAPIcellsonly.RDS")
+
+manybank <- readRDS("processed-data/04_Banksy_clusterings/01-AllBanksyClustsAssigns.RDS")
+banksylcsearch <- readRDS("processed-data/04_Banksy_clusterings/03-noHarmo_banksys_putativeLCclusters.RDS")
+banksylcsearch <- unique(banksylcsearch[["clust_M0_lam0.2_k25_kgeom30_louv1"]]$clust)
+
+manybank <- manybank[,.(rn,clust_M0_lam0.2_k25_kgeom30_louv1)]
+nucspe$label <- DataFrame(manybank,row.names=manybank$rn)[colnames(nucspe),"clust_M0_lam0.2_k25_kgeom30_louv1"]
+
+## run registration wrapper and loook at the marker enrichment stats for these clusters now that we have "nucleus" only counts
+## first we need something in rowdata though
+newrd <- cbind(rownames(nucspe),rownames(nucspe))
+## spatialLIBD is going to want an ensembl column but we'll just make it a second column of the symbols
+colnames(newrd) <- c("gene_name","gene_id")
+rownames(newrd) <- newrd[,1]
+newrd <- newrd[rownames(nucspe),]
+rowData(nucspe) <- newrd
+
+mk <- registration_wrapper(nucspe,var_registration = "label",var_sample_id = "brnum",covars = c("Age","YRI","Sex","APOE"),gene_ensembl = "gene_id",gene_name = "gene_name",min_ncells = 10)
+
+mk2 <- as.data.table(mk$enrichment)
+mk2 <- melt.data.table(mk2,id.vars=c("ensembl","gene"))
+mk2[,variable:=as.character(variable)]
+mk2[,clus:=gsub(variable,pattern="^.*_(X.*)$",replacement="\\1")]
+mk2[,stat:=gsub(variable,pattern="^(.*)_X.*$",replacement="\\1")]
+mk3 <- dcast(mk2,clus+gene~stat,value.var="value")
+
+mk3 <- mk3[clus %in% banksylcsearch & fdr<0.1&logFC>0]
+
+## show top 5 by logFC, as well as DBH and TH, per cluster
+topsandne <- rbind(
+  mk3[gene %in% c("DBH","TH"),.(clus,gene,round(logFC,2))],
+  mk3[,head(.SD[order(-logFC)],5),by="clus"][,.(clus,gene,round(logFC,2))])
+topsandne <- as.data.table(topsandne)
+setorderv(topsandne,"clus")
+unique(topsandne)
+```
+Nope, still a (marked) problem. X19: LC + microglia; X25: + astrocytes; X26: + WM; X27: LC straight up; X28: + endothelial. So, the NMDAPI mask may be creating these icky blended cells. and note that all 5 are enriched for DBH+TH at FDR < 0.1:
+      clus    gene    logFC
+    <char>  <char> <num>
+ 1:    X19     DBH  3.12
+ 2:    X19      TH  1.89
+ 3:    X19  FCGR1A  5.63
+ 4:    X19  P2RY12  5.39
+ 5:    X19   ITGAX  5.30
+ 6:    X19   GPR34  5.14
+ 7:    X19  P2RY13  5.09
+ 8:    X25     DBH  3.16
+ 9:    X25      TH  1.97
+10:    X25   FGFR3  4.00
+11:    X25    MT1X  3.81
+12:    X25   SPON1  3.64
+13:    X25    RGMA  3.62
+14:    X25   NTSR2  3.54
+15:    X26     DBH  2.76
+16:    X26      TH  1.70
+17:    X26     MOG  5.14
+18:    X26     MAG  5.00
+19:    X26    MYRF  4.96
+20:    X26   CNDP1  4.89
+21:    X26   ERBB3  4.84
+22:    X27     DBH  8.73
+23:    X27      TH  7.23
+24:    X27  SLC6A2  8.11
+25:    X27 SLC18A2  7.99
+26:    X27     DDC  6.76
+27:    X28     DBH  1.59
+28:    X28      TH  0.85
+29:    X28    FLT1  6.39
+30:    X28  APOLD1  6.09
+31:    X28    KLF2  5.93
+32:    X28    KLF4  5.69
+33:    X28  PECAM1  5.45
+      clus    gene    V3
+    <char>  <char> <num>
+
+what we still don't know is how much this impacted the weber-divecha snseq projections (e.g., is DBH enriched in cells that got other labels / are cells that got LC labels enriched in markers of others?). so we'll jump over to code/09 and look there next.
+
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] bettermc_1.2.2.9000         BiocParallel_1.44.0        
+ [3] parallelly_1.46.1           colorout_1.3-3             
+ [5] spatialLIBD_1.22.0          SpatialExperiment_1.20.0   
+ [7] SingleCellExperiment_1.32.0 SummarizedExperiment_1.40.0
+ [9] Biobase_2.70.0              GenomicRanges_1.62.1       
+[11] Seqinfo_1.0.0               IRanges_2.44.0             
+[13] S4Vectors_0.48.0            BiocGenerics_0.56.0        
+[15] generics_0.1.4              MatrixGenerics_1.22.0      
+[17] matrixStats_1.5.0           data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+  [1] RColorBrewer_1.1-3       rstudioapi_0.18.0        jsonlite_2.0.0          
+  [4] shape_1.4.6.1            magrittr_2.0.4           ggbeeswarm_0.7.3        
+  [7] magick_2.9.0             farver_2.1.2             rmarkdown_2.30          
+ [10] GlobalOptions_0.1.3      BiocIO_1.20.0            vctrs_0.7.1             
+ [13] memoise_2.0.1            config_0.3.2             Rsamtools_2.26.0        
+ [16] paletteer_1.7.0          RCurl_1.98-1.17          benchmarkme_1.0.8       
+ [19] htmltools_0.5.9          S4Arrays_1.10.1          AnnotationHub_4.0.0     
+ [22] curl_7.0.0               BiocNeighbors_2.4.0      SparseArray_1.10.8      
+ [25] sass_0.4.10              bslib_0.10.0             htmlwidgets_1.6.4       
+ [28] httr2_1.2.2              plotly_4.12.0            cachem_1.1.0            
+ [31] GenomicAlignments_1.46.0 mime_0.13                lifecycle_1.0.5         
+ [34] iterators_1.0.14         pkgconfig_2.0.3          rsvd_1.0.5              
+ [37] Matrix_1.7-4             R6_2.6.1                 fastmap_1.2.0           
+ [40] shiny_1.12.1             clue_0.3-66              digest_0.6.39           
+ [43] colorspace_2.1-2         rematch2_2.1.2           AnnotationDbi_1.72.0    
+ [46] scater_1.38.0            rprojroot_2.1.1          irlba_2.3.7             
+ [49] ExperimentHub_3.0.0      RSQLite_2.4.5            beachmat_2.26.0         
+ [52] filelock_1.0.3           httr_1.4.7               abind_1.4-8             
+ [55] compiler_4.5.2           here_1.0.2               bit64_4.6.0-1           
+ [58] doParallel_1.0.17        attempt_0.3.1            S7_0.2.1                
+ [61] viridis_0.6.5            DBI_1.2.3                sessioninfo_1.2.3       
+ [64] rappdirs_0.3.4           DelayedArray_0.36.0      rjson_0.2.23            
+ [67] tools_4.5.2              vipor_0.4.7              otel_0.2.0              
+ [70] beeswarm_0.4.0           httpuv_1.6.16            glue_1.8.0              
+ [73] restfulr_0.0.16          promises_1.5.0           grid_4.5.2              
+ [76] cluster_2.1.8.1          gtable_0.3.6             tidyr_1.3.2             
+ [79] ScaledMatrix_1.18.0      BiocSingular_1.26.0      XVector_0.50.0          
+ [82] ggrepel_0.9.6            BiocVersion_3.22.0       foreach_1.5.2           
+ [85] pillar_1.11.1            limma_3.66.0             later_1.4.5             
+ [88] circlize_0.4.17          benchmarkmeData_2.0.0    dplyr_1.2.0             
+ [91] BiocFileCache_3.0.0      lattice_0.22-7           rtracklayer_1.70.1      
+ [94] bit_4.6.0                tidyselect_1.2.1         ComplexHeatmap_2.26.1   
+ [97] locfit_1.5-9.12          scuttle_1.20.0           Biostrings_2.78.0       
+[100] knitr_1.51               gridExtra_2.3            edgeR_4.8.2             
+[103] xfun_0.56                statmod_1.5.1            DT_0.34.0               
+[106] lazyeval_0.2.2           yaml_2.3.12              shinyWidgets_0.9.0      
+[109] cigarillo_1.0.0          evaluate_1.0.5           codetools_0.2-20        
+[112] tibble_3.3.1             BiocManager_1.30.27      cli_3.6.5               
+[115] xtable_1.8-4             jquerylib_0.1.4          golem_0.5.1             
+[118] dichromat_2.0-0.1        Rcpp_1.1.1               dbplyr_2.5.1            
+[121] png_0.1-8                XML_3.99-0.20            ggplot2_4.0.2           
+[124] blob_1.3.0               bitops_1.0-9             viridisLite_0.4.3       
+[127] scales_1.4.0             purrr_1.2.1              crayon_1.5.3            
+[130] GetoptLong_1.1.0         rlang_1.1.7.9000         cowplot_1.2.0           
+[133] KEGGREST_1.50.0         
+> sessioninfo::session_info()
+─ Session info ──────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/Chicago
+ date     2026-04-15
+ rstudio  2026.01.1+403 Apple Blossom (desktop)
+ pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ──────────────────────────────────────────────────────────────────────────
+ package              * version    date (UTC) lib source
+ abind                  1.4-8      2024-09-12 [2] CRAN (R 4.5.0)
+ AnnotationDbi          1.72.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ AnnotationHub          4.0.0      2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ attempt                0.3.1      2020-05-03 [2] CRAN (R 4.5.0)
+ beachmat               2.26.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ beeswarm               0.4.0      2021-06-01 [2] CRAN (R 4.5.0)
+ benchmarkme            1.0.8      2022-06-12 [2] CRAN (R 4.5.0)
+ benchmarkmeData        2.0.0      2026-01-19 [2] CRAN (R 4.5.2)
+ bettermc             * 1.2.2.9000 2026-03-16 [2] Github (akersting/bettermc@d6ec1aa)
+ Biobase              * 2.70.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ BiocFileCache          3.0.0      2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ BiocIO                 1.20.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ BiocManager            1.30.27    2025-11-14 [2] CRAN (R 4.5.2)
+ BiocNeighbors          2.4.0      2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ BiocParallel         * 1.44.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ BiocSingular           1.26.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ BiocVersion            3.22.0     2025-10-07 [2] Bioconductor 3.22 (R 4.5.1)
+ Biostrings             2.78.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ bit                    4.6.0      2025-03-06 [2] CRAN (R 4.5.0)
+ bit64                  4.6.0-1    2025-01-16 [2] CRAN (R 4.5.0)
+ bitops                 1.0-9      2024-10-03 [2] CRAN (R 4.5.0)
+ blob                   1.3.0      2026-01-14 [2] CRAN (R 4.5.2)
+ bslib                  0.10.0     2026-01-26 [2] CRAN (R 4.5.2)
+ cachem                 1.1.0      2024-05-16 [2] CRAN (R 4.5.0)
+ cigarillo              1.0.0      2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ circlize               0.4.17     2025-12-08 [2] CRAN (R 4.5.2)
+ cli                    3.6.5      2025-04-23 [2] CRAN (R 4.5.0)
+ clue                   0.3-66     2024-11-13 [2] CRAN (R 4.5.0)
+ cluster                2.1.8.1    2025-03-12 [2] CRAN (R 4.5.0)
+ codetools              0.2-20     2024-03-31 [2] CRAN (R 4.5.2)
+ colorout             * 1.3-3      2026-01-31 [2] Github (jalvesaq/colorout@64863bb)
+ colorspace             2.1-2      2025-09-22 [2] CRAN (R 4.5.0)
+ ComplexHeatmap         2.26.1     2026-01-30 [2] https://bioc-release.r-universe.dev (R 4.5.2)
+ config                 0.3.2      2023-08-30 [2] CRAN (R 4.5.0)
+ cowplot                1.2.0      2025-07-07 [2] CRAN (R 4.5.0)
+ crayon                 1.5.3      2024-06-20 [2] CRAN (R 4.5.0)
+ curl                   7.0.0      2025-08-19 [2] CRAN (R 4.5.0)
+ data.table           * 1.18.2.1   2026-01-27 [2] CRAN (R 4.5.2)
+ DBI                    1.2.3      2024-06-02 [2] CRAN (R 4.5.0)
+ dbplyr                 2.5.1      2025-09-10 [2] CRAN (R 4.5.0)
+ DelayedArray           0.36.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ dichromat              2.0-0.1    2022-05-02 [2] CRAN (R 4.5.0)
+ digest                 0.6.39     2025-11-19 [2] CRAN (R 4.5.2)
+ doParallel             1.0.17     2022-02-07 [2] CRAN (R 4.5.0)
+ dplyr                  1.2.0      2026-02-03 [2] CRAN (R 4.5.2)
+ DT                     0.34.0     2025-09-02 [2] CRAN (R 4.5.0)
+ edgeR                  4.8.2      2025-12-23 [2] https://bioc-release.r-universe.dev (R 4.5.2)
+ evaluate               1.0.5      2025-08-27 [2] CRAN (R 4.5.0)
+ ExperimentHub          3.0.0      2025-10-29 [2] https://bioc-release.r-universe.dev (R 4.5.2)
+ farver                 2.1.2      2024-05-13 [2] CRAN (R 4.5.0)
+ fastmap                1.2.0      2024-05-15 [2] CRAN (R 4.5.0)
+ filelock               1.0.3      2023-12-11 [2] CRAN (R 4.5.0)
+ foreach                1.5.2      2022-02-02 [2] CRAN (R 4.5.0)
+ generics             * 0.1.4      2025-05-09 [2] CRAN (R 4.5.0)
+ GenomicAlignments      1.46.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ GenomicRanges        * 1.62.1     2025-12-08 [2] Bioconductor 3.22 (R 4.5.2)
+ GetoptLong             1.1.0      2025-11-28 [2] CRAN (R 4.5.2)
+ ggbeeswarm             0.7.3      2025-11-29 [2] CRAN (R 4.5.2)
+ ggplot2                4.0.2      2026-02-03 [2] CRAN (R 4.5.2)
+ ggrepel                0.9.6      2024-09-07 [2] CRAN (R 4.5.0)
+ GlobalOptions          0.1.3      2025-11-28 [2] CRAN (R 4.5.2)
+ glue                   1.8.0      2024-09-30 [2] CRAN (R 4.5.0)
+ golem                  0.5.1      2024-08-27 [2] CRAN (R 4.5.0)
+ gridExtra              2.3        2017-09-09 [2] CRAN (R 4.5.0)
+ gtable                 0.3.6      2024-10-25 [2] CRAN (R 4.5.0)
+ here                   1.0.2      2025-09-15 [2] CRAN (R 4.5.0)
+ htmltools              0.5.9      2025-12-04 [2] CRAN (R 4.5.2)
+ htmlwidgets            1.6.4      2023-12-06 [2] CRAN (R 4.5.0)
+ httpuv                 1.6.16     2025-04-16 [2] CRAN (R 4.5.0)
+ httr                   1.4.7      2023-08-15 [2] CRAN (R 4.5.0)
+ httr2                  1.2.2      2025-12-08 [2] CRAN (R 4.5.2)
+ IRanges              * 2.44.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ irlba                  2.3.7      2026-01-30 [2] CRAN (R 4.5.2)
+ iterators              1.0.14     2022-02-05 [2] CRAN (R 4.5.0)
+ jquerylib              0.1.4      2021-04-26 [2] CRAN (R 4.5.0)
+ jsonlite               2.0.0      2025-03-27 [2] CRAN (R 4.5.0)
+ KEGGREST               1.50.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ knitr                  1.51       2025-12-20 [2] CRAN (R 4.5.2)
+ later                  1.4.5      2026-01-08 [2] CRAN (R 4.5.2)
+ lattice                0.22-7     2025-04-02 [2] CRAN (R 4.5.2)
+ lazyeval               0.2.2      2019-03-15 [2] CRAN (R 4.5.0)
+ lifecycle              1.0.5      2026-01-08 [2] CRAN (R 4.5.2)
+ limma                  3.66.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ locfit                 1.5-9.12   2025-03-05 [2] CRAN (R 4.5.0)
+ magick                 2.9.0      2025-09-08 [2] CRAN (R 4.5.0)
+ magrittr               2.0.4      2025-09-12 [2] CRAN (R 4.5.0)
+ Matrix                 1.7-4      2025-08-28 [2] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0      2025-01-07 [2] CRAN (R 4.5.0)
+ memoise                2.0.1      2021-11-26 [2] CRAN (R 4.5.0)
+ mime                   0.13       2025-03-17 [2] CRAN (R 4.5.0)
+ otel                   0.2.0      2025-08-29 [2] CRAN (R 4.5.0)
+ paletteer              1.7.0      2026-01-08 [2] CRAN (R 4.5.2)
+ parallelly           * 1.46.1     2026-01-08 [2] CRAN (R 4.5.2)
+ pillar                 1.11.1     2025-09-17 [2] CRAN (R 4.5.0)
+ pkgconfig              2.0.3      2019-09-22 [2] CRAN (R 4.5.0)
+ plotly                 4.12.0     2026-01-24 [2] CRAN (R 4.5.2)
+ png                    0.1-8      2022-11-29 [2] CRAN (R 4.5.0)
+ promises               1.5.0      2025-11-01 [2] CRAN (R 4.5.0)
+ purrr                  1.2.1      2026-01-09 [2] CRAN (R 4.5.2)
+ R6                     2.6.1      2025-02-15 [2] CRAN (R 4.5.0)
+ rappdirs               0.3.4      2026-01-17 [2] CRAN (R 4.5.2)
+ RColorBrewer           1.1-3      2022-04-03 [2] CRAN (R 4.5.0)
+ Rcpp                   1.1.1      2026-01-10 [2] CRAN (R 4.5.2)
+ RCurl                  1.98-1.17  2025-03-22 [2] CRAN (R 4.5.0)
+ rematch2               2.1.2      2020-05-01 [2] CRAN (R 4.5.0)
+ restfulr               0.0.16     2025-06-27 [2] CRAN (R 4.5.0)
+ rjson                  0.2.23     2024-09-16 [2] CRAN (R 4.5.0)
+ rlang                  1.1.7.9000 2026-02-04 [1] Github (r-lib/rlang@bae1fe1)
+ rmarkdown              2.30       2025-09-28 [2] CRAN (R 4.5.0)
+ rprojroot              2.1.1      2025-08-26 [2] CRAN (R 4.5.0)
+ Rsamtools              2.26.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ RSQLite                2.4.5      2025-11-30 [2] CRAN (R 4.5.2)
+ rstudioapi             0.18.0     2026-01-16 [2] CRAN (R 4.5.2)
+ rsvd                   1.0.5      2021-04-16 [2] CRAN (R 4.5.0)
+ rtracklayer            1.70.1     2025-12-20 [2] https://bioc-release.r-universe.dev (R 4.5.2)
+ S4Arrays               1.10.1     2025-12-08 [2] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ S7                     0.2.1      2025-11-14 [2] CRAN (R 4.5.2)
+ sass                   0.4.10     2025-04-11 [2] CRAN (R 4.5.0)
+ ScaledMatrix           1.18.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ scales                 1.4.0      2025-04-24 [2] CRAN (R 4.5.0)
+ scater                 1.38.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.2)
+ scuttle                1.20.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ Seqinfo              * 1.0.0      2025-10-29 [2] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3      2025-02-05 [2] CRAN (R 4.5.0)
+ shape                  1.4.6.1    2024-02-23 [2] CRAN (R 4.5.0)
+ shiny                  1.12.1     2025-12-09 [2] CRAN (R 4.5.2)
+ shinyWidgets           0.9.0      2025-02-21 [2] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0     2025-10-29 [2] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8     2025-12-18 [2] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0     2025-10-29 [2] https://bioc-release.r-universe.dev (R 4.5.2)
+ spatialLIBD          * 1.22.0     2025-11-04 [2] Bioconductor 3.22 (R 4.5.2)
+ statmod                1.5.1      2025-10-09 [2] CRAN (R 4.5.0)
+ SummarizedExperiment * 1.40.0     2025-10-29 [2] https://bioc-release.r-universe.dev (R 4.5.2)
+ tibble                 3.3.1      2026-01-11 [2] CRAN (R 4.5.2)
+ tidyr                  1.3.2      2025-12-19 [2] CRAN (R 4.5.2)
+ tidyselect             1.2.1      2024-03-11 [2] CRAN (R 4.5.0)
+ vctrs                  0.7.1      2026-01-23 [2] CRAN (R 4.5.2)
+ vipor                  0.4.7      2023-12-18 [2] CRAN (R 4.5.0)
+ viridis                0.6.5      2024-01-29 [2] CRAN (R 4.5.0)
+ viridisLite            0.4.3      2026-02-04 [2] CRAN (R 4.5.2)
+ xfun                   0.56       2026-01-18 [2] CRAN (R 4.5.2)
+ XML                    3.99-0.20  2025-11-08 [2] CRAN (R 4.5.0)
+ xtable                 1.8-4      2019-04-21 [2] CRAN (R 4.5.0)
+ XVector                0.50.0     2025-10-29 [2] Bioconductor 3.22 (R 4.5.1)
+ yaml                   2.3.12     2025-12-10 [2] CRAN (R 4.5.2)
+
+ [1] /Users/bmulvey/Library/R/arm64/4.5/library
+ [2] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ * ── Packages attached to the search path.
+
+─────────────────────────────────────────────────────────────────────────────────────
