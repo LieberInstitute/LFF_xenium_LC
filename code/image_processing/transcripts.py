@@ -32,4 +32,41 @@ for br_path in br_folders:
         index=False
 )
 
-#### 
+#### log #########
+#Processing Br1706
+#Processing Br3974
+#Skipping Br6423_old (no parquet found)
+#Processing Br5854-L
+#Processing Br6476
+#Processing Br5415
+#Processing Br6263
+#Processing Br2582
+#Processing Br1884
+#Processing Br0946
+#Processing Br6119
+#Processing Br0942
+#Processing Br6222
+#Processing Br5634
+#Skipping Br1691 (no parquet found)
+#Processing Br5367
+#Processing Br1691-L
+#Processing Br5529
+#Processing Br5941
+#Processing Br6297
+#Processing Br2305-L
+#Processing Br6423
+#Processing Br1039
+#Processing Br1039-L
+#Processing Br5368
+#Processing Br2305
+#Processing Br5426
+#Processing Br1285
+#Processing Br6538
+#Processing Br6085
+#Skipping Br6297_old (no parquet found)
+#Processing Br5854
+#Processing Br1105
+#Processing Br6098
+#Processing Br5460
+#Processing Br1556
+#Skipping Br6538_old (no parquet found)
