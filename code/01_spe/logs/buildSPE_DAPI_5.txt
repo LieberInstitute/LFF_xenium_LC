@@ -1,8 +1,8 @@
 **** Job starts ****
-Fri Nov 14 09:25:11 AM EST 2025
+Tue Jun  2 10:38:27 PM EDT 2026
 **** JHPCE info ****
-User: mtippani
-Job id: 24141990
+User: bmulvey
+Job id: 32395911
 Job name: buildSPE_DAPI
 Hostname: jhpce3
 Task id: 5
@@ -94,10 +94,10 @@ The following objects are masked from ‘package:matrixStats’:
 
 ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
 ✔ dplyr     1.1.4     ✔ readr     2.1.5
-✔ forcats   1.0.0     ✔ stringr   1.5.1
-✔ ggplot2   3.4.4     ✔ tibble    3.2.1
-✔ lubridate 1.9.3     ✔ tidyr     1.3.1
-✔ purrr     1.0.2     
+✔ forcats   1.0.0     ✔ stringr   1.6.0
+✔ ggplot2   4.0.1     ✔ tibble    3.3.1
+✔ lubridate 1.9.3     ✔ tidyr     1.3.2
+✔ purrr     1.2.1     
 ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
 ✖ lubridate::%within%() masks IRanges::%within%()
 ✖ dplyr::collapse()     masks IRanges::collapse()
@@ -124,4 +124,4 @@ dbl (12): x_centroid, y_centroid, transcript_counts, control_probe_counts, g...
 ℹ Use `spec()` to retrieve the full column specification for this data.
 ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 **** Job ends ****
-Fri Nov 14 09:25:30 AM EST 2025
+Tue Jun  2 10:38:52 PM EDT 2026
