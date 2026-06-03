@@ -22,7 +22,7 @@ spe_list <- lapply(files, function(f) {
   br  <- gsub(f,pattern="^.*/01_spe/NMDAPI_rawSPE/(.*)\\.RDS$",replacement="\\1")
   br <- gsub(br,pattern="-",replacement="")
   colData(spe)$brnum <- br
-  colData(spe)$sample_id <- br # make the spe-recognized sample ids unique
+  colData(spe)$sample_id <- br # make the spe-recognized sample ids unique, ie. brnum
   colData(spe)$unique_cellid <- paste0(spe$brnum,"_",spe$Barcode)
   spe
 })
