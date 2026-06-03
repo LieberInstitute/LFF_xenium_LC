@@ -5,7 +5,7 @@
 #SBATCH -t 1-00:00:00
 #SBATCH -o logs/buildSPE_DAPI_%a.txt
 #SBATCH -e logs/buildSPE_DAPI_%a.txt
-#SBATCH --array=34
+#SBATCH --array=1-34
 
 set -e
 

@@ -1,8 +1,8 @@
 **** Job starts ****
-Tue Jun  2 10:38:27 PM EDT 2026
+Tue Jun  2 11:33:12 PM EDT 2026
 **** JHPCE info ****
 User: bmulvey
-Job id: 32395916
+Job id: 32396100
 Job name: buildSPE_DAPI
 Hostname: jhpce3
 Task id: 10
@@ -115,13 +115,9 @@ The following objects are masked from ‘package:matrixStats’:
 ✖ lubridate::second<-() masks S4Vectors::second<-()
 ✖ dplyr::slice()        masks IRanges::slice()
 ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
-Rows: 25214 Columns: 14
-── Column specification ────────────────────────────────────────────────────────
-Delimiter: ","
-chr  (2): cell_id, segmentation_method
-dbl (12): x_centroid, y_centroid, transcript_counts, control_probe_counts, g...
-
-ℹ Use `spec()` to retrieve the full column specification for this data.
-ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-**** Job ends ****
-Tue Jun  2 10:38:45 PM EDT 2026
+Error: BiocParallel errors
+  1 remote errors, element index: 1
+  0 unevaluated and other errors
+  first remote error:
+Error in h5checktypeOrOpenLoc(file, readonly = TRUE, fapl = NULL, native = native): Error in h5checktypeOrOpenLoc(). Cannot open file. File '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing_new/Br3974/xeniumranger_NM_DAPI_Br3974/outs/cell_feature_matrix.h5' does not exist.
+Execution halted

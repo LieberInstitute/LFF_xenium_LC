@@ -1,8 +1,8 @@
 **** Job starts ****
-Tue Jun  2 10:38:27 PM EDT 2026
+Tue Jun  2 11:33:20 PM EDT 2026
 **** JHPCE info ****
 User: bmulvey
-Job id: 32395934
+Job id: 32396118
 Job name: buildSPE_DAPI
 Hostname: jhpce3
 Task id: 28
@@ -119,5 +119,5 @@ Error: BiocParallel errors
   1 remote errors, element index: 1
   0 unevaluated and other errors
   first remote error:
-Error in h5checktypeOrOpenLoc(file, readonly = TRUE, fapl = NULL, native = native): Error in h5checktypeOrOpenLoc(). Cannot open file. File '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/Br1691/xeniumranger_NM_DAPI_Br1691/outs/cell_feature_matrix.h5' does not exist.
+Error in h5checktypeOrOpenLoc(file, readonly = TRUE, fapl = NULL, native = native): Error in h5checktypeOrOpenLoc(). Cannot open file. File '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing_new/Br1691/xeniumranger_NM_DAPI_Br1691/outs/cell_feature_matrix.h5' does not exist.
 Execution halted
