@@ -1,0 +1,204 @@
+---
+title: "03c-Concat_raw_NMDAPInewseg_SPEs_Jun26BJM"
+author: "Bernie Mulvey"
+date: "06-03-26"
+output: html_document
+---
+
+```{r}
+library(data.table)
+library(here)
+library(SpatialExperiment)
+library(SingleCellExperiment)
+library(readxl)
+library(tidyverse)
+
+#files <- list.files(here('processed-data/xenium/NM_DAPI_rawSPE/'), pattern = "\\.RDS$", full.names = TRUE)
+files <- list.files(here('processed-data/01_spe/NMDAPInewseg_rawSPE'), pattern = "\\.RDS$", full.names = TRUE)
+
+# 1) Read all SPEs and tag brnum
+spe_list <- lapply(files, function(f) {
+  spe <- readRDS(f)
+  br  <- gsub(f,pattern="^.*/01_spe/NMDAPInewseg_rawSPE/(.*)\\.RDS$",replacement="\\1")
+  br <- gsub(br,pattern="-",replacement="")
+  colData(spe)$brnum <- br
+  colData(spe)$sample_id <- br # make the spe-recognized sample ids unique, ie. brnum
+  colData(spe)$unique_cellid <- paste0(spe$brnum,"_",spe$Barcode)
+  spe
+})
+
+combined_spe <- do.call(cbind, spe_list)
+colnames(combined_spe) <- combined_spe$unique_cellid
+
+## append metadata
+demos <- fread(here("../LFF_spatial_LC/raw-data/demos.txt"))
+demos <- unique(demos[,.(Donors,Age,Sex,Ancestry,Rin,APOE,hemisphere)])
+demos[hemisphere=="L",Donors:=paste0(Donors,"L")]
+demos[Donors=="Br6119(re-dis)",Donors:="Br6119"]
+demos <- demos[Donors %in% unique(combined_spe$brnum)]
+stopifnot(all(unique(combined_spe$brnum) %in% demos$Donors))
+
+tmpcd <- as.data.table(colData(combined_spe),keep.rownames=T)
+tmpcd <- merge.data.table(tmpcd,demos,by.x="brnum",by.y="Donors")
+
+tmpcd[,donor:=gsub(brnum,pattern="L",replacement="")]
+
+## append YRI/CEU/CHB estimates
+flares <- fread(here("../LFF_spatial_LC/raw-data/ancestryAndHaplotypes/FLARE/global_ancestry_estimates.txt"))
+flares <- flares[ID %in% tmpcd$donor]
+tmpcd <- merge.data.table(tmpcd,flares,by.x="donor",by.y="ID")
+
+stopifnot(nrow(tmpcd)==ncol(combined_spe))
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(combined_spe),]
+tmpcd$rn <- NULL # redundant with unique_cellid
+tmpcd$hemisphere <- NULL
+tmpcd$Genotype <- NULL
+colData(combined_spe) <- tmpcd
+
+saveRDS(combined_spe, here("processed-data_newseg/01_spe/", "NMDAPI_raw_combined_spe.RDS"))
+```
+
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] lubridate_1.9.4             forcats_1.0.1               stringr_1.6.0              
+ [4] dplyr_1.2.0                 purrr_1.2.1                 readr_2.1.6                
+ [7] tidyr_1.3.2                 tibble_3.3.1                ggplot2_4.0.2              
+[10] tidyverse_2.0.0             readxl_1.4.5                SpatialExperiment_1.20.0   
+[13] SingleCellExperiment_1.32.0 SummarizedExperiment_1.40.0 Biobase_2.70.0             
+[16] GenomicRanges_1.62.1        Seqinfo_1.0.0               IRanges_2.44.0             
+[19] S4Vectors_0.48.1            BiocGenerics_0.56.0         generics_0.1.4             
+[22] MatrixGenerics_1.22.0       matrixStats_1.5.0           here_1.0.2                 
+[25] data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6        rjson_0.2.23        xfun_0.56           lattice_0.22-7     
+ [5] tzdb_0.5.0          vctrs_0.7.1         tools_4.5.2         R.oo_1.27.1        
+ [9] pkgconfig_2.0.3     Matrix_1.7-4        RColorBrewer_1.1-3  S7_0.2.1           
+[13] lifecycle_1.0.5     compiler_4.5.2      farver_2.1.2        htmltools_0.5.9    
+[17] yaml_2.3.12         pillar_1.11.1       R.utils_2.13.0      rsconnect_1.7.0    
+[21] DelayedArray_0.36.1 sessioninfo_1.2.3   magick_2.9.0        abind_1.4-8        
+[25] tidyselect_1.2.1    digest_0.6.39       stringi_1.8.7       rprojroot_2.1.1    
+[29] fastmap_1.2.0       grid_4.5.2          cli_3.6.5           SparseArray_1.10.8 
+[33] magrittr_2.0.4      S4Arrays_1.10.1     dichromat_2.0-0.1   withr_3.0.2        
+[37] scales_1.4.0        timechange_0.4.0    rmarkdown_2.30      XVector_0.50.0     
+[41] otel_0.2.0          cellranger_1.1.0    R.methodsS3_1.8.2   hms_1.1.4          
+[45] evaluate_1.0.5      knitr_1.51          rlang_1.1.7         Rcpp_1.1.1         
+[49] glue_1.8.0          rstudioapi_0.18.0   R6_2.6.1           
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/New_York
+ date     2026-06-02
+ rstudio  2026.01.1+403 Apple Blossom (desktop)
+ pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ─────────────────────────────────────────────────────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ cellranger             1.1.0    2016-07-27 [1] CRAN (R 4.5.0)
+ cli                    3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ data.table           * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ DelayedArray           0.36.1   2026-03-31 [1] Bioconductor 3.22 (R 4.5.2)
+ dichromat              2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
+ digest                 0.6.39   2025-11-19 [1] CRAN (R 4.5.2)
+ dplyr                * 1.2.0    2026-02-03 [1] CRAN (R 4.5.2)
+ evaluate               1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ farver                 2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
+ fastmap                1.2.0    2024-05-15 [1] CRAN (R 4.5.0)
+ forcats              * 1.0.1    2025-09-25 [1] CRAN (R 4.5.0)
+ generics             * 0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ ggplot2              * 4.0.2    2026-02-03 [1] CRAN (R 4.5.2)
+ glue                   1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
+ gtable                 0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
+ here                 * 1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ hms                    1.1.4    2025-10-17 [1] CRAN (R 4.5.0)
+ htmltools              0.5.9    2025-12-04 [1] CRAN (R 4.5.2)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ knitr                  1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ lattice                0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ lubridate            * 1.9.4    2024-12-08 [1] CRAN (R 4.5.0)
+ magick                 2.9.0    2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ Matrix                 1.7-4    2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0    2025-01-07 [1] CRAN (R 4.5.0)
+ otel                   0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ pillar                 1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig              2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
+ purrr                * 1.2.1    2026-01-09 [1] CRAN (R 4.5.2)
+ R.methodsS3            1.8.2    2022-06-13 [1] CRAN (R 4.5.0)
+ R.oo                   1.27.1   2025-05-02 [1] CRAN (R 4.5.0)
+ R.utils                2.13.0   2025-02-24 [1] CRAN (R 4.5.0)
+ R6                     2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
+ RColorBrewer           1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ readr                * 2.1.6    2025-11-14 [1] CRAN (R 4.5.2)
+ readxl               * 1.4.5    2025-03-07 [1] CRAN (R 4.5.0)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rmarkdown              2.30     2025-09-28 [1] CRAN (R 4.5.0)
+ rprojroot              2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ rsconnect              1.7.0    2025-12-06 [1] CRAN (R 4.5.2)
+ rstudioapi             0.18.0   2026-01-16 [1] CRAN (R 4.5.2)
+ S4Arrays               1.10.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.1   2026-04-04 [1] https://bioc-release.r-universe.dev (R 4.5.3)
+ S7                     0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
+ scales                 1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8   2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ stringi                1.8.7    2025-03-27 [1] CRAN (R 4.5.0)
+ stringr              * 1.6.0    2025-11-04 [1] CRAN (R 4.5.0)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ tibble               * 3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
+ tidyr                * 1.3.2    2025-12-19 [1] CRAN (R 4.5.2)
+ tidyselect             1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
+ tidyverse            * 2.0.0    2023-02-22 [1] CRAN (R 4.5.0)
+ timechange             0.4.0    2026-01-29 [1] CRAN (R 4.5.2)
+ tzdb                   0.5.0    2025-03-15 [1] CRAN (R 4.5.0)
+ vctrs                  0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
+ withr                  3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
+ xfun                   0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ yaml                   2.3.12   2025-12-10 [1] CRAN (R 4.5.2)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+────────────────────────────────────────────────────────────────────────────────────────────

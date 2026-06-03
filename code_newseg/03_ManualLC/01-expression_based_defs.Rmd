@@ -1,0 +1,176 @@
+---
+title: "01-Count_based_LC_definition"
+author: "Bernie Mulvey"
+date: "2026-06-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+load spe
+```{r}
+lcx <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+```
+
+```{r}
+tmpct <- c("CHGB", "DBH", "DDC", "GAL", "GPX3", "GPX4", "MAOA", "SLC6A2", "SLC18A2", "SNCG", "TH")
+
+ctt <- as.data.table(as.data.table(as.data.frame(as.matrix(t(logcounts(lcx[tmpct,]))))),keep.rownames=T)
+
+plts <- lapply(names(ctt)[2:ncol(ctt)],function(g){
+  p <- ggplot(ctt[get(g)>0,],aes(x=get(g)) ) +
+    geom_histogram(bins=100) +
+    labs(title=paste0("Density of counts for gene: ",g),x="Counts",y="Number of spots")
+  return(p)
+})
+do.call("grid.arrange",c(plts,nrow=3))
+
+## basically DBH 6A2 and TH show bimodal distributions above 0, with the trough between right around 3.75
+dev.off()
+
+## how many have any one of these genes > 3.75
+ctt[greaterOrEqual(DBH,3.75) | greaterOrEqual(SLC6A2,3.75) | greaterOrEqual(TH,3.75)] ## 11299
+
+## how many all 3 over
+ctt[greaterOrEqual(DBH,3.75) & greaterOrEqual(SLC6A2,3.75) & greaterOrEqual(TH,3.75)] ## 5580
+
+## we only need those three genes the data so remake
+tmpct <- c("DBH", "SLC6A2", "TH")
+
+ctt <- as.data.table(as.data.frame(as.matrix(t(logcounts(lcx[tmpct,])))),keep.rownames=T)
+ctt <- merge.data.table(ctt,as.data.table(colData(lcx),keep.rownames=T),by="rn")
+```
+
+### what do the cell / nuc sizes look like for the two cutoffs
+```{r}
+ctt[,LCdef:="No"]
+ctt[greaterOrEqual(DBH,3.75) | greaterOrEqual(SLC6A2,3.75) | greaterOrEqual(TH,3.75),LCdef:="Loose"] ## 5719 = 11299-5580
+ctt[greaterOrEqual(DBH,3.75) & greaterOrEqual(SLC6A2,3.75) & greaterOrEqual(TH,3.75),LCdef:="Strict"] ## 5580
+
+
+
+## these plots will not represent all loose definition cells, only those that do not additionally meet the strict criterion.
+ctt[,LCdef:=factor(LCdef,levels=c("No","Loose","Strict"))]
+ggplot(ctt,aes(x=log10(cell_area),fill=LCdef))+
+  geom_density(alpha=0.4)
+
+ctt[,LCdef:=factor(LCdef,levels=c("No","Loose","Strict"))]
+ggplot(ctt,aes(x=log10(nucleus_area),fill=LCdef))+
+  geom_density(alpha=0.4)
+
+## THIS will show all the potential LC cells vs non-LC
+ctt[,LCdef:="No"]
+ctt[greaterOrEqual(DBH,3.75) | greaterOrEqual(SLC6A2,3.75) | greaterOrEqual(TH,3.75),LCdef:="Loose"]
+
+ctt[,LCdef:=factor(LCdef,levels=c("No","Loose"))]
+ggplot(ctt,aes(x=log10(cell_area),fill=LCdef))+
+  geom_density(alpha=0.4)
+
+ggplot(ctt,aes(x=log10(nucleus_area),fill=LCdef))+
+  geom_density(alpha=0.4)
+
+```
+
+Interestingly, the loose-definition-only cells seem to sometimes have smaller nuclear areas than non-LC cells. they also have a smaller peak of cells larger in area than non-LC (presumably driven by NM segmentations). the density of these two peaks (smaller/greater than non-LC respectively) is reversed for the high stringency definition. 
+
+If we plot ALL loose def cells (including those that also meet strict criterion), then there's a tiny hump of cells with area < nonLC and a wider one with cell areas >> non-LC.
+
+
+### now make a table we can actually use, where the loose definition is assigned in one case and the strict in another (but the two don't compete/override)
+```{r}
+ctt[,LCloose:="No"]
+ctt[DBH>3.75 | SLC6A2>3.75 | TH>3.75,LCloose:="LC"]
+
+ctt[,LCstrict:="No"]
+ctt[DBH>3.75 & SLC6A2>3.75 & TH>3.75,LCstrict:="LC"]
+
+outt <- ctt[,.(rn,LCloose,LCstrict)]
+```
+
+now let's see if we can infer which cells were new additions based on the NM segmentation. (cells that were not modified by adding the NM segmentation seemed to wind up with the same cell ID as before). importantly, we do not need to load anything from the "newseg" processing as the new NM segs were unrelated to the default, DAPI-only Xenium outputs we're going to use here.
+```{r}
+oglc <- readRDS("processed-data/01_spe/DAPI_rawSPE/raw_combined_spe.RDS")
+# cell ID formats are same as lcx--importantly, the cell ID stays the same if everyfuckingthing aabout the cell remains unchanged (based on my own experience rerunning data thru xeniumranger with what turned out to be the exact same settings as the onboard processing already used)
+
+# see what cell IDs are new to the NM-DAPI seg
+sum(colnames(lcx) %in% colnames(oglc)) # 0--guh, all of them...
+
+## okay that approach is a no go. what about doing it by coordinates
+colnames(oglc) <- oglc$unique_cellid
+rownames(colData(oglc)) <- colnames(oglc)
+rownames(spatialCoords(oglc)) <- colnames(oglc)
+
+ogspc <- as.data.table(spatialCoords(oglc),keep.rownames=T)
+setnames(ogspc,c(1:3),paste0(names(ogspc)[1:3],"_og"))
+
+rownames(spatialCoords(lcx)) <- colnames(lcx)
+lcspc <- as.data.table(spatialCoords(lcx),keep.rownames=T)
+
+lcspcmatch <- merge.data.table(ogspc,lcspc,by.x=c("x_centroid_og","y_centroid_og"),by.y=c("x_centroid","y_centroid"))
+length(unique(lcspcmatch$rn)) # 449616 QC-passing cells unchanged relative to the original DAPI output
+
+####################################
+#### LEFT OFF HERE 030326 9pm #####
+####################################
+
+## so the NM+ cells are probably among the remaining 42k (491k total - 449k same centroids), but others must be too..
+
+newcells <- lcx[,!(colnames(lcx) %in% lcspcmatch$rn)] # 42166 cells
+
+## lets try this. how many of these nm-gained cells are in the LC definitions?
+outt2 <- outt[rn %in% colnames(newcells)]
+outt2[,.N,by="LCstrict"] # 4186 of 5580 (75%)
+outt2[,.N,by="LCloose"] # 6202 of 11299 (55%)
+
+
+# cool. so we can identify the majority of LC cells that were gained (or altered in terms of centroids) by the NM segmentation. useful for benchmarking purposes at least
+
+outt <- outt[,gained_or_altered_byNMseg_and_LCstrict:="No"]
+outt <- outt[rn %in% colnames(newcells)&LCstrict=="LC",gained_or_altered_byNMseg_and_LCstrict:="Yes"]
+
+outt[,gained_or_altered_byNMseg_and_LCloose:="No"]
+outt <- outt[rn %in% colnames(newcells)&LCloose=="LC",gained_or_altered_byNMseg_and_LCstrict:="Yes"]
+
+fwrite(outt,"processed-data_newseg/03_ManualLC/01-XprBasedLClabels_and_ManLCcellsWithSegsGainedorAlteredByNM.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
