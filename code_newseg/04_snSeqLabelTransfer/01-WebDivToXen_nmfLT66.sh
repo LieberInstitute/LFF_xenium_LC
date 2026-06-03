@@ -3,8 +3,8 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=300G
 #SBATCH --constraint="sapphirerapids"
-#SBATCH --output=logs/07_nmfLT66.txt
-#SBATCH --error=logs/07_nmfLT66.txt
+#SBATCH --output=logs/01_nmfLT66_tonewsegxen.txt
+#SBATCH --error=logs/01_nmfLT66_tonewsegxen.txt
 #SBATCH --mail-type=END
 #SBATCH --mail-user=bernie.mulvey@libd.org
 #SBATCH --time=4-00:00:00
