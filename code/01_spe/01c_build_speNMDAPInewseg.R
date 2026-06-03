@@ -10,7 +10,7 @@ library(tidyverse)
 # Read in the raw Xenium data into SPE objects and save.
 #######################################################
 brnum = Sys.getenv("BRNUM")
-sample_path = here('processed-data','xenium_imageProcessing_new',brnum, paste0('xeniumranger_NM_DAPI_', brnum), 'outs')
+sample_path = here('processed-data','xenium_imageProcessing_new/xeniumRanger/',paste0('xeniumranger_NM_DAPI_', brnum), 'outs')
 
     counts_path <- here(sample_path, "cell_feature_matrix.h5")
     cell_info_path <- here(sample_path, "cells.csv.gz")
