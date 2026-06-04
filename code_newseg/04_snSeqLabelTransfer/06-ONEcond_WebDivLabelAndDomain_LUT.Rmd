@@ -1,0 +1,109 @@
+---
+title: "06-OneThreshSmoothLC_webDivLabelsAndDomain_LUT.Rmd"
+format: html
+date: "06-03-2026"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+# library(SpatialFeatureExperiment)
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options('styler.addins_style_transformer' = 'biocthis::bioc_style()')
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+library(parallel)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+
+## ggplot defaults
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+0.08/0.492
+0.12/0.412
+load smoothings, xenium, and manual xenium LC assignments
+```{r}
+## smoothings
+dualscores <- readRDS("processed-data_newseg/04_snSeqLabelTransfer/03b-WebDivLCknnsmoothing_step2k75.RDS")
+dualscores <- dualscores[c("k1thresh_0.08","k1thresh_0.12")]
+
+dualscores8492 <- dualscores$k1thresh_0.08[,domain8492:=ifelse(greaterOrEqual(lcpred.smooth2.k75,round(0.492,3)),"LC","Other")]
+
+dualscores12412 <- dualscores$k1thresh_0.12[,domain12412:=ifelse(greaterOrEqual(lcpred.smooth2.k75,round(0.412,3)),"LC","Other")]
+
+## append nmf predictions
+projlabs <- fread("processed-data_newseg/04_snSeqLabelTransfer/02-WebDivToXen_xferedlabels.txt")
+dualscores8492 <- merge.data.table(dualscores8492,projlabs,by="rn")
+dualscores12412 <- merge.data.table(dualscores12412,projlabs,by="rn")
+
+nrow(dualscores8492[WebDivLabel.x=="NE"]) #11065
+nrow(dualscores8492[domain8492=="LC"]) #43683
+nrow(dualscores8492[domain8492=="LC"&WebDivLabel.x=="NE"]) # 8873
+
+nrow(dualscores12412[WebDivLabel=="NE"]) # 11065 (total pred cells so same)
+nrow(dualscores12412[domain12412=="LC"]) # #37328
+nrow(dualscores12412[domain12412=="LC"&WebDivLabel=="NE"]) # 8313
+
+nrow(dualscores8492[domain8492=="LC" & rn %in% dualscores12412[domain12412=="LC",rn]]) 
+## ^ 36677; therefore 651 unique cells exclusive to domain12412 and 6355 cells exclusive to domain8492
+
+domlabs <- merge.data.table(dualscores12412[,.(rn,WebDivLabel,domain12412)],dualscores8492[,.(rn,domain8492)],by="rn")
+setnames(domlabs,"WebDivLabel","nmfpred")
+
+fwrite(domlabs,"processed-data_newseg/04_snSeqLabelTransfer/06-wdLCsmoothings_LUT.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.2
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+[1] parallelly_1.46.1   colorout_1.3-3      data.table_1.18.2.1
+
+loaded via a namespace (and not attached):
+ [1] digest_0.6.39     fastmap_1.2.0     xfun_0.56         knitr_1.51       
+ [5] htmltools_0.5.9   rmarkdown_2.30    cli_3.6.5         compiler_4.5.2   
+ [9] rprojroot_2.1.1   here_1.0.2        rstudioapi_0.18.0 tools_4.5.2      
+[13] evaluate_1.0.5    yaml_2.3.12       otel_0.2.0        rlang_1.1.7      
