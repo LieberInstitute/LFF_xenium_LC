@@ -1,0 +1,589 @@
+---
+title: "03-ONECOND_KNNthresh_visXferLCsmoothing_and_visLabelxfers_regist_to_VisLC_ManXenLC"
+format: html
+date: "06-04-2026"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+library(spatialLIBD)
+# library(SpatialFeatureExperiment)
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options('styler.addins_style_transformer' = 'biocthis::bioc_style()')
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+library(parallel)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = '#000000'), axis.title.x = element_text(size = 9,color = '#000000'), axis.text.y = element_text(size = 8,color = '#000000'), axis.title.y = element_text(size =9,color = '#000000'), plot.title = element_markdown(size = 10,hjust=0.5,color = '#000000'), strip.text = element_text(size=11), legend.text = element_text(size=7,color = '#000000'), legend.title = element_text(size=8,hjust=0.5,color = '#000000'),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position='plot'))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+load smoothings, xenium, and manual xenium LC assignments
+```{r}
+## smoothings
+dualscores <- readRDS("processed-data_newseg/07_visLabelTransfer/02b-srtXferLCknnsmoothing_step2k75.RDS")
+### lc xenium
+lcx <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+assays(lcx) <- assays(lcx)[1] #dont need normed counts or log counts
+
+### xenium manual LC definition
+manlc <- fread("processed-data_newseg/03_ManualLC/01-XprBasedLClabels_and_ManLCcellsWithSegsGainedorAlteredByNM.txt")
+manlc <- DataFrame(manlc,row.names=manlc$rn)[colnames(lcx),]
+lcx$LCloose <- manlc$LCloose
+lcx$LCstrict <- manlc$LCstrict
+
+### nmf-transferred labels
+xferlab <- readRDS("processed-data_newseg/07_visLabelTransfer/01-VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
+
+preds <- lapply(xferlab$targets,function(x){
+    y <- as.data.table(cbind(rownames(colData(x)),as.character(x$nmf_preds)))
+    setnames(y,c("rn","nmfpred"))
+    return(y)
+})
+preds <- rbindlist(preds)
+rm(xferlab)
+
+### keep manLC for tabulating % overlap with domain and cells later
+manlc <- as.data.table(manlc)
+```
+
+### here, the cell's K1 score doesn't matter, only the k2 score. there is still a series of k1 thresholds that was used to define "inLC" for k2 score calcs, we just aren't filtering on what a cell's own k1 score came out to.
+
+### determine k1/k2 threshold that will result in at least 20 LC cells per group, and iterate through each smoothing definition (k1 0.05 to 0.45, k2 0.05-1 range). be sure to account for floating point errors, which WERE fucking this all up!
+```{r}
+threshrange <- lapply(round(seq(0.04,0.52,0.04),2),function(k1){
+    o <-lapply(round(seq((3/75),(60/75),(6/75)),2),function(k2){
+        tmpdt <- copy(dualscores[[paste0("k1thresh","_",k1)]])
+        tmpdt[,newcol:=ifelse(
+                #greaterOrEqual(lcpred.smooth1.k25,k1) &
+                # ^ that's all we need to take out for k2-only filtering 
+                greaterOrEqual(lcpred.smooth2.k75,k2),"LC","Other")]
+        ret <- ifelse(length(unique(tmpdt$newcol))>1,"OK","no")
+        ## determine whether at least half (17+) samples with at least 20 cells
+        tmpdt2 <- tmpdt[,.N,by=c("newcol","brnum")][newcol=="LC"&greaterOrEqual(N,20)]
+        ret <- ifelse(nrow(tmpdt2)>16,ret,"no")
+        return(ret)
+    })
+    names(o) <- paste0("k2_",seq((3/75),(60/75),(6/75)))
+    return(o)
+})
+
+
+names(threshrange) <- paste0("k1_",seq(0.04,0.52,0.04))
+threshrange2 <- rbindlist(threshrange,idcol="k1thresh")
+### k1 0.2: k2max 0.68 
+### k1 .24: max 0.52
+### k1 0.28: max 0.36
+### k1 0.32: 0.28
+### 0.36: 0.2
+# 0.4+: No
+## make a table reflecting this ^
+k2maxlut <- as.data.table(cbind(
+  seq(0.04,0.36,0.04),
+  c(0.76,0.76,0.76,0.76,0.68,0.52,0.36,0.28,0.2)))
+setnames(k2maxlut,c("curk1","curk2max"))
+## avoid floating point bullshit
+k2maxlut[,curk1:=round(curk1,2)]
+k2maxlut[,curk2max:=round(curk2max,2)]
+
+rm(threshrange,threshrange2)
+
+setDTthreads(1,restore_after_fork = FALSE)
+
+regperthresh <- lapply(round(seq(0.04,0.36,0.04),2),function(k1){
+  k2max <- k2maxlut[curk1==k1,curk2max]
+  regs <- lapply(round(seq((3/75),k2max,(6/75)),2),function(k2){
+    setDTthreads(1,restore_after_fork = FALSE)
+    
+    tmpdt <- copy(dualscores[[paste0("k1thresh","_",k1)]])
+    
+    ## cell must meet k2 threshold only (thus "1-condition" smoothing)
+    tmpdt[,newcol:=ifelse(
+      # greaterOrEqual(lcpred.smooth1.k25,k1) &
+        greaterOrEqual(lcpred.smooth2.k75,k2),
+        "LC","Other")
+    ]
+    
+    if(length(unique(tmpdt$newcol))<2){
+      return("NA")
+    } else {
+      threshname <- paste0("LCsmooth_k1_",k1,"_k2_",k2)
+      setnames(tmpdt,"newcol",threshname)
+      tmpdt <- DataFrame(tmpdt[,.(rn,get(threshname))],row.names=tmpdt$rn)[colnames(lcx),]
+
+      colData(lcx)$newcol <- tmpdt[,2] 
+      colnames(colData(lcx))[ncol(colData(lcx))] <- threshname
+
+      ## registration stats for this threshold (we then cross correlate those to consistent regist stats from visium and manual xen)
+
+      regstats <- registration_wrapper(sce=lcx,var_registration = threshname,var_sample_id = "brnum",covars = c("Age","Sex","APOE","YRI"),gene_ensembl = "ID",gene_name = "Symbol",min_ncells = 20)
+      keepname <- c("ensembl",paste0("t_stat_",c("LC","Other")))
+      outtab <- as.data.table(regstats$enrichment)[,..keepname]
+      rm(regstats,threshname,tmpdt,k2)
+      return(outtab)
+    }
+  })
+  names(regs) <- paste0("k2_",seq((3/75),k2max,(6/75)))
+  return(regs)
+})
+names(regperthresh) <- paste0("k1_",seq(0.04,0.36,0.04))
+
+saveRDS(regperthresh,file="processed-data_newseg/07_visLabelTransfer/03a-ONEcond_LCsmooth_knnstep1_k25_step2_k75_registPerThresh.RDS")
+```
+
+## calculate registration stats for xenium manuals and visium domains, then can remove those datasets from sesh
+```{r}
+lcxLoreg <- registration_wrapper(sce=lcx,var_registration="LCloose",var_sample_id="brnum",covars=c("Age","Sex","APOE","YRI"),gene_ensembl="ID",gene_name="Symbol",min_ncells=20)
+
+lcxLoreg <- as.data.table(lcxLoreg$enrichment)
+lcxLoreg <- lcxLoreg[,.(ensembl,t_stat_LC,t_stat_No)]
+comparegs <- list()
+comparegs[[length(comparegs)+1]] <- lcxLoreg
+names(comparegs)[length(comparegs)] <- "LFF_Xenium_loose"
+
+###
+lcxHireg <- registration_wrapper(sce=lcx,var_registration="LCstrict",var_sample_id="brnum",covars=c("Age","Sex","APOE","YRI"),gene_ensembl="ID",gene_name="Symbol",min_ncells=20)
+
+lcxHireg <- as.data.table(lcxHireg$enrichment)
+lcxHireg <- lcxHireg[,.(ensembl,t_stat_LC,t_stat_No)]
+comparegs[[length(comparegs)+1]] <- lcxHireg
+names(comparegs)[length(comparegs)] <- "LFF_Xenium_strict"
+
+###
+predstmp <- copy(preds)
+predstmp[nmfpred!="LC",nmfpred:="No"]
+predstmp <- DataFrame(predstmp,row.names=predstmp$rn)[colnames(lcx),]
+colData(lcx)$nmfpred <- predstmp$nmfpred
+rm(predstmp)
+gc()
+
+lcxnmfp <- registration_wrapper(sce=lcx,var_registration="nmfpred",var_sample_id="brnum",covars=c("Age","Sex","APOE","YRI"),gene_ensembl="ID",gene_name="Symbol",min_ncells=20)
+
+lcxnmfp <- as.data.table(lcxnmfp$enrichment)
+lcxnmfp <- lcxnmfp[,.(ensembl,t_stat_LC,t_stat_No)]
+comparegs[[length(comparegs)+1]] <- lcxnmfp
+names(comparegs)[length(comparegs)] <- "Xenium_All_srtNMFpred_LCcells"
+
+### 
+rm(lcxHireg,lcxLoreg,lcxnmfp)
+gc(full=T)
+```
+
+## visium data and annots
+```{r}
+lcv <- readRDS("../LFF_spatial_LC/processed-data/06-countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+
+clus <- readRDS("../LFF_spatial_LC/processed-data/07_featureSelection_dimred_harmony_clustering/04-Initial_louvLeid_res0.5-1-2_clusterings.RDS")
+clus <- clus$HARMONYlmbna_HDG_SVG_2575[,.(rn,snnHARMONYlmbna_HDG_SVG_2575_louv_res1)]
+setnames(clus,2,"clusid")
+
+anno <- fread("../LFF_spatial_LC/processed-data/08_validitycheck_25hdg75svg_louv1/10-25hdg75svg_louv1_annots.txt")
+# this will just be LC/other for registration purposes
+anno[,anno:=ifelse(anno=="LC","LC","Other")]
+
+anno <- merge.data.table(clus,anno,by="clusid",all.x=T)
+anno <- DataFrame(anno,row.names=anno$rn)[colnames(lcv),]
+lcv$vislab <- anno$anno
+
+## subset Visium to samples we want to retain in both assays
+unique(lcv$brnum)
+lcv$brnum[lcv$brnum=="Br6119(re-dis)"] <- "Br6119"
+
+## drop donors with limited LC
+lcv <- lcv[,!(lcv$brnum %in% paste0("Br",c(5517,5276,5712)))]
+
+## check all donors overlap
+lcx$donor <- gsub(lcx$brnum,pattern="L",replacement="")
+stopifnot(all(unique(lcv$brnum) %in% unique(lcx$donor)))
+stopifnot(all(unique(lcx$donor) %in% unique(lcv$brnum)))
+### 
+## subset LC visium to genes in xenium
+tmprd <- as.data.table(rowData(lcv),keep.rownames=T)
+tmprd <- tmprd[gene_name %in% rowData(lcx)$Symbol]
+keepg <- tmprd$rn
+
+lcv <- lcv[keepg,]
+
+rm(tmprd,lcx,anno,clus)
+gc(full=T)
+```
+
+ancestry proportion estimates aren't in this visium object, so add them for identical registration modeling
+```{r}
+flares <- fread("../LFF_spatial_LC/raw-data/ancestryAndHaplotypes/FLARE/global_ancestry_estimates.txt")
+flares <- flares[ID %in% lcv$brnum]
+stopifnot(all(lcv$brnum %in% flares$ID))
+
+tmpcd <- as.data.table(colData(lcv),keep.rownames=T)
+tmpcd <- merge.data.table(tmpcd,flares[,.(ID,YRI)],by.x="brnum",by.y="ID",all.x=T)
+stopifnot(all(!is.na(tmpcd$YRI)))
+
+# Also fix APOE genotypes to avoid modeling errors
+tmpcd[APOE=="E4/ E4",APOE:="E4hom"]
+tmpcd[APOE=="E3/ E4",APOE:="E4het"]
+tmpcd[APOE=="E2/ E3",APOE:="E2het"]
+tmpcd[APOE=="E2/ E2",APOE:="E2hom"]
+
+## replace coldata
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(lcv),]
+tmpcd$rn <- NULL
+colData(lcv) <- tmpcd
+
+stopifnot(is.numeric(lcv$Age)&is.numeric(lcv$YRI)&is.character(lcv$APOE)&is.character(lcv$Sex))
+
+rm(tmpcd,flares)
+```
+
+
+### vis lc regist
+```{r}
+lcvreg <- registration_wrapper(sce=lcv,var_registration = "vislab",var_sample_id = "sample_id",covars = c("Age","Sex","APOE","YRI"),gene_ensembl = "gene_id",gene_name = "gene_name",min_ncells = 10) # one tissue section has a few dozen LC spots at most
+
+lcvreg <- as.data.table(lcvreg$enrichment)
+lcvreg <- lcvreg[,.(ensembl,t_stat_LC,t_stat_Other)]
+comparegs[[length(comparegs)+1]] <- lcvreg
+names(comparegs)[length(comparegs)] <- "LFF_Visium"
+
+rm(lcv,lcvreg)
+gc(full=T)
+```
+
+### also get proportion of cells with LC label in each xenium manual annot that are labeled as LC domain
+```{r}
+## only going up to k1=0.36
+dualscores <- dualscores[1:9]
+propsindoms <- mcmapply(d=dualscores,n=names(dualscores),SIMPLIFY=FALSE,mc.cores=6,FUN=function(d,n){
+    k1 <- as.numeric(gsub(n,pattern="k1thresh_(.*)",replacement="\\1"))
+    tmp <- merge.data.table(copy(d),manlc,by="rn")
+    tmp <- merge.data.table(tmp,preds,by="rn")
+    k2max <- k2maxlut[curk1==k1,curk2max] ## == works because we rounded
+    regs <- lapply(round(seq((3/75),k2max,(6/75)),2),function(k2){
+        setDTthreads(1,restore_after_fork = FALSE)
+        
+        tmpdt <- copy(tmp)
+        tmpdt[,newcol:=ifelse(
+          #greaterOrEqual(lcpred.smooth1.k25,k1) &
+            greaterOrEqual(lcpred.smooth2.k75,k2),
+            "LC","Other")
+        ]
+        
+        looseprop <- ifelse(nrow(tmpdt[LCloose=="LC"])==0,
+                            0,
+                            nrow(tmpdt[newcol=="LC"&LCloose=="LC"])/
+                              nrow(tmpdt[LCloose=="LC"])
+        )
+        
+        strictprop <- ifelse(nrow(tmpdt[LCstrict=="LC"])==0,
+                            0,
+                            nrow(tmpdt[newcol=="LC"&LCstrict=="LC"])/
+                              nrow(tmpdt[LCstrict=="LC"])
+        )
+        
+        nmfprop <- ifelse(nrow(tmpdt[nmfpred=="LC"])==0,
+                            0,
+                            nrow(tmpdt[newcol=="LC"&nmfpred=="LC"])/
+                              nrow(tmpdt[nmfpred=="LC"])
+        )
+
+        od <- data.frame(matrix(nrow=1,ncol=4))
+        od[1,1] <- k1
+        od[1,2] <- k2
+        od[1,3] <- looseprop
+        od[1,4] <- strictprop
+        od[1,5] <- nmfprop
+        od <- as.data.table(od)
+        setnames(od,c("k1","k2","looseInDom","strictInDom","nmfpredInDom"))
+
+        return(od)
+    })
+    ordt <- rbindlist(regs)
+    return(ordt)
+})
+propsindoms <- rbindlist(propsindoms)
+
+fwrite(propsindoms,"processed-data_newseg/07_visLabelTransfer/03-ONEcond_prop_manualLCcells_inEach_visXferSmoothLCdom.txt",sep='\t',quote=F,row.names=F)
+
+```
+
+Run registration for each xenium domain definition against each xenium manual annotation and lc vis label
+```{r}
+### rejigger the regperthresh thing into one big table
+rpt2 <- mapply(X=regperthresh,Y=names(regperthresh),SIMPLIFY=FALSE,function(X,Y){
+    i <- 1
+    k1 <- gsub(Y,pattern="k1thresh_(.*)",replacement="\\1")
+    for (i in c(1:length(X))){
+        k2 <- names(X)[i]
+        newdat <- copy(X[[i]])
+        newdat <- newdat[,.(ensembl,t_stat_LC)]
+        setnames(newdat,2,paste0("LCk1_",k1,"_k2_",k2))
+
+        if(i==1){
+            subtab <- copy(newdat)
+        } else{
+            subtab <- merge.data.table(subtab,newdat,by="ensembl")
+        }
+    }
+    return(subtab)
+})
+
+i<-1
+for (i in c(1:length(rpt2))){
+    if(i==1){
+        regperthresh.dt <- copy(rpt2[[i]])
+    } else{
+        regperthresh.dt <- merge.data.table(regperthresh.dt,rpt2[[i]],by="ensembl")
+    }
+}
+
+rm(rpt2,i)
+```
+
+Now, actually iterate through registrations
+```{r}
+regres <- mcmapply(m=comparegs,n=names(comparegs),mc.cores=4,SIMPLIFY=FALSE,FUN=function(m,n){
+    m <- m[,.(ensembl,t_stat_LC)]
+    setnames(m,"t_stat_LC",n)
+    
+    cortab <- merge.data.table(regperthresh.dt,m,by="ensembl")
+    cortab$ensembl <- NULL
+
+    j<-seq(10,300,by=10)
+    i<-1
+    
+    outlist <- list()
+    for (i in c(1:(length(j)+1))){
+        cormat <- as.data.frame(matrix(nrow=ncol(cortab)-1,ncol=1))
+        
+        if(i<=length(j)){
+            ngene <- j[i]
+        } else{
+            # no value for top_n --> all genes used
+            ngene <- nrow(cortab)
+        }
+        
+
+        k <- 1
+        for (k in c(1:(ncol(cortab)-1))){
+            rownames(cormat)[k] <- colnames(cortab)[k]
+            colnames(cormat)[1] <- colnames(cortab)[ncol(cortab)]
+            
+            curthresh <- colnames(cortab)[k]
+            curxen <- names(m)[2]
+            setorderv(cortab,curthresh,-1)
+            
+            cormat[k,1] <- cor(cortab[c(1:ngene),..curthresh],cortab[c(1:ngene),..curxen],use="pairwise.complete.obs",method = "spearman")
+        }
+        outlist[[i]] <- cormat
+        names(outlist)[i] <- paste0("DomainTop_",ngene)
+    }
+    keepol <- unique(
+      names(outlist)[
+        names(outlist) %in%
+          paste0("DomainTop_",
+                 unique(c(seq(10,nrow(cortab),10),nrow(cortab)))
+                )
+      ]
+    )
+    outlist <- outlist[keepol] # account for repeat correlations for ngene > nrow(cortab)
+    return(outlist)
+})
+
+### concat into one big table
+regres2 <- lapply(regres,function(x){
+    z <- mapply(y=x,n=names(x),SIMPLIFY=FALSE,FUN=function(y,n){
+        y <- as.data.table(y,keep.rownames=T)
+        y[,Ntopdommks:=as.numeric(gsub(n,pattern="^DomainTop_(.*)$",replacement="\\1"))]
+        setnames(y,"rn","domainDef")
+        return(y)
+    })
+    rettab <- rbindlist(z)
+    return(rettab)
+})
+regres3 <- merge.data.table(regres2[[1]],regres2[[2]],by=c("domainDef","Ntopdommks"))
+regres4 <- merge.data.table(regres3,regres2[[3]],by=c("domainDef","Ntopdommks"))
+regres5 <- merge.data.table(regres4,regres2[[4]],by=c("domainDef","Ntopdommks"),all.x=T) # larger numbers of genes used for non-visium regists so retain those
+
+### append proportion in domain annots for xeniums
+propsindoms[,domainDef:=paste0("LC_k1_",k1,"_k2_",k2)]
+# something weird happened with the loops above so just fix it here
+regres5[,domainDef:=gsub(domainDef,pattern="k2_k2",replacement="k2")]
+regres5[,domainDef:=gsub(domainDef,pattern="k1_k1",replacement="_k1")]
+
+regres5 <- merge.data.table(regres5,propsindoms[domainDef %in% regres5$domainDef],by="domainDef")
+
+fwrite(regres5,"processed-data_newseg/07_visLabelTransfer/03-ONEcond_visXferNMF_to_KNNksmoothedLCs_regist_to_manXenLC_visLC.txt",quote=F,row.names=F,sep='\t')
+```
+
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] FNN_1.1.4.1                 caTools_1.18.3              FastKNN_0.0.1              
+ [4] gridExtra_2.3               ggtext_0.1.2                ggplot2_4.0.2              
+ [7] BiocParallel_1.44.0         parallelly_1.47.0           colorout_1.3-3             
+[10] SpatialExperiment_1.20.0    SingleCellExperiment_1.32.0 SummarizedExperiment_1.40.0
+[13] Biobase_2.70.0              GenomicRanges_1.62.1        Seqinfo_1.0.0              
+[16] IRanges_2.44.0              S4Vectors_0.48.1            BiocGenerics_0.56.0        
+[19] generics_0.1.4              MatrixGenerics_1.22.0       matrixStats_1.5.0          
+[22] data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6        rjson_0.2.23        xfun_0.56           lattice_0.22-7     
+ [5] vctrs_0.7.1         tools_4.5.2         bitops_1.0-9        tibble_3.3.1       
+ [9] pkgconfig_2.0.3     Matrix_1.7-4        RColorBrewer_1.1-3  S7_0.2.1           
+[13] assertthat_0.2.1    lifecycle_1.0.5     compiler_4.5.2      farver_2.1.2       
+[17] pdist_1.2.1         codetools_0.2-20    htmltools_0.5.9     yaml_2.3.12        
+[21] pillar_1.11.1       rsconnect_1.7.0     DelayedArray_0.36.1 magick_2.9.0       
+[25] abind_1.4-8         tidyselect_1.2.1    digest_0.6.39       dplyr_1.2.0        
+[29] rprojroot_2.1.1     fastmap_1.2.0       grid_4.5.2          here_1.0.2         
+[33] cli_3.6.5           SparseArray_1.10.8  magrittr_2.0.4      S4Arrays_1.10.1    
+[37] dichromat_2.0-0.1   withr_3.0.2         scales_1.4.0        rmarkdown_2.30     
+[41] XVector_0.50.0      otel_0.2.0          evaluate_1.0.5      knitr_1.51         
+[45] rlang_1.1.7         gridtext_0.1.5      Rcpp_1.1.1          glue_1.8.0         
+[49] xml2_1.5.2          rstudioapi_0.18.0   R6_2.6.1           
+> sessioninfo::session_info()
+─ Session info ─────────────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/New_York
+ date     2026-06-03
+ rstudio  2026.01.1+403 Apple Blossom (desktop)
+ pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ─────────────────────────────────────────────────────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [1] CRAN (R 4.5.0)
+ assertthat             0.2.1    2019-03-21 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocParallel         * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ bitops                 1.0-9    2024-10-03 [1] CRAN (R 4.5.0)
+ caTools              * 1.18.3   2024-09-04 [1] CRAN (R 4.5.0)
+ cli                    3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ codetools              0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
+ colorout             * 1.3-3    2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ data.table           * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ DelayedArray           0.36.1   2026-03-31 [1] Bioconductor 3.22 (R 4.5.2)
+ dichromat              2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
+ digest                 0.6.39   2025-11-19 [1] CRAN (R 4.5.2)
+ dplyr                  1.2.0    2026-02-03 [1] CRAN (R 4.5.2)
+ evaluate               1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ farver                 2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
+ FastKNN              * 0.0.1    2015-02-12 [1] CRAN (R 4.5.0)
+ fastmap                1.2.0    2024-05-15 [1] CRAN (R 4.5.0)
+ FNN                  * 1.1.4.1  2024-09-22 [1] CRAN (R 4.5.0)
+ generics             * 0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ ggplot2              * 4.0.2    2026-02-03 [1] CRAN (R 4.5.2)
+ ggtext               * 0.1.2    2022-09-16 [1] CRAN (R 4.5.0)
+ glue                   1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
+ gridExtra            * 2.3      2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext               0.1.5    2022-09-16 [1] CRAN (R 4.5.0)
+ gtable                 0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
+ here                   1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ htmltools              0.5.9    2025-12-04 [1] CRAN (R 4.5.2)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ knitr                  1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ lattice                0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ magick                 2.9.0    2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ Matrix                 1.7-4    2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0    2025-01-07 [1] CRAN (R 4.5.0)
+ otel                   0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly           * 1.47.0   2026-04-17 [1] CRAN (R 4.5.2)
+ pdist                  1.2.1    2022-05-02 [1] CRAN (R 4.5.0)
+ pillar                 1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig              2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
+ R6                     2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
+ RColorBrewer           1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rmarkdown              2.30     2025-09-28 [1] CRAN (R 4.5.0)
+ rprojroot              2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ rsconnect              1.7.0    2025-12-06 [1] CRAN (R 4.5.2)
+ rstudioapi             0.18.0   2026-01-16 [1] CRAN (R 4.5.2)
+ S4Arrays               1.10.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.1   2026-04-04 [1] https://bioc-release.r-universe.dev (R 4.5.3)
+ S7                     0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
+ scales                 1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8   2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ tibble                 3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect             1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
+ vctrs                  0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
+ withr                  3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
+ xfun                   0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ xml2                   1.5.2    2026-01-17 [1] CRAN (R 4.5.2)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ yaml                   2.3.12   2025-12-10 [1] CRAN (R 4.5.2)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+────────────────────────────────────────────────────────────────────────────────────────────
