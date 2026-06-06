@@ -90,17 +90,19 @@ now we have some k1 smoothings / k2 thresholds that we like:
 0.16-originals were too meh visually, try fine stepping 0.04-0.28
 0.2-" " " " try fine stepping 0.04-0.2
 
-## make a table of these; steps are 1/75 (size of k2 neighborhood) ± 0.001 to ensure inclusion/exclusion of previously examined k1s of interest/noninterest ##
+## make a table of these; steps are 1/75 (size of k2 neighborhood) - 0.001 to ensure inclusion/exclusion of previously examined k1s of interest/noninterest ##
 ```{r}
 refineranges <- list(
-  "0.08"=round(seq(0.281,0.521,by=(1/75)),3),
-  "0.12"=round(seq(0.119,0.281,by=(1/75)),3),
-  "0.16"=round(seq(0.0399,0.281,by=(1/75)),3),
-  "0.2"=round(seq(0.0399,0.201,by=(1/75)),3))
+  "0.08"=round(signif(seq(0.28,0.52,by=(1/75))),3),
+  "0.12"=round(signif(seq(0.2,0.28,by=(1/75))),3),
+  "0.16"=round(signif(seq(0.04,0.281,by=(1/75))),3),
+  "0.2"=round(signif(seq(0.04,0.200,by=(1/75))),3))
 refineranges<-lapply(refineranges,as.data.table)
 refineranges <- rbindlist(refineranges,idcol="k1")
 setnames(refineranges,2,"k2thresh")
 
+# then lop of 0.001 to ensure fractional thirds aren't problematic (.267 > 20/75, but we want to test k2thresh of ≥20/75:
+refineranges[,k2thresh:=k2thresh-0.001]
 ```
 
 ### we already checked these score ranges for having at least 20 cells in at least 16 donors.
@@ -212,7 +214,7 @@ stopifnot(all(unique(lcx$donor) %in% unique(lcv$brnum)))
 ### 
 ## subset LC visium to genes in xenium
 tmprd <- as.data.table(rowData(lcv),keep.rownames=T)
-tmprd <- tmprd[gene_name %in% rowData(lcx)$Symbol]
+tmprd <- tmprd[gene_id %in% rowData(lcx)$ID]
 keepg <- tmprd$rn
 
 lcv <- lcv[keepg,]

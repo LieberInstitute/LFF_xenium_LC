@@ -231,7 +231,7 @@ stopifnot(all(unique(lcx$donor) %in% unique(lcv$brnum)))
 ### 
 ## subset LC visium to genes in xenium
 tmprd <- as.data.table(rowData(lcv),keep.rownames=T)
-tmprd <- tmprd[gene_name %in% rowData(lcx)$Symbol]
+tmprd <- tmprd[gene_id %in% rowData(lcx)$ID]
 keepg <- tmprd$rn
 
 lcv <- lcv[keepg,]

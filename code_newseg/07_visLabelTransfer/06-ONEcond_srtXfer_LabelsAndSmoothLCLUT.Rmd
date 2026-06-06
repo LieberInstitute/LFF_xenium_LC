@@ -1,0 +1,155 @@
+---
+title: "05-ONEcond_srtXfer_LabelsAndSmoothLCLUT"
+format: html
+date: "06-06-2026"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(SpatialExperiment)
+# library(SpatialFeatureExperiment)
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options('styler.addins_style_transformer' = 'biocthis::bioc_style()')
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+library(parallel)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+
+## ggplot defaults
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+.08/.426
+0.12/199
+16/119
+20 079
+load smoothings, xenium, and manual xenium LC assignments
+```{r}
+## smoothings
+dualscores <- readRDS("processed-data_newseg/07_visLabelTransfer/02b-srtXferLCknnsmoothing_step2k75.RDS")
+dualscores <- dualscores[c("k1thresh_0.08","k1thresh_0.12","k1thresh_0.16","k1thresh_0.2")]
+
+dualscores8426 <- dualscores$k1thresh_0.08[,domain8426:=ifelse(greaterOrEqual(lcpred.smooth2.k75,round(0.4260,3)),"LC","Other")]
+
+dualscores12199 <- dualscores$k1thresh_0.12[,domain12199:=ifelse(greaterOrEqual(lcpred.smooth2.k75,round(0.1990,3)),"LC","Other")]
+
+dualscores16119 <- dualscores$k1thresh_0.16[,domain16119:=ifelse(greaterOrEqual(lcpred.smooth2.k75,round(0.1190,3)),"LC","Other")]
+
+dualscores20079 <- dualscores$k1thresh_0.2[,domain20079:=ifelse(greaterOrEqual(lcpred.smooth2.k75,round(0.0790,3)),"LC","Other")]
+
+srtdoms <- merge.data.table(dualscores8426[,.(rn,domain8426)],dualscores12199[,.(rn,domain12199)],by="rn")
+srtdoms <- merge.data.table(srtdoms,dualscores16119[,.(rn,domain16119)],by="rn")
+srtdoms <- merge.data.table(srtdoms,dualscores20079[,.(rn,domain20079)],by="rn")
+
+## append nmf predictions
+projlabs <- readRDS("processed-data_newseg/07_visLabelTransfer/01-VistoXen_NMFlabelxfer_tol1e8_k63_alph0.RDS")
+projlabs <- projlabs$targets
+projlabs <- lapply(projlabs,function(x){
+    x$nmf_preds <- as.character(x$nmf_preds)
+    y <- as.data.table(colData(x),keep.rownames=T)[,.(rn,nmf_preds)]
+    setnames(y,2,"SRTnmfpred")
+    return(y)
+})
+projlabs <- rbindlist(projlabs)
+
+## sanity check, merge
+stopifnot(length(unique(projlabs$rn))==length(unique(srtdoms$rn)))
+srtdoms <- merge.data.table(srtdoms,projlabs,by="rn")
+```
+
+Descriptive stats per domain definition:
+```{r}
+##
+nrow(srtdoms[SRTnmfpred=="LC"]) #8026
+nrow(srtdoms[domain8426=="LC"]) #38185
+nrow(srtdoms[domain8426=="LC"&SRTnmfpred=="LC"]) # 5826
+
+nrow(srtdoms[SRTnmfpred=="LC"]) # 8026 (total pred cells so same)
+nrow(srtdoms[domain12199=="LC"]) # #44189
+nrow(srtdoms[domain12199=="LC"&SRTnmfpred=="LC"]) # 5995
+
+nrow(srtdoms[domain16119=="LC"]) #38685
+nrow(srtdoms[domain16119=="LC"&SRTnmfpred=="LC"]) # 5539
+
+nrow(srtdoms[domain20079=="LC"]) # #32865
+nrow(srtdoms[domain20079=="LC"&SRTnmfpred=="LC"]) # 5080
+
+tabols <- melt.data.table(srtdoms,id.vars = c("rn","SRTnmfpred"))
+tabols <- tabols[value=="LC"]
+tabols[,timesInDom:=.N,by="rn"]
+
+### number of cells in any domain definition: 47798 (9.72%) 
+
+## number of cells in all domain definitions: 28562 (59.8% of cells in any LC domain)
+# length(tabols[timesInDom==4,unique(rn)])# /length(unique(tabols$rn))
+
+## number of cells unique to each definition
+tabols[timesInDom==1][,.N,by="variable"]
+#       variable     N
+#         <fctr> <int>
+# 1:  domain8426  1906
+# 2: domain12199  2933
+# 3: domain16119   564
+# 4: domain20079   335
+```
+
+save
+```{r}
+fwrite(srtdoms,"processed-data_newseg/07_visLabelTransfer/05-srtLCsmoothDoms_and_NMFpreds_lut.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.2
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+[1] parallelly_1.46.1   colorout_1.3-3      data.table_1.18.2.1
+
+loaded via a namespace (and not attached):
+ [1] digest_0.6.39     fastmap_1.2.0     xfun_0.56         knitr_1.51       
+ [5] htmltools_0.5.9   rmarkdown_2.30    cli_3.6.5         compiler_4.5.2   
+ [9] rprojroot_2.1.1   here_1.0.2        rstudioapi_0.18.0 tools_4.5.2      
+[13] evaluate_1.0.5    yaml_2.3.12       otel_0.2.0        rlang_1.1.7      
