@@ -2,7 +2,7 @@ baseNew = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processe
 baseSplit = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing/split_samples';
 outDir = fullfile(baseNew, 'registrations');
 
-inputFile = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/image_processing/inputs.txt';
+inputFile = '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/xenium_imageProcessing_new/inputs.txt';
 
 C = readcell(inputFile, ...
     'FileType', 'text', ...
