@@ -1,0 +1,35 @@
+**** Job starts ****
+Sun May 31 08:25:35 PM EDT 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 32314140
+Job name: NMseg
+Hostname: 
+Task id: 17
+Br5368
+[680577:680577:20260531,202537.177117:ERROR file_io.cc:94] ReadExactly: expected 40, observed 0
+[680577:680577:20260531,202537.177994:ERROR file_io_posix.cc:256] close: Disk quota exceeded (122)
+[680577:680577:20260531,202537.178025:FATAL file_io.cc:191] Check failed: LoggingCloseFile(file). 
+[680484:680573:20260531,202537.761897:ERROR socket.cc:120] recvmsg: Connection reset by peer (104)
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+[Warning: Unable to load Toolbox Path Cache
+/users/mtippani/.matlab/R2025a/toolbox_cache-25.1.0-1358856309-glnxa64.xml. The
+cache file is not in the correct format. It will be regenerated upon quitting
+MATLAB.] 
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Brnum: Br5368
+Converting RGB -> Lab...
+Elapsed time is 49.899536 seconds.
+Running k-means on a*b...
+Elapsed time is 114.815374 seconds.
+Done.
+>> **** Job ends ****
+Sun May 31 08:30:33 PM EDT 2026

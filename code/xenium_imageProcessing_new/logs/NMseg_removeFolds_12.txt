@@ -1,0 +1,65 @@
+**** Job starts ****
+Mon Jun  1 12:13:33 PM EDT 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 32323339
+Job name: NMseg_removeFolds
+Node name: compute-119
+Task id: 12
+
+Currently Loaded Modules:
+  1) JHPCE_ROCKY9_DEFAULT_ENV   2) JHPCE_tools/3.0   3) matlab/R2025a
+
+ 
+
+Br6098
+1
+[427631:427631:20260601,121335.964256:ERROR file_io.cc:94] ReadExactly: expected 40, observed 0
+[427631:427631:20260601,121335.965031:ERROR file_io_posix.cc:256] close: Disk quota exceeded (122)
+[427631:427631:20260601,121335.965071:FATAL file_io.cc:191] Check failed: LoggingCloseFile(file). 
+[427534:427628:20260601,121338.610090:ERROR socket.cc:120] recvmsg: Connection reset by peer (104)
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+[Warning: Unable to load Toolbox Path Cache
+/users/mtippani/.matlab/R2025a/toolbox_cache-25.1.0-1358856309-glnxa64.xml. The
+cache file is not in the correct format. It will be regenerated upon quitting
+MATLAB.] 
+Unable to load ApplicationService for command `client-v1`
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Br6098
+
+Md =
+
+    '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing_new/registrations'
+
+
+fname =
+
+    '/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing_new/registrations/Br6098/Kmeans_cluster.mat'
+
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+>> **** Job ends ****
+Mon Jun  1 12:16:14 PM EDT 2026

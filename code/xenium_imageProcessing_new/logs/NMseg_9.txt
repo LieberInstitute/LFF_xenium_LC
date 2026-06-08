@@ -1,0 +1,29 @@
+**** Job starts ****
+Sun May 31 08:19:06 PM EDT 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 32314049
+Job name: NMseg
+Hostname: 
+Task id: 9
+Br6476
+[678475:678475:20260531,201908.617113:ERROR file_io_posix.cc:226] flock: Resource deadlock avoided (35)
+[678475:678475:20260531,201908.619098:ERROR file_io_posix.cc:226] flock: Resource deadlock avoided (35)
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Brnum: Br6476
+Converting RGB -> Lab...
+Elapsed time is 63.123551 seconds.
+Running k-means on a*b...
+Elapsed time is 136.668816 seconds.
+Done.
+>> **** Job ends ****
+Sun May 31 08:24:52 PM EDT 2026

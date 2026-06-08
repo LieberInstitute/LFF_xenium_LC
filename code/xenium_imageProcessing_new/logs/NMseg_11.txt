@@ -1,0 +1,33 @@
+**** Job starts ****
+Sun May 31 08:23:00 PM EDT 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 32314096
+Job name: NMseg
+Hostname: 
+Task id: 11
+Br0942
+An error occurred while extracting product files.
+Try rerunning the installer.
+
+For help, see this <a href="https://www.mathworks.com/pi_ee_mci_glnxa64">support article</a>.
+An unexpected error has occurred.
+To resolve this issue, contact <a href="https://www.mathworks.com/pi_gene_mci_glnxa64">Technical Support</a>.
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Brnum: Br0942
+Converting RGB -> Lab...
+Elapsed time is 56.969795 seconds.
+Running k-means on a*b...
+Elapsed time is 170.487317 seconds.
+Done.
+>> **** Job ends ****
+Sun May 31 08:29:31 PM EDT 2026
