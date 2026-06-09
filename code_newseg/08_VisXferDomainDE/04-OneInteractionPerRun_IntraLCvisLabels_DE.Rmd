@@ -1,0 +1,470 @@
+---
+title: "04-OneInteractionPerRun_IntraLCVisLabels_DE"
+author: "Bernie Mulvey"
+date: "06-08-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(edgeR)
+library(limma)
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+library(parallel)
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+dgels <- readRDS("processed-data_newseg/08_VisXferDomainDE/03a-unfilt_unnorm_pbulk_bySRTpredLabel_withinSmoothedLCOnly_DGElists_2kctsampmin.RDS")
+
+dgels <- lapply(dgels,function(x){
+  ## change metadata colnames to match previous code
+  colnames(x$samples)[colnames(x$samples)=="clus"] <- "label"
+  
+  ## make a donor-level meta column
+  x$samples$donor <- gsub(x$samples$brnum,pattern="L",replacement="")
+  return(x)
+})
+```
+
+
+##### In the next SEVERAL blocks, we will define a function that runs each DE analysis so that we can parallelize across dgelists (categorical or continuous YRI) and analysis parameters (defined functions). #####
+
+##### MODEL 1: SEX DE (Sex_cluster "interaction" edgeR style #######
+####################################################################
+```{r}
+sexfun <- function(dgel,n){
+    dgelsex <- dgel
+    dgelsex$samples$label_sex <- paste0(dgelsex$samples$label, "_", dgel$samples$Sex)
+    
+    # design mat
+    des <- model.matrix(~0 + label_sex + APOEsimple + Age + YRI, data = dgelsex$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "label_sex", replacement = "")
+    
+    
+    # filter using design
+    dgelsex <- edgeR::normLibSizes(dgelsex)
+    keep <- filterByExpr.DGEList(dgelsex, design = des)
+    dgelsex <- dgelsex[keep, , keep.lib.sizes = FALSE]
+    dgelsex <- edgeR::normLibSizes(dgelsex)
+    
+    # define contrasts to pass to makeContrasts (we have to do it this way due to environment weirdness with parallelization)    contrasts_list <- list()
+    contrasts_list <- list()
+    for (current_label in unique(dgelsex$samples$label)) {
+        contrast_name <- paste0(current_label, "_Sex")
+        contrast_formula <- paste0(current_label, "_M - ", current_label, "_F")
+        
+        new_contrast <- list(contrast_formula)
+        names(new_contrast) <- contrast_name
+        contrasts_list <- c(contrasts_list, new_contrast)
+    }
+    trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
+
+    ## fit and fit contrasts
+    v.swt <- voomLmFit(dgelsex, design = des, block = as.factor(dgelsex$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+
+    ## get top tables, save an RDS with the DE results and other parts
+    sexlabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+    })
+    names(sexlabel_detabs) <- colnames(trastmat)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = dgelsex, trasts = trastmat, detabs = sexlabel_detabs)
+    
+    saveRDS(keeplist, paste0("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_sexlabel_noMixClusts_", n, ".RDS"))
+    gc(full = TRUE)
+}
+```
+
+#####################################################################
+##### MODEL 2: E2/E4 carrier status "interaction" edgeR style #######
+#####################################################################
+```{r}
+e2e4fun <- function(dgel,n){dgelE2E4 <- dgel
+    dgelE2E4$samples$APOlargeGrp <- ifelse(dgelE2E4$samples$APOE %in% c("E2hom", "E2het"), yes = "E2", no = "E4")
+    stopifnot(length(unique(dgelE2E4$samples$APOlargeGrp)) == 2)
+    dgelE2E4$samples$label_E2E4 <- paste0(dgelE2E4$samples$label, "_", dgelE2E4$samples$APOlargeGrp)
+    
+    des <- model.matrix(~0 + label_E2E4 + Sex + Age + YRI, data = dgelE2E4$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "label_E2E4", replacement = "")
+
+    # Filter using the design specified
+    dgelE2E4 <- edgeR::normLibSizes(dgelE2E4)
+    keep <- filterByExpr.DGEList(dgelE2E4, design = des)
+    dgelE2E4 <- dgelE2E4[keep, , keep.lib.sizes = FALSE]
+    dgelE2E4 <- edgeR::normLibSizes(dgelE2E4)
+    
+    # define contrasts to pass to makeContrasts (we have to do it this way due to environment weirdness with parallelization)
+    contrasts_list <- list()
+    for (current_label in unique(dgelE2E4$samples$label)) {
+        contrast_name <- paste0(current_label, "_E4vE2")
+        contrast_formula <- paste0(current_label, "_E4 - ", current_label, "_E2")
+        
+        new_contrast <- list(contrast_formula)
+        names(new_contrast) <- contrast_name
+        contrasts_list <- c(contrasts_list, new_contrast)
+    }
+    trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
+
+    ## fit and fit contrasts
+    v.swt <- voomLmFit(dgelE2E4, design = des, block = as.factor(dgelE2E4$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+
+    ## get top tables, save an RDS with the DE results and other parts
+    E2E4label_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+    })
+    names(E2E4label_detabs) <- colnames(trastmat)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = dgelE2E4, trasts = trastmat, detabs = E2E4label_detabs)
+                     
+    saveRDS(keeplist, paste0("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_E2E4label_noMixClusts_", n, ".RDS"))
+    gc(full = TRUE)}
+```
+
+##########################################################################
+#### MODEL 3: APOE alleles (E2hom/het, 4hom/het) "intxns" edgeR style ####
+##########################################################################
+```{r}
+apogenofun <- function(dgel,n){
+    dgelApoAlleles <- dgel
+    dgelApoAlleles$samples$label_apo <- paste0(dgelApoAlleles$samples$label, "_", dgelApoAlleles$samples$APOE)
+    
+    des <- model.matrix(~0 + label_apo + Sex + Age + YRI, data = dgelApoAlleles$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "label_apo", replacement = "")
+    
+    # filter using the design specified
+    dgelApoAlleles <- edgeR::normLibSizes(dgelApoAlleles)
+    keep <- filterByExpr.DGEList(dgelApoAlleles, design = des)
+    dgelApoAlleles <- dgelApoAlleles[keep, , keep.lib.sizes = FALSE]
+    dgelApoAlleles <- edgeR::normLibSizes(dgelApoAlleles)
+
+    contrasts_list <- list()
+    for (current_label in unique(dgelApoAlleles$samples$label)) {
+        # Create a named vector of contrast formulas for the current label;
+        # account for the fact that there are no E2hom pseudobulks for some intra-LC types
+        if(!(paste0(current_label,"_E2hom") %in% levels(des))){
+          formulas <- c(
+              paste0(current_label, "_E2het - (0.5*", current_label, "_E4het + 0.5*", current_label, "_E4hom)"),
+              paste0(current_label, "_E4hom - ", current_label, "_E2het"),
+              paste0(current_label, "_E4het - ", current_label, "_E2het"),
+              paste0(current_label, "_E4hom - ", current_label, "_E4het"),
+              paste0(current_label, "_E4hom - ((", current_label, "_E4het + ", current_label, "_E2het)/2)"))
+          names(formulas) <- paste0(current_label, c("_E2het_vs_anyE4", "_E4hom_vs_anyE2", "_E4het_vs_anyE2", "_E4hom_vs_E4het", "_E4hom_vs_others"))
+        } else {
+          formulas <- c(
+              paste0(current_label, "_E2hom - (0.5*", current_label, "_E4het + 0.5*", current_label, "_E4hom)"),
+              paste0(current_label, "_E2het - (0.5*", current_label, "_E4het + 0.5*", current_label, "_E4hom)"),
+              paste0(current_label, "_E4hom - (0.5*", current_label, "_E2het + 0.5*", current_label, "_E2hom)"),
+              paste0(current_label, "_E4het - (0.5*", current_label, "_E2het + 0.5*", current_label, "_E2hom)"),
+              paste0(current_label, "_E4hom - ", current_label, "_E4het"),
+              paste0(current_label, "_E4hom - ((", current_label, "_E4het + ", current_label, "_E2het + ", current_label, "_E2hom)/3)")
+          )
+          names(formulas) <- paste0(current_label, c("_E2hom_vs_anyE4", "_E2het_vs_anyE4", "_E4hom_vs_anyE2", "_E4het_vs_anyE2", "_E4hom_vs_E4het", "_E4hom_vs_others"))
+        }
+        contrasts_list <- c(contrasts_list, as.list(formulas))
+    }
+    trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
+
+    # fit and fit contrasts
+    v.swt <- voomLmFit(dgelApoAlleles, design = des, block = as.factor(dgelApoAlleles$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+
+    # get toptabs and other components, save
+    ApoAllelesLabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+    })
+    names(ApoAllelesLabel_detabs) <- colnames(trastmat)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = dgelApoAlleles, trasts = trastmat, detabs = ApoAllelesLabel_detabs)
+                     
+    saveRDS(keeplist, paste0("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_ApoAllelesLabel_noMixClusts_", n, ".RDS"))
+    gc(full = TRUE)
+}
+```
+
+#############################################################################
+#### MODEL 4: label-by-YRI (continuous) "intxns" edgeR style ####
+#############################################################################
+```{r}
+ancesfun <- function(dgel,n){
+    dgelances <- dgel
+    
+    # make design matrices based on YRI being continuous or categorical
+    if (is.numeric(dgelances$samples$YRI)) {
+        # Continuous YRI setup
+        des <- model.matrix(~label:YRI + Sex + APOEsimple + Age, data = dgelances$samples)
+        colnames(des) <- gsub(x = colnames(des), pattern = "^label(.*):YRI$", replacement = "\\1_by_YRI")
+        trastmat <- paste0(unique(dgelances$samples$label), "_by_YRI") # These are coefficients, not contrasts
+        stopifnot(all(trastmat %in% colnames(des)))
+    } else {
+        # Categorical YRI setup
+        dgelances$samples$labAnces <- paste0(dgelances$samples$label, "_", dgelances$samples$YRI)
+        des <- model.matrix(~0 + labAnces + Sex + APOEsimple + Age, data = dgelances$samples)
+        
+        contrasts_list <- list()
+        for (current_label in unique(dgelances$samples$label)) {
+            contrast_name <- paste0(current_label, "_YRI")
+            contrast_formula <- paste0("labAnces", current_label, "_YRI - labAnces", current_label, "_CEU")
+            
+            new_contrast <- list(contrast_formula)
+            names(new_contrast) <- contrast_name
+            contrasts_list <- c(contrasts_list, new_contrast)
+        }
+        trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
+    }
+    
+    # Filtering using appropriate design from above
+    dgelances <- edgeR::normLibSizes(dgelances)
+    keep <- filterByExpr.DGEList(dgelances, design = des)
+    dgelances <- dgelances[keep, , keep.lib.sizes = FALSE]
+    dgelances <- edgeR::normLibSizes(dgelances)
+
+    # Fit
+    v.swt <- voomLmFit(dgelances, design = des, block = as.factor(dgelances$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    
+    # Fit contrasts or coefficients depending on YRI type
+    if (is.numeric(dgelances$samples$YRI)) {
+        v.swt.fit <- contrasts.fit(v.swt, coefficients = trastmat)
+    } else {
+        v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    }
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+    
+    # Get results and other components, save
+    yrilabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+    })
+    names(yrilabel_detabs) <- colnames(v.swt.fit)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = dgelances, trasts = trastmat, detabs = yrilabel_detabs)
+
+    saveRDS(keeplist, paste0("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_AncesByLabel_noMixClusts_", n, ".RDS"))
+    gc(full = TRUE)
+}
+```
+
+#############################################################################
+####### MODEL 5: label*YRI*E4orE2 (cat-cat-cat) "intxns" edgeR style ########
+#############################################################################
+```{r}
+ancesapofun <- function(dgel,n){
+    if (is.numeric(dgel$samples$YRI)) {
+        message("Subsetting to 75%+ ancestry groups", n)
+      newsamp <- as.data.table(dgel$samples,keep.rownames=T)
+      newct <- dgel$counts
+      
+      newsamp <- newsamp[YRI>0.75|YRI<0.25]
+      newsamp[,YRIcat:=ifelse(YRI>0.75,"YRI","CEU")]
+      newct <- newct[,colnames(newct) %in% newsamp$rn]
+      newsamp <- as.data.frame(newsamp,row.names=newsamp$rn)[colnames(newct),]
+      newg <- as.data.frame(dgel$genes,row.names=rownames(dgel$genes))[rownames(newct),]
+      newdgel <- DGEList(counts=newct,samples=newsamp,genes=newg)
+    }
+  
+    # for the categorical data, set it up and go
+    newdgel$samples$APOlargeGrp <- ifelse(newdgel$samples$APOE %in% c("E2hom", "E2het"), yes = "E2", no = "E4")
+    newdgel$samples$lab_APOE_PredomAnces <- paste0(newdgel$samples$label, "_", newdgel$samples$APOlargeGrp, "_", newdgel$samples$YRIcat)
+    
+    # design matrix
+    des <- model.matrix(~0 + lab_APOE_PredomAnces + Sex + Age, data = newdgel$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "^lab_APOE_PredomAnces(.*)$", replacement = "\\1")
+    
+    # filter using the design
+    newdgel <- edgeR::normLibSizes(newdgel)
+    keep <- filterByExpr.DGEList(newdgel, design = des)
+    newdgel <- newdgel[keep, , keep.lib.sizes = FALSE]
+    newdgel <- edgeR::normLibSizes(newdgel)
+
+    # define contrasts
+    contrasts_list <- list()
+    for (current_label in unique(newdgel$samples$label)) {
+        formulas <- c(
+            paste0(current_label, "_E4_YRI - ", current_label, "_E4_CEU"),
+            paste0(current_label, "_E2_YRI - ", current_label, "_E2_CEU"),
+            paste0(current_label, "_E4_CEU - ", current_label, "_E2_CEU"),
+            paste0(current_label, "_E4_YRI - ", current_label, "_E2_YRI")
+        )
+        names(formulas) <- paste0(current_label, c("_E4YRI_vs_E4CEU", "_E2YRI_vs_E2CEU", "_E4CEU_vs_E2CEU", "_E4YRI_vs_E2YRI"))
+        contrasts_list <- c(contrasts_list, as.list(formulas))
+    }
+    trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
+
+    # fit, fit contrasts
+    v.swt <- voomLmFit(newdgel, design = des, block = as.factor(newdgel$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+
+    # get toptabs, other results, and save
+    yriapolabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        o <- as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+        return(o)
+    })
+    names(yriapolabel_detabs) <- colnames(v.swt.fit)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = newdgel, trasts = trastmat, detabs = yriapolabel_detabs)
+                     
+    saveRDS(keeplist, paste0("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_YRIAPOlabel_noMixClusts_", n, ".RDS"))
+    gc(full = TRUE)
+}
+```
+
+
+## now run all of these simultaneously
+```{r}
+funs <- list(sexfun,e2e4fun,apogenofun,ancesfun,ancesapofun)
+
+mapply(dgel=dgels,n=names(dgels),SIMPLIFY = FALSE,FUN=function(dgel,n){
+    lapply(X=funs,FUN=function(f){
+        f(dgel,n)
+    })
+})
+```
+
+## clean up, load the lists and concatenate into one giant result obj per domain definition set
+```{r}
+rm(list=ls())
+gc(full=T)
+```
+
+## load the tmp RDSes
+```{r}
+tmp04 <- list.files("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT",full.names = TRUE)
+tmp04 <- grep(tmp04,pattern="04b",value=T)
+dom8426 <- list.files("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT",pattern="8426_orxfer.RDS",full.names = TRUE)
+dom12199 <- list.files("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT",pattern="12199_orxfer.RDS",full.names = TRUE)
+dom16119 <- list.files("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT",pattern="16119_orxfer.RDS",full.names = TRUE)
+dom20079 <- list.files("processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT",pattern="20079_orxfer.RDS",full.names = TRUE)
+
+
+## combine into one metalist
+dom8426out <- lapply(dom8426,readRDS)
+names(dom8426out) <- gsub(dom8426,pattern="processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+
+dom12199out <- lapply(dom12199,readRDS)
+names(dom12199out) <- gsub(dom12199,pattern="processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+
+dom16119out <- lapply(dom16119,readRDS)
+names(dom16119out) <- gsub(dom16119,pattern="processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+
+dom20079out <- lapply(dom20079,readRDS)
+names(dom20079out) <- gsub(dom20079,pattern="processed-data_newseg/08_VisXferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+
+
+outlist <- list(dom8426=dom8426out, dom12199=dom12199out,dom16119=dom8426out, dom20079=dom20079out)
+
+saveRDS(outlist,"processed-data_newseg/08_VisXferDomainDE/04-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_withinLCsrtNMFpredTypes.RDS")
+```
+## can now delete 04bTMP RDSes.
+
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+[1] BiocParallel_1.44.0 parallelly_1.47.0   colorout_1.3-3     
+[4] edgeR_4.8.2         limma_3.66.0        data.table_1.18.2.1
+
+loaded via a namespace (and not attached):
+ [1] cli_3.6.5         knitr_1.51        rlang_1.1.7       xfun_0.56        
+ [5] otel_0.2.0        statmod_1.5.1     rprojroot_2.1.1   htmltools_0.5.9  
+ [9] locfit_1.5-9.12   rsconnect_1.7.0   rmarkdown_2.30    grid_4.5.2       
+[13] evaluate_1.0.5    fastmap_1.2.0     yaml_2.3.12       lifecycle_1.0.5  
+[17] compiler_4.5.2    codetools_0.2-20  here_1.0.2        rstudioapi_0.18.0
+[21] lattice_0.22-7    digest_0.6.39     tools_4.5.2      
+> sessioninfo::session_info()
+─ Session info ──────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/New_York
+ date     2026-06-08
+ rstudio  2026.01.1+403 Apple Blossom (desktop)
+ pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ──────────────────────────────────────────────────────────────────
+ package      * version  date (UTC) lib source
+ BiocParallel * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ cli            3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ codetools      0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
+ colorout     * 1.3-3    2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ data.table   * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ digest         0.6.39   2025-11-19 [1] CRAN (R 4.5.2)
+ edgeR        * 4.8.2    2025-12-23 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ evaluate       1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ fastmap        1.2.0    2024-05-15 [1] CRAN (R 4.5.0)
+ here           1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ htmltools      0.5.9    2025-12-04 [1] CRAN (R 4.5.2)
+ knitr          1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ lattice        0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle      1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ limma        * 3.66.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ locfit         1.5-9.12 2025-03-05 [1] CRAN (R 4.5.0)
+ otel           0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly   * 1.47.0   2026-04-17 [1] CRAN (R 4.5.2)
+ rlang          1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rmarkdown      2.30     2025-09-28 [1] CRAN (R 4.5.0)
+ rprojroot      2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ rsconnect      1.7.0    2025-12-06 [1] CRAN (R 4.5.2)
+ rstudioapi     0.18.0   2026-01-16 [1] CRAN (R 4.5.2)
+ sessioninfo    1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ statmod        1.5.1    2025-10-09 [1] CRAN (R 4.5.0)
+ xfun           0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ yaml           2.3.12   2025-12-10 [1] CRAN (R 4.5.2)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+─────────────────────────────────────────────────────────────────────────────
