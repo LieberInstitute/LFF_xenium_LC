@@ -1,0 +1,29 @@
+**** Job starts ****
+Sun May 31 08:19:06 PM EDT 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 32314041
+Job name: NMseg
+Hostname: 
+Task id: 1
+Br5529
+Unable to load ApplicationService for command `service`
+Unable to load ApplicationService for command `client-v1`
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Brnum: Br5529
+Converting RGB -> Lab...
+Elapsed time is 28.319066 seconds.
+Running k-means on a*b...
+Elapsed time is 61.709803 seconds.
+Done.
+>> **** Job ends ****
+Sun May 31 08:22:58 PM EDT 2026

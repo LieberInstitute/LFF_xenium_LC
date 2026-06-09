@@ -1,0 +1,53 @@
+**** Job starts ****
+Sun May 31 08:29:20 PM EDT 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 32314173
+Job name: NMseg
+Hostname: 
+Task id: 21
+Br6297
+[909439:909439:20260531,202922.412201:ERROR settings.cc:405] Settings magic is not 1129342067
+[909439:909439:20260531,202922.412897:ERROR file_io.cc:140] write: Disk quota exceeded (122)
+[909439:909439:20260531,202922.413033:ERROR settings.cc:405] Settings magic is not 1129342067
+[909439:909439:20260531,202922.414064:ERROR file_io.cc:140] write: Disk quota exceeded (122)
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+[Warning: Unable to load Toolbox Path Cache
+/users/mtippani/.matlab/R2025a/toolbox_cache-25.1.0-1358856309-glnxa64.xml. The
+cache file is not in the correct format. It will be regenerated upon quitting
+MATLAB.] 
+Unable to load ApplicationService for command `client-v1`
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Brnum: Br6297
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Converting RGB -> Lab...
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Elapsed time is 46.781788 seconds.
+Running k-means on a*b...
+Elapsed time is 131.066204 seconds.
+Done.
+>> **** Job ends ****
+Sun May 31 08:35:24 PM EDT 2026

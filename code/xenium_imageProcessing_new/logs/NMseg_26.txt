@@ -1,0 +1,53 @@
+**** Job starts ****
+Sun May 31 08:30:18 PM EDT 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 32314178
+Job name: NMseg
+Hostname: 
+Task id: 26
+Br6263
+[562949:562949:20260531,203020.590452:ERROR file_io.cc:94] ReadExactly: expected 40, observed 0
+[562949:562949:20260531,203020.591181:ERROR file_io_posix.cc:256] close: Disk quota exceeded (122)
+[562949:562949:20260531,203020.591221:FATAL file_io.cc:191] Check failed: LoggingCloseFile(file). 
+[562852:562943:20260531,203022.164958:ERROR socket.cc:120] recvmsg: Connection reset by peer (104)
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+[Warning: Unable to load Toolbox Path Cache
+/users/mtippani/.matlab/R2025a/toolbox_cache-25.1.0-1358856309-glnxa64.xml. The
+cache file is not in the correct format. It will be regenerated upon quitting
+MATLAB.] 
+Unable to load ApplicationService for command `client-v1`
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Brnum: Br6263
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Converting RGB -> Lab...
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+Elapsed time is 51.190626 seconds.
+Running k-means on a*b...
+Elapsed time is 128.090979 seconds.
+Done.
+>> **** Job ends ****
+Sun May 31 08:36:24 PM EDT 2026

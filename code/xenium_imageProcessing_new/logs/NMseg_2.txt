@@ -1,0 +1,34 @@
+**** Job starts ****
+Sun May 31 08:19:06 PM EDT 2026
+**** JHPCE info ****
+User: mtippani
+Job id: 32314042
+Job name: NMseg
+Hostname: 
+Task id: 2
+Br5415
+[551463:551463:20260531,201908.749863:ERROR file_io_posix.cc:256] close: Disk quota exceeded (122)
+[551463:551463:20260531,201908.749946:FATAL file_io.cc:191] Check failed: LoggingCloseFile(file). 
+[551327:551457:20260531,201910.448238:ERROR socket.cc:120] recvmsg: Connection reset by peer (104)
+Unable to load ApplicationService for command `client-v1`
+Unable to load ApplicationService for command `client-v1`
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2024 The MathWorks, Inc.
+             R2025a Update 1 (25.1.0.2973910) 64-bit (glnxa64)
+                                July 3, 2025
+
+ 
+To get started, type doc.
+For product information, visit www.mathworks.com.
+ 
+Brnum: Br5415
+Converting RGB -> Lab...
+Elapsed time is 53.735245 seconds.
+Running k-means on a*b...
+An unexpected error has occurred.
+To resolve this issue, contact <a href="https://www.mathworks.com/pi_gene_mci">Technical Support</a>.
+Elapsed time is 149.328265 seconds.
+Done.
+>> **** Job ends ****
+Sun May 31 08:25:18 PM EDT 2026
