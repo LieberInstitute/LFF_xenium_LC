@@ -35,9 +35,10 @@ library(parallel)
 spe <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 
 ## get image filepaths
-brainz <- list.files("processed-data/xenium_imageProcessing_new",recursive = FALSE)
+brainz <- list.files("processed-data/xenium_imageProcessing_new/registrations/",pattern="_registered.png",recursive = FALSE)
 brainz.dt <- as.data.table(cbind(brainz,gsub(brainz,pattern="-L",replacement="L")))
 setnames(brainz.dt,c("dir","brnum"))
+brainz.dt[,brnum:=gsub(brnum,pattern="^(Br.*)_registered\\.png",replacement="\\1")
 brainz.dt <- brainz.dt[brnum %in% spe$brnum]
 
 stopifnot(all(unique(spe$brnum) %in% brainz.dt$brnum))
@@ -52,10 +53,15 @@ brainz.dt <- fread("processed-data_newseg/02_QC/05-tmpbrainzdt.txt")
 
 guess we can't parallelize something png-y here. so iterate...
 ```{r}
+if(!dir.exists("processed-data/xenium_imageProcessing_new/HE_DAPIregist_lowres")){
+  dir.create("processed-data/xenium_imageProcessing_new/HE_DAPIregist_lowres")  
+}
+
 b<-1
+
 for (b in c(1:nrow(brainz.dt))){
     samp <- brainz.dt[b,brnum]
-    fullres.path <- paste0("processed-data/xenium_imageProcessing_new/registrations/",brainz.dt[b,dir],"_HE.png")
+    fullres.path <- paste0("processed-data/xenium_imageProcessing_new/registrations/",brainz.dt[b,dir])
     
     ## make an output directory for our files
     if (!dir.exists(paste0("processed-data/xenium_imageProcessing_new/HE_DAPIregist_lowres/",samp))){
@@ -124,7 +130,7 @@ length(unique(outspe$brnum)) ##
 
 save
 ```{r}
-saveRDS(outspe,"processed-data_newseg/02_QC/05a-spe_filtered_genetargonly_log-and-nonlog-norms_withLowresHEs_needaligning.RDS")
+saveRDS(outspe,"processed-data_newseg/02_QC/05a-spe_filtered_genetargonly_log-and-nonlog-norms_withLowresHEs.RDS")
 ```
 
 
