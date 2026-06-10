@@ -1,0 +1,265 @@
+Processing Br0942
+[1] 6.020524 4.399440                                                                                              
+[1] 6.906824 9.983499
+[1]  8.077621 11.693035
+[1] 13.914760 10.516700  8.602879
+[1] 9.847697 6.329853
+[1]  8.588306 12.370645
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br0942_NM_xenium_cell_matches.csv
+Processing Br0946
+[1] 4.628997 3.184517                                                                                              
+[1] 2.349913 8.016804
+[1] 12.37073 13.42026
+[1]  9.201363 11.227881
+[1] 9.216283 2.630757
+[1] 10.028355  7.486177
+[1] 10.280831  8.652295
+[1] 9.772936 1.974079
+[1]  3.988199  8.407478 10.140077
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br0946_NM_xenium_cell_matches.csv
+Processing Br1039-L
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br1039-L_NM_xenium_cell_matches.csv
+Processing Br1039
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br1039_NM_xenium_cell_matches.csv
+Processing Br1105
+[1] 7.260941 8.921763                                                                                              
+[1]  1.952743 11.487430
+[1]  6.989402 11.867552
+[1]  6.089219 12.257476
+[1] 8.856109 8.742541
+[1] 11.61084  8.06746
+[1] 5.629098 9.455997
+[1] 7.039579 9.106808
+[1] 8.850161 8.955352
+[1] 11.103447  4.819699
+[1]  9.542459 10.021013
+[1]  9.108656 12.685547
+[1] 10.71584 10.12719
+[1] 12.665253  6.443954
+[1] 10.124882  2.778272
+[1] 6.711409 9.268831
+[1] 9.563513 1.434136
+[1]  8.964497 12.868255
+[1] 5.534525 8.976883
+[1] 8.550786 8.601122
+[1]  9.35741 10.36687
+[1]  3.674005 10.416275
+[1] 13.6484  2.3417
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br1105_NM_xenium_cell_matches.csv
+Processing Br1285
+[1] 2.523192 1.256345                                                                                              
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br1285_NM_xenium_cell_matches.csv
+Processing Br1556
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br1556_NM_xenium_cell_matches.csv
+Processing Br1691-L
+[1] 11.056473  7.959673                                                                                            
+[1] 3.221441 9.740804
+[1] 8.396637 8.070028
+[1] 8.822057 6.849648
+[1] 8.968430 7.879712
+[1] 7.983685 9.231074
+[1] 6.818174 4.397365
+[1] 2.872277 2.206662
+[1]  2.75735 10.27371
+[1] 2.3482125 0.1854865
+[1] 7.243795 4.638555
+[1] 11.74035 10.87126
+[1] 3.285957 8.947549
+[1] 4.063525 4.331133
+[1] 10.013466  7.392946
+[1] 7.704150 8.165355
+[1] 8.532047 9.932825
+[1] 10.182761  3.028349
+[1] 8.774318 8.051603
+[1]  7.729177 11.896350
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br1691-L_NM_xenium_cell_matches.csv
+Processing Br1691
+[1] 10.028669  7.057697                                                                                            
+[1] 11.792172  3.982201
+[1] 8.730649 8.125111 4.583126
+[1] 7.525089 1.126599 8.988178
+[1]  4.785495 11.719528  7.123437 11.105792
+[1]  5.958959 11.029398
+[1]  6.284336 10.236176
+[1]  3.235965 11.385437
+[1] 11.16451 10.24225
+[1] 8.983247 4.924317
+[1]  7.272548 12.102707
+[1] 10.022587  6.013596
+[1] 11.697813  5.848712
+[1] 10.172203  9.324786
+[1] 10.601741  2.476496  9.234812  7.789502 11.907646
+[1] 6.871616 9.709623
+[1]  4.854596 12.905206
+[1] 9.585473 1.616793
+[1] 5.224535 4.388182
+[1] 1.7218576 0.9454993
+[1]  7.413878 10.190419
+[1] 10.052067  4.804455
+[1] 9.988405 9.403378
+[1]  4.916224 10.090483
+[1] 5.849754 8.472913
+[1] 7.294224 5.210500
+[1] 2.239231 5.701507
+[1] 12.524159  1.234931
+[1] 6.121615 8.457353
+[1] 12.088831  5.514778
+[1] 7.795640 9.992733
+[1] 5.715733 7.405035
+[1] 8.198189 6.088881
+[1] 8.316134 3.508024
+[1] 10.831009  7.282492
+[1] 6.561082 9.282330
+[1] 7.437682 5.129859
+[1] 6.035513 3.822876
+[1] 12.11841  7.55809
+[1] 9.284778 9.501076
+[1] 8.999844 4.166982
+[1] 13.35535 10.71621
+[1] 9.561333 1.370025
+[1]  9.980761 12.739928
+[1]  0.8956092 12.4624769
+[1] 2.207384 7.450417 9.935881
+[1] 9.221725 9.637057
+[1] 7.924935 7.860667
+[1] 11.052684  8.275865
+[1] 7.094535 7.997166
+[1] 7.928931 8.837773
+[1] 13.450511  8.064487
+[1] 10.27984  8.70081
+[1] 12.61509  5.41744
+[1] 1.653682 8.237201
+[1] 1.466156 5.611413
+[1]  5.036751 12.154597
+[1]  1.819682 12.322665
+[1] 7.982807 9.879986
+[1] 12.188495  8.042833  4.339429
+[1] 9.712154 6.261351
+[1] 6.308773 5.607845
+[1] 12.978207  5.209004
+[1] 11.68951 10.82722
+[1] 10.11535 10.69483 11.88664
+[1]  9.67506 10.65561
+[1] 0.972688 9.258036
+[1] 11.758524  3.294793
+[1]  5.002379 10.231838
+[1] 6.428127 8.130907
+[1]  9.613897 10.235055
+[1] 10.712049  8.694156
+[1]  7.838268 12.453282
+[1] 9.269380 2.499761 6.244590
+[1] 10.772562  7.551619
+[1] 10.51224 10.25342
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br1691_NM_xenium_cell_matches.csv
+Processing Br1706
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br1706_NM_xenium_cell_matches.csv
+Processing Br1884
+[1] 6.758608 4.527616                                                                                              
+[1] 6.600372 6.166069
+[1] 5.332298 6.165712
+[1]  3.771903 12.156659
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br1884_NM_xenium_cell_matches.csv
+Processing Br2305-L
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br2305-L_NM_xenium_cell_matches.csv
+Processing Br2305
+[1]  8.9824421  2.3112766  0.5651945  7.2976473  9.3683489 11.5003559                                              
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br2305_NM_xenium_cell_matches.csv
+Processing Br2582
+[1] 9.648200 9.281678                                                                                              
+[1] 8.754652 6.117426
+[1] 6.765445 6.186707
+[1] 7.746455 4.291958
+[1] 4.632303 8.315644
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br2582_NM_xenium_cell_matches.csv
+Processing Br3974
+[1] 4.431532 5.606915                                                                                              
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br3974_NM_xenium_cell_matches.csv
+Processing Br5367
+[1] 13.162736  4.550264                                                                                            
+[1] 6.078816 9.640948
+[1] 10.004195  8.350965
+[1]  9.141006 12.281802 11.714522
+[1]  5.480533 11.937610
+[1] 9.491272 8.684357
+[1] 9.762740 5.670384
+[1] 11.121502  8.396922
+[1] 12.52502 10.11295
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5367_NM_xenium_cell_matches.csv
+Processing Br5368
+[1]  5.952052 10.129778                                                                                            
+[1] 7.401642 9.927473 8.346830
+[1] 6.002384 2.093442
+[1] 9.181258 9.985206
+[1] 10.190835  8.830715
+[1] 4.981927 3.381002
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5368_NM_xenium_cell_matches.csv
+Processing Br5415
+[1] 5.444483 5.895087                                                                                              
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5415_NM_xenium_cell_matches.csv
+Processing Br5426
+[1]  8.497222 11.262168                                                                                            
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5426_NM_xenium_cell_matches.csv
+Processing Br5460
+[1] 6.165378 2.965769                                                                                              
+[1]  7.491793 10.477929
+[1] 9.064280 4.395206
+[1] 11.866874  2.463823
+[1] 8.462906 7.886268
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5460_NM_xenium_cell_matches.csv
+Processing Br5529
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5529_NM_xenium_cell_matches.csv
+Processing Br5634
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5634_NM_xenium_cell_matches.csv
+Processing Br5854-L
+[1] 4.035344 3.525933                                                                                              
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5854-L_NM_xenium_cell_matches.csv
+Processing Br5854
+[1] 2.013987 7.713209                                                                                              
+[1] 10.493170  8.807784
+[1]  7.823013 13.316909
+[1] 4.840804 2.300246
+[1]  5.044228 10.179463
+[1] 9.951336 6.005918
+[1] 6.501667 7.620406
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5854_NM_xenium_cell_matches.csv
+Processing Br5941
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br5941_NM_xenium_cell_matches.csv
+Processing Br6085
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br6085_NM_xenium_cell_matches.csv
+Processing Br6098
+[1] 3.261065 4.291417                                                                                              
+[1] 4.547621 2.568673
+[1] 5.242469 7.692690
+[1] 9.298421 1.908152
+[1] 1.902592 9.050894
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br6098_NM_xenium_cell_matches.csv
+Processing Br6119
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br6119_NM_xenium_cell_matches.csv
+Processing Br6222
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br6222_NM_xenium_cell_matches.csv
+Processing Br6263
+[1]  8.748101 11.691656                                                                                            
+[1] 10.609325  8.591262
+[1] 7.9062504 0.5517049
+[1] 9.979002 7.144418
+[1] 9.865775 6.493876
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br6263_NM_xenium_cell_matches.csv
+Processing Br6297
+[1]  8.550119 10.295409                                                                                            
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br6297_NM_xenium_cell_matches.csv
+Processing Br6423
+[1] 6.626698 9.315040                                                                                              
+[1]  3.90273 10.88850
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br6423_NM_xenium_cell_matches.csv
+Processing Br6476
+[1] 7.025029 6.931641                                                                                              
+[1] 5.648983 7.544726
+[1] 10.454955  8.123975
+[1] 10.071980  5.546876
+[1] 10.248055  5.697578
+[1]  8.883554 10.186503
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br6476_NM_xenium_cell_matches.csv
+Processing Br6538
+[1] 8.347530 4.624964                                                                                              
+[1] 5.677822 2.038738 8.554761
+Saved /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/01_spe/NMDAPInewseg_rawSPE/Br6538_NM_xenium_cell_matches.csv
