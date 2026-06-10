@@ -133,7 +133,7 @@ for (spe_file in spe_files) {
 
   match_df <- bind_rows(match_list)
   multi_matches <- match_df %>%
-      filter(NM_bbox_n_cells == 1)
+      filter(NM_bbox_n_cells > 1)
 
   nrow(multi_matches)
   head(multi_matches)
