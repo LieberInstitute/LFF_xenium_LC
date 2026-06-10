@@ -22,7 +22,7 @@ for (spe_file in spe_files) {
 
   spe <- readRDS(spe_file)
 
-  nm_csv <- file.path(reg_dir, brain, "NM_regionprops.csv")
+  nm_csv <- file.path(reg_dir, brain, "NM_regionprops1.csv")
 
   if (!file.exists(nm_csv)) {
     warning("Missing NM_regionprops.csv for ", brain)
@@ -30,7 +30,7 @@ for (spe_file in spe_files) {
   }
 
   nm <- read_csv(nm_csv, show_col_types = FALSE)
-  nm <- nm %>%filter(Area >= 10)
+  nm <- nm %>%filter(Area >= 20)
   if (nrow(nm) == 0) {
     write_csv(
       tibble(
@@ -65,10 +65,15 @@ for (spe_file in spe_files) {
       #xmax = BBox_X + BBox_Width,
 	  #ymin = BBox_Y,
 	  #ymax = BBox_Y + BBox_Height,
-	  xmin = Centroid_X-10,
-	  xmax = Centroid_X+10,
-	  ymin = Centroid_Y-10,
-	  ymax = Centroid_Y+10
+	  #xmin = Centroid_X-10,
+	  #xmax = Centroid_X+10,
+	  #ymin = Centroid_Y-10,
+	  #ymax = Centroid_Y+10,
+	  xmin = WeightedCentroid_X-10,
+	  xmax = WeightedCentroid_X+10,
+	  ymin = WeightedCentroid_Y-10,
+	  ymax = WeightedCentroid_Y+10
+	  
     )
 
   match_list <- vector("list", nrow(nm))
@@ -91,6 +96,8 @@ for (spe_file in spe_files) {
         NM_object_id = nm$NM_object_id[j],
         NM_mean_intensity = nm$MeanIntensity[j],
         NM_max_intensity = nm$MaxIntensity[j],
+        NM_min_intensity = nm$MinIntensity[j],
+        NM_median_intensity = nm$MedianIntensity[j],
         NM_area = nm$Area[j],
         NM_centroid_x_px = nm$Centroid_X[j],
         NM_centroid_y_px = nm$Centroid_Y[j],
@@ -109,17 +116,20 @@ for (spe_file in spe_files) {
         (cell_x_px[inside] - nm$Centroid_X[j])^2 +
           (cell_y_px[inside] - nm$Centroid_Y[j])^2
       )
+	  print(d)
       matched <- inside[which.min(d)]
 	  matched_dist_px <- min(d)
       status <- "multiple_cells_in_bbox_closest_used"
     }
-
+	
     match_list[[j]] <- tibble(
       brain = brain,
       cell_id = cell_id[matched],
       NM_object_id = nm$NM_object_id[j],
       NM_mean_intensity = nm$MeanIntensity[j],
       NM_max_intensity = nm$MaxIntensity[j],
+      NM_min_intensity = nm$MinIntensity[j],
+      NM_median_intensity = nm$MedianIntensity[j],
       NM_area = nm$Area[j],
       NM_centroid_x_px = nm$Centroid_X[j],
       NM_centroid_y_px = nm$Centroid_Y[j],
@@ -127,7 +137,8 @@ for (spe_file in spe_files) {
       matched_cell_y_px = cell_y_px[matched],
       NM_bbox_n_cells = n_inside,
       NM_bbox_ambiguous = n_inside > 1,
-      match_status = status
+      match_status = status,
+	  matched_dist_px = matched_dist_px
     )
   }
 
