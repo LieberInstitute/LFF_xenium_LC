@@ -15,7 +15,7 @@ myfiles = dir(fullfile(Md,id,'*.xml'));
 		    patch = patchNodes.item(i);
 		    titleAttr = char(patch.getAttribute('title'));
 		    
-		    if contains(titleAttr, 'HE')
+		    if contains(titleAttr, 'sample_05')
 		        % Get transform string and parse values
 		        transformStr = char(patch.getAttribute('transform'));
 		        tokens = regexp(transformStr, 'matrix\((.*)\)', 'tokens');
