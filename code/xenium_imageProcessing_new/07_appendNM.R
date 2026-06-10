@@ -8,7 +8,7 @@ Md <- "/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC"
 spe_dir <- file.path(Md, "processed-data/01_spe/NMDAPInewseg_rawSPE")
 reg_dir <- file.path(Md, "processed-data/xenium_imageProcessing_new/registrations")
 
-out_dir <- file.path(Md, "processed-data/xenium_imageProcessing_new/NM_xenium_cell_matches")
+out_dir <- file.path(Md, "processed-data/01_spe/NMDAPInewseg_rawSPE")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 mpp <- 0.2125
@@ -30,7 +30,7 @@ for (spe_file in spe_files) {
   }
 
   nm <- read_csv(nm_csv, show_col_types = FALSE)
-
+  nm <- nm %>%filter(Area >= 10)
   if (nrow(nm) == 0) {
     write_csv(
       tibble(
@@ -56,15 +56,19 @@ for (spe_file in spe_files) {
   ## SPE coords are microns, convert to registered image pixels
   cell_x_px <- coords[, 1] / mpp
   cell_y_px <- coords[, 2] / mpp
-  cell_id <- colnames(spe)
+  cell_id <- as.character(colData(spe)$cell_id)
 
   nm <- nm %>%
     mutate(
       NM_object_id = row_number(),
-      xmin = BBox_X,
-      xmax = BBox_X + BBox_Width,
-      ymin = BBox_Y,
-      ymax = BBox_Y + BBox_Height
+      #xmin = BBox_X,
+      #xmax = BBox_X + BBox_Width,
+	  #ymin = BBox_Y,
+	  #ymax = BBox_Y + BBox_Height,
+	  xmin = Centroid_X-10,
+	  xmax = Centroid_X+10,
+	  ymin = Centroid_Y-10,
+	  ymax = Centroid_Y+10
     )
 
   match_list <- vector("list", nrow(nm))
@@ -106,6 +110,7 @@ for (spe_file in spe_files) {
           (cell_y_px[inside] - nm$Centroid_Y[j])^2
       )
       matched <- inside[which.min(d)]
+	  matched_dist_px <- min(d)
       status <- "multiple_cells_in_bbox_closest_used"
     }
 
@@ -127,7 +132,13 @@ for (spe_file in spe_files) {
   }
 
   match_df <- bind_rows(match_list)
+  multi_matches <- match_df %>%
+      filter(NM_bbox_n_cells == 1)
 
+  nrow(multi_matches)
+  head(multi_matches)
+  dim(multi_matches)
+  as.data.frame(multi_matches)
   out_csv <- file.path(out_dir, paste0(brain, "_NM_xenium_cell_matches.csv"))
   write_csv(match_df, out_csv)
 
