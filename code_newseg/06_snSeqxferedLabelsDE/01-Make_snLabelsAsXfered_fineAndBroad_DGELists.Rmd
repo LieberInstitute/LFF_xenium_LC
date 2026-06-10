@@ -1,7 +1,7 @@
 ---
-title: "06-Make_VisLabelsAsXfered_DGELists"
+title: "01-Make_snLabelsAsXfered_fineAndBroad_DGELists"
 author: "Bernie Mulvey"
-date: "03-18-26"
+date: "06-09-26"
 output: html_document
 ---
 
@@ -15,12 +15,24 @@ library(dreamlet)
 library(edgeR)
 library(limma)
 library(SpatialExperiment)
+library(WeberDivechaLCdata)
 
 ## rstudio GUI tweaks
 require(colorout)
 ColorOut()
 options("styler.addins_style_transformer" = "biocthis::bioc_style()")
 ##
+
+
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
 
 ## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
 # OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
@@ -39,13 +51,36 @@ unloadNamespace("datasets")
 DE using the nmfpred labels directly--disregarding the multi-cell-type LC domain here.
 
 ```{r}
-xlc <- readRDS("processed-data/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+xlc <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 tmpcd <- as.data.table(colData(xlc),keep.rownames=T)
 
-lcd <- fread("processed-data/05_LabelTransfer/06-LCsmoothings_LUT.txt")
+## we'll also want the weber-divecha data (or its label data at least) here to make a DGEList with the coarser "label_merged" cell types. we did not consider the inhibitory subclusterings from this data, just the broad (label_merged) and granular all-cells (label) annotations
+lcsn <- WeberDivechaLCdata_singleNucleus()
 
-tmpcd <- merge.data.table(tmpcd,lcd[,.(rn,nmfpred)],by="rn")
+## ## recreate the clustering levels we used for SRT and Xenium (SRT repo, code dir 10 script 11):## so we will make a cluster hierarchy as follows: cluster_merged > label.
 
+# to ensure there's enough LCNE cells for RCTD to work with, change label_merged and then label itself to NE for any cell classified as supervised NE OR unsup. disregard the inhibitory subclusterings altogether.
+wdlut <- as.data.table(colData(lcsn),keep.rownames=T)
+wdlut[,label_merged:=as.character(label_merged)]
+wdlut[unsupervised_NE==TRUE,label_merged:="NE"]
+wdlut[supervised_NE==TRUE,label_merged:="NE"]
+
+## then, make label a character column of merged_label (parent) and label (granular clust #)--this is what we have as the nmf predicted labels for our xenium data
+wdlut[,label:=as.character(label)]
+wdlut[,label:=paste0(label_merged,"_",label)]
+
+## for NE neurons, disregard the granular cluster of origin since we're integrating several definition types now
+wdlut[label_merged=="NE",label:="NE"]
+wdlut <- unique(wdlut[,.(label,label_merged)])
+
+
+## finally, append this lookup table to the xen colData so we can also run DE at the level of the parent cell typees
+lcd <- fread("processed-data_newseg/04_snSeqLabelTransfer/06-wdLCsmoothings_LUT.txt")
+
+lcd <- merge.data.table(wdlut[,.(label,label_merged)],lcd[,.(rn,nmfpred)],by.x="label",by.y="nmfpred")
+
+## now append this (and a simple-2-way variable for apoe) to colData and put back on spe
+tmpcd <- merge.data.table(tmpcd,lcd,by="rn")
 tmpcd[,APOEsimple:=ifelse(APOE %in% c("E4hom","E4het"),"E4","E2")]
 tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(xlc),]
 tmpcd$rn <- NULL
@@ -54,43 +89,50 @@ colData(xlc) <- tmpcd
 ```
 
 ```{r}
-ag <- dreamlet::aggregateToPseudoBulk(xlc,assay="counts",sample_id="brnum",cluster_id = "nmfpred",BPPARAM = MulticoreParam(8))
+dgels <- lapply(c("label","label_merged"),function(l){
+  ag <- dreamlet::aggregateToPseudoBulk(xlc,assay="counts",sample_id="brnum",cluster_id = l,BPPARAM = MulticoreParam(8))
+    
+  agcd <- as.data.table(colData(ag),keep.rownames=T)
+  setnames(agcd,"rn","brnum")
   
-agcd <- as.data.table(colData(ag),keep.rownames=T)
-setnames(agcd,"rn","brnum")
-
-agn <- as.data.table(ag@int_colData$n_cells,keep.rownames=T)
-setnames(agn,"rn","clus")
-agn <- melt.data.table(agn,id.vars = "clus")
-setnames(agn,"variable","brnum")
-agn[,brnum:=as.character(brnum)]
-agn[,clus_brnum:=paste0(clus,"_",brnum)]
-agn <- agn[value>=10] ## these are the samples we want to keep to start: 10+ cells for domain type
-setnames(agn,"value","ncells")
-
+  agn <- as.data.table(ag@int_colData$n_cells,keep.rownames=T)
+  setnames(agn,"rn","clus")
+  agn <- melt.data.table(agn,id.vars = "clus")
+  setnames(agn,"variable","brnum")
+  agn[,brnum:=as.character(brnum)]
+  agn[,clus_brnum:=paste0(clus,"_",brnum)]
+  agn <- agn[value>=10] ## these are the samples we want to keep to start: 10+ cells for domain type
+  setnames(agn,"value","ncells")
   
-agm <- as.list(assays(ag))
-agc <- unlist(lapply(agm,function(x){sum(colSums(x)>2000)})) ## number of pseudobulks with 2000+ counts
-## only keep those where at least 10 samples meet that
-kpb <- names(agc[agc>=10])
-agn <- agn[clus %in% kpb]
-agm <- agm[kpb]
-  
-  ## now we want to make one giant sample matrix with the remaining samples
-agm.filt <- mapply(a=agm,n=names(agm),SIMPLIFY=FALSE,function(a,n){
-  a <- a[,colnames(a) %in% agn[clus==n]$brnum]
-  colnames(a) <- paste0(n,"_",colnames(a))
-  return(a)
+    
+  agm <- as.list(assays(ag))
+  agc <- unlist(mapply(x=agm,n=names(agm),SIMPLIFY=FALSE,function(x,n){
+    x <- x[,colnames(x) %in% agn[clus==n,brnum]]
+    if(is.vector(x)){return(0)} else {
+    sum(greaterOrEqual(colSums(x),2000))}})) ## number of pseudobulks with 10+ cells also having 2000+ counts ## number of pseudobulks with 2000+ counts in at least 10 samples
+  ## only keep those where at least 10 samples meet that
+  kpb <- names(agc[agc>=10])
+  agn <- agn[clus %in% kpb]
+  agm <- agm[kpb]
+    
+    ## now we want to make one giant sample matrix with the remaining samples
+  agm.filt <- mapply(a=agm,n=names(agm),SIMPLIFY=FALSE,function(a,n){
+    a <- a[,colnames(a) %in% agn[clus==n]$brnum]
+    colnames(a) <- paste0(n,"_",colnames(a))
+    return(a)
+  })
+  agm.filt <- do.call("cbind",agm.filt)
+    
+  # make a per cluster-donor samples table
+  agn <- merge.data.table(agn,agcd[,.(brnum,sample_id,Sex,APOE,APOEsimple,YRI,Age)],by="brnum")
+  stopifnot(all(agn$clus_brnum %in% colnames(agm.filt)))
+  agn <- as.data.frame(agn,row.names=agn$clus_brnum)[colnames(agm.filt),]
+  dge <- DGEList(counts=agm.filt, samples=agn)
+  return(dge)
 })
-agm.filt <- do.call("cbind",agm.filt)
-  
-# make a per cluster-donor samples table
-agn <- merge.data.table(agn,agcd[,.(brnum,sample_id,Sex,APOE,APOEsimple,YRI,Age)],by="brnum")
-stopifnot(all(agn$clus_brnum %in% colnames(agm.filt)))
-agn <- as.data.frame(agn,row.names=agn$clus_brnum)[colnames(agm.filt),]
-dge <- DGEList(counts=agm.filt, samples=agn)
+names(dgels) <- c("wdLabels","wdMergeLabels")
 
-saveRDS(dge,"processed-data/06_DomainDE/06-VisLabelsAsXfered_DGEList.rds")
+saveRDS(dgels,"processed-data_newseg/06_snSeqxferedLabelsDE/01-wdLabelsAsXfered_andCorrespLabelMerged_DGELists.rds")
 ```
 
 seshinf

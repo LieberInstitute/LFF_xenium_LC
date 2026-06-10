@@ -1,7 +1,7 @@
 ---
-title: "04-OneInteractionPerRun_StraightXferedlabels_withLCDomainLCcellprefilter_DE"
+title: "02-OneInteractionPerRun_SRTlabel_DE"
 author: "Bernie Mulvey"
-date: "03-02-26"
+date: "06-09-26"
 output: html_document
 ---
 
@@ -34,25 +34,20 @@ unloadNamespace("datasets")
 ```
 
 ```{r}
-dgels <- readRDS("processed-data/07_StraightVisLabelDE/03a-unfilt_unnorm_pbulk_labels_DGElists_2kctsampmin_LCdomainAsLCcellPrefilter.RDS")
+dge <- readRDS("processed-data_newseg/09_VisXferedLabelsDE/01a-unfilt_unnorm_pbulk_SRTnmfpreds_DGElist_2kctsampmin.RDS")
 
-colnames(dgels$samples)[colnames(dgels$samples)=="clus"] <- "label"
+## change metadata colnames to match previous code
+colnames(dge$samples)[colnames(dge$samples)=="clus"] <- "label"
+  
+## make a donor-level meta column
+dge$samples$donor <- gsub(dge$samples$brnum,pattern="L",replacement="")
 
-dgels$samples$donor <- gsub(dgels$samples$brnum,pattern="L",replacement="")
-
-newg <- as.data.frame(rownames(dgels$counts))
-colnames(newg) <- "gene_name"
-dgels$genes <- newg
-
-## for simplicity:
-dgels <- list(dgels)
-names(dgels) <- "DirectLabelXfer_LCdomprefilt"
 ```
 
 
 ##### In the next SEVERAL blocks, we will define a function that runs each DE analysis so that we can parallelize across dgelists (categorical or continuous YRI) and analysis parameters (defined functions). #####
 
-##### MODEL 1: SEX DE (Sex_cluster "interaction" edgeR style #######
+##### MODEL 1: SEX DE (Sex_cluster "interaction" edgeR style; APOE by carrier type #######
 ####################################################################
 ```{r}
 sexfun <- function(dgel,n){
@@ -60,7 +55,7 @@ sexfun <- function(dgel,n){
     dgelsex$samples$label_sex <- paste0(dgelsex$samples$label, "_", dgel$samples$Sex)
     
     # design mat
-    des <- model.matrix(~0 + label_sex + APOE + Age + YRI, data = dgelsex$samples)
+    des <- model.matrix(~0 + label_sex + APOEsimple + Age + YRI, data = dgelsex$samples)
     colnames(des) <- gsub(x = colnames(des), pattern = "label_sex", replacement = "")
     
     
@@ -96,7 +91,7 @@ sexfun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelsex, trasts = trastmat, detabs = sexlabel_detabs)
     
-    saveRDS(keeplist, paste0("processed-data/07_StraightVisLabelDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_sexlabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/09_VisXferedLabelsDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_sexlabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -105,7 +100,8 @@ sexfun <- function(dgel,n){
 ##### MODEL 2: E2/E4 carrier status "interaction" edgeR style #######
 #####################################################################
 ```{r}
-e2e4fun <- function(dgel,n){dgelE2E4 <- dgel
+e2e4fun <- function(dgel,n){
+    dgelE2E4 <- dgel
     dgelE2E4$samples$APOlargeGrp <- ifelse(dgelE2E4$samples$APOE %in% c("E2hom", "E2het"), yes = "E2", no = "E4")
     stopifnot(length(unique(dgelE2E4$samples$APOlargeGrp)) == 2)
     dgelE2E4$samples$label_E2E4 <- paste0(dgelE2E4$samples$label, "_", dgelE2E4$samples$APOlargeGrp)
@@ -145,12 +141,12 @@ e2e4fun <- function(dgel,n){dgelE2E4 <- dgel
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelE2E4, trasts = trastmat, detabs = E2E4label_detabs)
                      
-    saveRDS(keeplist, paste0("processed-data/07_StraightVisLabelDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_E2E4label_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/09_VisXferedLabelsDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_E2E4label_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)}
 ```
 
 ##########################################################################
-#### MODEL 3: APOE alleles (E2hom/het, 4hom/het) "intxns" edgeR style ####
+#### MODEL 3: APOE alleles (E2hom/het, 4hom/het) "intxns" edgeR style; APOE by diplotype ####
 ##########################################################################
 ```{r}
 apogenofun <- function(dgel,n){
@@ -196,13 +192,13 @@ apogenofun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelApoAlleles, trasts = trastmat, detabs = ApoAllelesLabel_detabs)
                      
-    saveRDS(keeplist, paste0("processed-data/07_StraightVisLabelDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_ApoAllelesLabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/09_VisXferedLabelsDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_ApoAllelesLabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
 
 #############################################################################
-#### MODEL 4: label-by-YRI (continuous) "intxns" edgeR style ####
+#### MODEL 4: label-by-YRI (continuous) "intxns" edgeR style; APOE by carrier type ####
 #############################################################################
 ```{r}
 ancesfun <- function(dgel,n){
@@ -211,7 +207,7 @@ ancesfun <- function(dgel,n){
     # make design matrices based on YRI being continuous or categorical
     if (is.numeric(dgelances$samples$YRI)) {
         # Continuous YRI setup
-        des <- model.matrix(~label:YRI + Sex + APOE + Age, data = dgelances$samples)
+        des <- model.matrix(~label:YRI + Sex + APOEsimple + Age, data = dgelances$samples)
         colnames(des) <- gsub(x = colnames(des), pattern = "^label(.*):YRI$", replacement = "\\1_by_YRI")
         trastmat <- paste0(unique(dgelances$samples$label), "_by_YRI") # These are coefficients, not contrasts
         stopifnot(all(trastmat %in% colnames(des)))
@@ -258,7 +254,7 @@ ancesfun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelances, trasts = trastmat, detabs = yrilabel_detabs)
 
-    saveRDS(keeplist, paste0("processed-data/07_StraightVisLabelDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_AncesByLabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/09_VisXferedLabelsDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_AncesByLabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -282,8 +278,7 @@ ancesapofun <- function(dgel,n){
     }
   
     # for the categorical data, set it up and go
-    newdgel$samples$APOlargeGrp <- ifelse(newdgel$samples$APOE %in% c("E2hom", "E2het"), yes = "E2", no = "E4")
-    newdgel$samples$lab_APOE_PredomAnces <- paste0(newdgel$samples$label, "_", newdgel$samples$APOlargeGrp, "_", newdgel$samples$YRIcat)
+    newdgel$samples$lab_APOE_PredomAnces <- paste0(newdgel$samples$label, "_", newdgel$samples$APOEsimple, "_", newdgel$samples$YRIcat)
     
     # design matrix
     des <- model.matrix(~0 + lab_APOE_PredomAnces + Sex + Age, data = newdgel$samples)
@@ -317,7 +312,6 @@ ancesapofun <- function(dgel,n){
     # get toptabs, other results, and save
     yriapolabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
         o <- as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
-        setnames(o,"genes","gene_name") ## force uniformimty with other results
         return(o)
     })
     names(yriapolabel_detabs) <- colnames(v.swt.fit)
@@ -325,20 +319,19 @@ ancesapofun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = newdgel, trasts = trastmat, detabs = yriapolabel_detabs)
                      
-    saveRDS(keeplist, paste0("processed-data/07_StraightVisLabelDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_YRIAPOlabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/09_VisXferedLabelsDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_YRIAPOlabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
 
 
-## now run all of these simultaneously
+## now run all of these * serially -- parallelization throwing an error now even though ive used an internal mclapply here before...
 ```{r}
 funs <- list(sexfun,e2e4fun,apogenofun,ancesfun,ancesapofun)
 
-mapply(dgel=dgels,n="Directxfer_LCdomprefilt",SIMPLIFY = FALSE,FUN=function(dgel,n){
-    mclapply(X=funs,mc.cores=5,FUN=function(f){
-        f(dgel,n)
-    })
+lapply(X=funs,FUN=function(f){
+    f(dge,"xferedSRTlabels")
+    return("done")
 })
 ```
 
@@ -350,16 +343,15 @@ gc(full=T)
 
 ## load the tmp RDSes
 ```{r}
-directxfers <- list.files("processed-data/07_StraightVisLabelDE/MODULARIZEDTMP_OUT",pattern=".RDS",full.names = TRUE)
-directxfers <- grep(directxfers,pattern="04bTMP",value=T)
+outres <- list.files("processed-data_newseg/09_VisXferedLabelsDE/MODULARIZEDTMP_OUT/",full.names=T)
 
 ## combine into one metalist
-xfers <- lapply(directxfers,readRDS)
-names(xfers) <- gsub(directxfers,pattern="processed-data/07_StraightVisLabelDE/MODULARIZEDTMP_OUT/04bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+outlist <- lapply(outres,readRDS)
+names(outlist) <- gsub(names(outlist),pattern="processed-data_newseg/09_VisXferedLabelsDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
 
-saveRDS(xfers,"processed-data/07_StraightVisLabelDE/04-VisLabelsAsTransferred_LCcellsFilteredtoLCDom_voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2.RDS")
+saveRDS(outlist,"processed-data_newseg/09_VisXferedLabelsDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_SRTlabelsAsXfered.RDS")
 ```
-## can now delete 04bTMP RDSes.
+## can now delete 02bTMP RDSes.
 
 ```{r}
 sessionInfo()
@@ -367,7 +359,7 @@ sessioninfo::session_info()
 ```
 R version 4.5.2 (2025-10-31)
 Platform: aarch64-apple-darwin20
-Running under: macOS Tahoe 26.2
+Running under: macOS Tahoe 26.3.1
 
 Matrix products: default
 BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
@@ -376,89 +368,66 @@ LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlap
 locale:
 [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
 
-time zone: America/Chicago
+time zone: America/New_York
 tzcode source: internal
 
 attached base packages:
 [1] parallel  stats     graphics  grDevices utils     methods   base     
 
 other attached packages:
-[1] ggplot2_4.0.2       BiocParallel_1.44.0 parallelly_1.46.1   colorout_1.3-3     
-[5] edgeR_4.8.2         limma_3.66.0        data.table_1.18.2.1
+[1] BiocParallel_1.44.0 parallelly_1.47.0   colorout_1.3-3     
+[4] edgeR_4.8.2         limma_3.66.0        data.table_1.18.2.1
 
 loaded via a namespace (and not attached):
- [1] gtable_0.3.6       dplyr_1.2.0        compiler_4.5.2     tidyselect_1.2.1  
- [5] dichromat_2.0-0.1  scales_1.4.0       yaml_2.3.12        fastmap_1.2.0     
- [9] statmod_1.5.1      lattice_0.22-7     here_1.0.2         R6_2.6.1          
-[13] labeling_0.4.3     generics_0.1.4     knitr_1.51         tibble_3.3.1      
-[17] rprojroot_2.1.1    pillar_1.11.1      RColorBrewer_1.1-3 rlang_1.1.7       
-[21] xfun_0.56          S7_0.2.1           otel_0.2.0         cli_3.6.5         
-[25] withr_3.0.2        magrittr_2.0.4     digest_0.6.39      grid_4.5.2        
-[29] locfit_1.5-9.12    rstudioapi_0.18.0  lifecycle_1.0.5    vctrs_0.7.1       
-[33] evaluate_1.0.5     glue_1.8.0         farver_2.1.2       sessioninfo_1.2.3 
-[37] codetools_0.2-20   rmarkdown_2.30     pkgconfig_2.0.3    tools_4.5.2       
-[41] htmltools_0.5.9   
+ [1] cli_3.6.5         knitr_1.51        rlang_1.1.7       xfun_0.56        
+ [5] otel_0.2.0        statmod_1.5.1     rprojroot_2.1.1   htmltools_0.5.9  
+ [9] locfit_1.5-9.12   rsconnect_1.7.0   rmarkdown_2.30    grid_4.5.2       
+[13] evaluate_1.0.5    fastmap_1.2.0     yaml_2.3.12       lifecycle_1.0.5  
+[17] compiler_4.5.2    codetools_0.2-20  here_1.0.2        rstudioapi_0.18.0
+[21] lattice_0.22-7    digest_0.6.39     tools_4.5.2      
 > sessioninfo::session_info()
-─ Session info ────────────────────────────────────────────────────────────────────
+─ Session info ──────────────────────────────────────────────────────────────
  setting  value
  version  R version 4.5.2 (2025-10-31)
- os       macOS Tahoe 26.2
+ os       macOS Tahoe 26.3.1
  system   aarch64, darwin20
  ui       RStudio
  language (EN)
  collate  en_US.UTF-8
  ctype    en_US.UTF-8
- tz       America/Chicago
- date     2026-02-28
- rstudio  2026.01.0+392 Apple Blossom (desktop)
+ tz       America/New_York
+ date     2026-06-08
+ rstudio  2026.01.1+403 Apple Blossom (desktop)
  pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
  quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
 
-─ Packages ────────────────────────────────────────────────────────────────────────
+─ Packages ──────────────────────────────────────────────────────────────────
  package      * version  date (UTC) lib source
  BiocParallel * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
  cli            3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
  codetools      0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
  colorout     * 1.3-3    2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
  data.table   * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
- dichromat      2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
  digest         0.6.39   2025-11-19 [1] CRAN (R 4.5.2)
- dplyr          1.2.0    2026-02-03 [1] CRAN (R 4.5.2)
  edgeR        * 4.8.2    2025-12-23 [1] https://bioc-release.r-universe.dev (R 4.5.2)
  evaluate       1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
- farver         2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
  fastmap        1.2.0    2024-05-15 [1] CRAN (R 4.5.0)
- generics       0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
- ggplot2      * 4.0.2    2026-02-03 [1] CRAN (R 4.5.2)
- glue           1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
- gtable         0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
  here           1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
  htmltools      0.5.9    2025-12-04 [1] CRAN (R 4.5.2)
  knitr          1.51     2025-12-20 [1] CRAN (R 4.5.2)
- labeling       0.4.3    2023-08-29 [1] CRAN (R 4.5.0)
  lattice        0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
  lifecycle      1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
  limma        * 3.66.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
  locfit         1.5-9.12 2025-03-05 [1] CRAN (R 4.5.0)
- magrittr       2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
  otel           0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
- parallelly   * 1.46.1   2026-01-08 [1] CRAN (R 4.5.2)
- pillar         1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
- pkgconfig      2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
- R6             2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
- RColorBrewer   1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ parallelly   * 1.47.0   2026-04-17 [1] CRAN (R 4.5.2)
  rlang          1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
  rmarkdown      2.30     2025-09-28 [1] CRAN (R 4.5.0)
  rprojroot      2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ rsconnect      1.7.0    2025-12-06 [1] CRAN (R 4.5.2)
  rstudioapi     0.18.0   2026-01-16 [1] CRAN (R 4.5.2)
- S7             0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
- scales         1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
  sessioninfo    1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
  statmod        1.5.1    2025-10-09 [1] CRAN (R 4.5.0)
- tibble         3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
- tidyselect     1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
- vctrs          0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
- withr          3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
  xfun           0.56     2026-01-18 [1] CRAN (R 4.5.2)
  yaml           2.3.12   2025-12-10 [1] CRAN (R 4.5.2)
 
@@ -466,4 +435,4 @@ loaded via a namespace (and not attached):
  [2] /Users/bmulvey/Library/R/arm64/4.5/library
  * ── Packages attached to the search path.
 
-───────────────────────────────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────────────────────────
