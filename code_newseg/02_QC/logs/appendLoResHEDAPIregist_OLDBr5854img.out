@@ -1,6 +1,6 @@
 **** JHPCE info ****
 User: bmulvey
-Job id: 32671323
+Job id: 32454311
 Job name: xLC_appendHE
 Hostname: 
 Task id: 
@@ -209,7 +209,7 @@ loaded via a namespace (and not attached):
  collate  en_US.UTF-8
  ctype    en_US.UTF-8
  tz       US/Eastern
- date     2026-06-10
+ date     2026-06-08
  pandoc   3.7.0.1 @ /jhpce/shared/community/core/conda_R/4.5/bin/pandoc
  quarto   NA
 
@@ -266,4 +266,4 @@ loaded via a namespace (and not attached):
 
 ──────────────────────────────────────────────────────────────────────────────
 **** Job ends ****
-Wed Jun 10 10:19:36 PM EDT 2026
+Mon Jun  8 02:05:25 AM EDT 2026
