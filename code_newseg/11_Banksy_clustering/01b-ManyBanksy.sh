@@ -17,7 +17,7 @@ echo "Task id: ${SLURM_ARRAY_TASK_ID}"
 module load conda_R/4.5
 
 ## run this script from code dir. each R process will read in a table of parameters and take the job array #s row of parameters to run banksy w
-cd /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code/04_Banksy_clusterings
+cd /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/code_newseg/11_Banksy_clustering
 Rscript --no-save --no-restore 01b-Many_Banksy.R
 
 echo "**** Job ends ****"

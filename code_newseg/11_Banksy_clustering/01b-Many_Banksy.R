@@ -129,7 +129,7 @@ outtabname <- gsub(pcaoutname,pattern="PCA_",replacement="")
 outtabname <- paste0(outtabname,"_kgeom",kgeom,"_louv05_louv1_louv2")
 
 fwrite(outtab,
-       paste0("processed-data_newseg/11_Banksy_clustering/01-banksy_clustruns_outs/banksyPCAs/",
+       paste0("processed-data_newseg/11_Banksy_clustering/01-banksy_clustruns_outs/banksyClusts/",
               outtabname,
               ".txt"),
        sep='\t',
