@@ -126,7 +126,7 @@ outtab <- merge.data.table(outtab,bclusts[[3]],by="rn")
 setnames(outtab,gsub(names(outtab),pattern="k25_res._",replacement="k25_"))
 
 outtabname <- gsub(pcaoutname,pattern="PCA_",replacement="")
-outtabname <- paste0(outtabname,"_kgeom",kgeom,"_louv05_louv1_louv2.txt")
+outtabname <- paste0(outtabname,"_kgeom",kgeom,"_louv05_louv1_louv2")
 
 fwrite(outtab,
        paste0("processed-data_newseg/11_Banksy_clustering/01-banksy_clustruns_outs/banksyPCAs/",
