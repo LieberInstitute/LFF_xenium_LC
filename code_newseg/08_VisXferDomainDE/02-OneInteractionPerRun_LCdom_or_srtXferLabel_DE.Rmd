@@ -1,5 +1,5 @@
 ---
-title: "02-OneInteractionPerRun_LCdom_or_snSeqLab_DE"
+title: "02-OneInteractionPerRun_LCdom_or_SRTLab_DE"
 author: "Bernie Mulvey"
 date: "06-08-26"
 output: html_document

@@ -58,9 +58,30 @@ fwrite(wdLabmerres,"processed-data_newseg/06_snSeqxferedLabelsDE/03-XenXfered_wd
 
 explor
 ```{r}
-wdLabelres[label %in% grep(label,pattern="ast",value=T)&contrast=="E4vE2"&adj.P.Val<0.1,.(gene_name,contrast,label,logFC,adj.P.Val)]
+wdLabelres[label %in% grep(label,pattern="ast",value=T)&contrast=="E4vE2"&adj.P.Val<0.1,.(gene_name,contrast,label,logFC,adj.P.Val)] ## interesting, PLPP3, FGFR3, and NTSR2 are NOT here!
 
-wdLabelres[gene_name %in% c("FGFR3","PLPP3","")]
+wdLabmerres[label_merged %in% grep(label_merged,pattern="ast",value=T)&contrast=="E4vE2"&adj.P.Val<0.1,.(gene_name,contrast,label_merged,logFC,adj.P.Val)]
+## nor here!
+
+## so where ARE they?
+
+wdLabelres[gene_name %in% c("FGFR3","PLPP3","NTSR2")&contrast=="E4vE2"&lessOrEqual(adj.P.Val,0.1)&lessOrEqual(logFC,0),.(gene_name,contrast,label,logFC,adj.P.Val)]
+#    gene_name contrast               label      logFC    adj.P.Val
+#       <char>   <char>              <char>      <num>        <num>
+# 1:     PLPP3    E4vE2       inhibitory_25 -0.3796297 0.0066496240
+# 2:     FGFR3    E4vE2       inhibitory_25 -0.3789779 0.0316292215
+# 3:     PLPP3    E4vE2 neurons_ambiguous_2 -0.4447966 0.0009569062
+# 4:     FGFR3    E4vE2 neurons_ambiguous_2 -0.3740364 0.0414318100
+# 5:     NTSR2    E4vE2 neurons_ambiguous_2 -0.2908860 0.0557047728
+# 6:     NTSR2    E4vE2  oligodendrocytes_9 -0.5549691 0.0142089165
+# 7:     NTSR2    E4vE2             OPCs_27 -0.4266786 0.0136750008
+
+wdLabmerres[gene_name %in% c("FGFR3","PLPP3","NTSR2")&contrast=="E4vE2"&lessOrEqual(adj.P.Val,0.1)&lessOrEqual(logFC,0),.(gene_name,contrast,label_merged,logFC,adj.P.Val)]
+#    gene_name contrast      label_merged      logFC  adj.P.Val
+#       <char>   <char>            <char>      <num>      <num>
+# 1:     NTSR2    E4vE2        excitatory -0.3870243 0.07151411
+# 2:     PLPP3    E4vE2 neurons_ambiguous -0.3692811 0.01838855
+# 3:     NTSR2    E4vE2              OPCs -0.3462955 0.05606493
 ```
 
 seshinf
