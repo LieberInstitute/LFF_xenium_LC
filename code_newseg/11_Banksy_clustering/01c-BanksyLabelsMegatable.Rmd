@@ -1,0 +1,57 @@
+---
+title: "01c-Clusassigns_Megatable"
+author: "Bernie Mulvey"
+date: "06-13-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+## load all banksy cluster results, merge together into one big table
+```{r}
+clustabs <- list.files("processed-data_newseg/11_Banksy_clustering/01-banksy_clustruns_outs/banksyClusts/",full.names = FALSE)
+
+clustabs <- lapply(clustabs,function(x){
+  fread(paste0("processed-data_newseg/11_Banksy_clustering/01-banksy_clustruns_outs/banksyClusts/",x))
+})
+
+i <- 1
+for (i in c(1:length(clustabs))){
+  # for some reason the res0.5 results have res0.5 twice in their colnames
+  curtab <- clustabs[[i]]
+  setnames(curtab,gsub(names(curtab),pattern="k25_res0.5",replacement="k25_"))
+  if(i==1){
+    megatab <- copy(curtab)
+  } else {megatab <- merge.data.table(megatab,curtab,by="rn")}
+  rm(curtab)
+  clustabs[[i]] <- "done"
+}
+
+fwrite(megatab,"processed-data_newseg/11_Banksy_clustering/01c-AllBanksyClusteringAssignments.txt.gz",sep='\t',quote=F,row.names=F,col.names=T)
+```
