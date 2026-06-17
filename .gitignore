@@ -12,6 +12,8 @@ Trash
 *.RDA
 *.Rda
 *.rda
+*.qs2
+*.qdata
 *.gz
 *.mat
 raw-data/xenium/OUTPUT-X*

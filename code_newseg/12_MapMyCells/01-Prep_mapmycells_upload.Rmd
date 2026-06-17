@@ -1,0 +1,73 @@
+---
+title: "01-Prep_mapmycells_upload"
+format: html
+author: "Bernie Mulvey"
+date: "06-16-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(SpatialExperiment)
+# library(SpatialFeatureExperiment)
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost='localhost')
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+we need raw counts from the filtered spe:
+```{r}
+spe <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+### xbp1u and xbp1s should be joined together into one gene, then logcounts etc recalculated from that. see code_newseg/07_blah/01 (spaTransfer setup )
+## add a row for XBP1 gene level to rowData and counts, remove isoforms
+newg <- as.data.frame(rowData(spe))
+newg[(nrow(newg)+1),"Symbol"] <- "XBP1"
+rownames(newg)[nrow(newg)] <- "XBP1"
+newg <- as.data.table(newg,keep.rownames=T)
+newg[rn=="XBP1",ID:="ENSG00000100219"]
+newg[rn=="XBP1",Type:="Gene Expression"]
+set(newg,i=nrow(newg),j = c(5:12),value=FALSE)
+newg <- newg[!(rn %in% c("XBP1u","XBP1s"))]
+newg <- DataFrame(newg,row.names=newg$rn)
+newg$rn <- NULL
+
+## remove isoforms from counts matrix
+newr <- t(as.matrix(colSums(counts(spe)[c("XBP1s","XBP1u"),],na.rm=T)))
+newct <- as(rbind(as.matrix(counts(spe)),newr),"dgCMatrix")
+rownames(newct)[nrow(newct)] <- "XBP1"
+newct <- newct[!(rownames(newct) %in% c("XBP1u","XBP1s")),]
+
+## make sure we have the same genes in both of these matrices, in the same order by row and col
+stopifnot(all(rownames(newct)==rownames(newg)))
+stopifnot(all(colnames(newct)==colnames(spe)))
+
+spe2 <- SpatialExperiment(colData=colData(spe),rowData=newg,assays=list(counts=newct),spatialCoords = spatialCoords(spe))
+
+## now get a counts matrix and write
+ctmat <- as.data.table(as.data.frame(t(as.matrix(counts(spe)))),keep.rownames=T)
+setnames(ctmat,"rn","")
+fwrite(ctmat,"processed-data_newseg/12_MapMyCells/01-LCX_mapmycellsUploadCts.csv.gz",sep=",",row.names=FALSE,col.names=T,quote=FALSE)
+```

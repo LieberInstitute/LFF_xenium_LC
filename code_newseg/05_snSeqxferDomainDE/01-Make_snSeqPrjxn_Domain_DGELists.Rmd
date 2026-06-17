@@ -49,7 +49,7 @@ unloadNamespace("datasets")
 ```{r}
 xlc <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
 tmpcd <- as.data.table(colData(xlc),keep.rownames=T)
-
+# 
 lcd <- fread("processed-data_newseg/04_snSeqLabelTransfer/06-wdLCsmoothings_LUT.txt")
 # if LC domain, assign LC label; else, keep nmf predicted lable
 lcd[,LCsmooth8492_orxfer:=ifelse(domain8492=="LC","LC",nmfpred)]

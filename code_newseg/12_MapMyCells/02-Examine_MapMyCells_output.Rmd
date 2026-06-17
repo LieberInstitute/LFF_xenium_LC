@@ -1,0 +1,109 @@
+---
+title: "02-Examine_MapMyCells_output"
+format: html
+author: "Bernie Mulvey"
+date: "06-16-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+# library(SpatialFeatureExperiment)
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost='localhost')
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = '#000000'), axis.title.x = element_text(size = 9,color = '#000000'), axis.text.y = element_text(size = 8,color = '#000000'), axis.title.y = element_text(size =9,color = '#000000'), plot.title = element_markdown(size = 10,hjust=0.5,color = '#000000'), strip.text = element_text(size=11), legend.text = element_text(size=7,color = '#000000'), legend.title = element_text(size=8,hjust=0.5,color = '#000000'),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position='plot'))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+
+read in cell assignments table 
+```{r}
+
+mmc <- fread("processed-data_newseg/12_MapMyCells/01-LCX_mapmycellsUploadCtscsv_10xWholeHumanBrain(CCN202210140)_HierarchicalMapping_UTC_1781663294501/01-LCX_mapmycellsUploadCtscsv_10xWholeHumanBrain(CCN202210140)_HierarchicalMapping_UTC_1781663294501.csv",skip = 4)
+names(mmc)
+# [1] "cell_id"                               
+#  [2] "supercluster_label"                    
+#  [3] "supercluster_name"                     
+#  [4] "supercluster_bootstrapping_probability"
+#  [5] "cluster_label"                         
+#  [6] "cluster_name"                          
+#  [7] "cluster_bootstrapping_probability"     
+#  [8] "subcluster_label"                      
+#  [9] "subcluster_name"                       
+# [10] "subcluster_alias"                      
+# [11] "subcluster_bootstrapping_probab
+
+### uncommon clusters--probably cells we would have to throw out because given some other brain region's labels
+mmc[,.N,by="supercluster_name"][N<1000]
+#  1:               Thalamic excitatory   563
+#  2:             Cerebellar inhibitory   954
+#  3:                 Lower rhombic lip   174
+#  4:        Deep-layer near-projecting   164
+#  5:                 Upper rhombic lip   707
+#  6:                   MGE interneuron    48
+#  7:               Amygdala excitatory    22
+#  8: Deep-layer corticothalamic and 6b     9
+#  9:                    Choroid plexus    78
+# 10:                     Bergmann glia    33
+# 11:                   Mammillary body    39
+# 12:               Medium spiny neuron     8
+# 13:    Upper-layer intratelencephalic    17
+# 14:     Eccentric medium spiny neuron     1
+# 15:     Deep-layer intratelencephalic    10
+# 16:         Hippocampal dentate gyrus     3
+# 17:         LAMP5-LHX6 and Chandelier     1
+
+## how many cells not even given a real supercluster ("splatter")?
+nrow(mmc[supercluster_name=="Splatter"]) # 70180 or like 15% of cells...cool -____-
+```
+
+## ok, cerebellar inhibitory could be legitimate. and the rhombic lips, choroid, interneurons. the others, no way
+## ABA clustering doesn't have regions like LC/raphe at the supercluster level of hierarchy--and that dataset had
+## virtually no LC-NE cells anyhow. so let's see how the weber-divecha label transferred NE cells interplay here and what kind of cell labels they would be replacing.
+
+```{r}
+wdx <- fread("processed-data_newseg/04_snSeqLabelTransfer/06-wdLCsmoothings_LUT.txt")
+
+mmc <- merge.data.table(mmc,wdx,by.x="cell_id",by.y="rn")
+
+ne <- mmc[nmfpred=="NE"]
+
+ggplot(
+ne[,.N,by="supercluster_name"],aes(y=supercluster_name,x=N))+geom_col()
+## well THAT's interesting. 7k of 11k cells map to splatter of c. but,
+#  1400 to astro (!) 
+# 880 to oligo
+# 619 to vascular
+# 609 microglia
+```
+
+Well, since these are about as close to "gold standard" labels as we can get, let's see how they look spatially, and behave in terms of DE.
