@@ -1,0 +1,159 @@
+---
+title: "04-Annotate_M0_lam0.2_kgeom30_res05"
+format: html
+author: "Bernie Mulvey"
+date: "06-20-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+# library(SpatialFeatureExperiment)
+
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost='localhost')
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = '#000000'), axis.title.x = element_text(size = 9,color = '#000000'), axis.text.y = element_text(size = 8,color = '#000000'), axis.title.y = element_text(size =9,color = '#000000'), plot.title = element_markdown(size = 10,hjust=0.5,color = '#000000'), strip.text = element_text(size=11), legend.text = element_text(size=7,color = '#000000'), legend.title = element_text(size=8,hjust=0.5,color = '#000000'),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position='plot'))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+load previously run marker tables
+```{r}
+mktabs <- readRDS("processed-data_newseg/11_Banksy_clustering/03-noHarmo_banksys_markertables.RDS")
+# mktabs <- mktabs[["clust_M0_lam0.2_k25_kgeom30_res1"]]
+mktabs <- mktabs[["clust_M0_lam0.2_k25__kgeom30_res0.5"]]
+
+View(mktabs[lessOrEqual(fdr,0.1)&greaterOrEqual(logFC,0),.(clust,gene,logFC,fdr)])
+```
+RES 0.5:
+X1: FCGR1A, ITGAX, P2RY12+13, TREM2
+X2: FLT1 KLF4 APOLD1 KLF2 PECAM1
+X3: CNDP1 KLK6 MAG MYRF MOG
+X4: DCN LAMA2 PHLDB2 CAV1 ABCC9 APOLD1 CDH6 FLT1 TAGLN CD4
+X5: ATP2C2 PDGFRA OLIG2 VCAN CSPG4 OLIG1 BCAN
+X6: TPH2 6A4 DDC 18A2 ADRA1B NPNT CHODL HCRTR1 HS3ST2 TAC1
+X7: 17A6 HTR2C SST NDST4 ADCYAP1 TAC1 GAD1 PENK GAD2..CRH, CCK, ACHE
+X8: 17A6 SST TAC1 GAD2 HTR2C ADCYAP1 PENK GAD1 CRH MYRF..OPALIN
+X9: MOG MAG MYRF KLK6 CNDP1
+X10: RYR3 (top), FGFR3, SPON1, RGMA, GJA1, SOX9, AQP4, MT1X
+X11: SERPINA3, RYR3, RGMA, FGFR3, SOX9, GJA1, SPON1, AQP4, CP
+X12: CCL5, NKG7 IL7R CD3G CCL4 CD52 GNLY
+X13: CD163 TALGLN LYVE1 CEMIP ITGA8 THBS1 CAV1 KLF4
+X14: SYNPR LYPD6B GAD1 GAD2 KIT NXPH2 SPHKAP RELN BTBD11 PTCHD4 HTR2A
+X15: KLK6 MAG MOG UGT8 MYRF
+X16: FGFR3 SPON1 MT1X RGMA SOX9 APOE NTSR2 MGST1 TTYH1...SLC6A2...18A2, TH
+X17: DBH 6A2 18A2 TH DDC CHODL CARTPT
+X18: CD36 ZBBX 17A7 LOX NNAT TRPC6 EYA4 ANXA1 CP CCNA1 PAX6
+
+Therefore, resolution 0.5 clusters are (after plotting to confirm) most likely:
+X1: Microglia
+X2: Endothelium
+X3: Myelinating Oligo
+X4: Vasc. SMC
+X5: OPC
+X6: 5HTergic
+X7: Mixed excitatory/inhibitory neuropeptidergic
+X8: Ibid, weaker enrichment + myelin enrichment (WM axon tracts)?
+X9: Myelinating Oligo
+X10: RYR3 Astro
+X11: SERPINA3 Astro
+X12: NK_and_T_cells
+X13: Blood
+X14: Inhibitory HTR2A+
+X15: Myelinating Oligo
+X16: LC-adjacent FGFR3 astro (lfc>2 enrichment of LC markers)
+X17: LC
+X18: Ependyma
+
+X3/9/15 are practically indistinguishable and should just be collapsed to a single "white matter" label.
+X8 should be discarded since it appears to be mixed myelin and presumably neurites of X7.
+```{r}
+bclusts <- fread("processed-data_newseg/11_Banksy_clustering/01c-AllBanksyClusteringAssignments.txt.gz")
+bclusts <- bclusts[,.(rn, clust_M0_lam0.2_k25__kgeom30_res0.5)]
+setnames(bclusts,2,"clusid")
+bclusts[clusid %in% c("X3","X9","X15"),clusid:="X3"]
+bclusts[clusid=="X8",clusid:="DISCARD"]
+
+fwrite(bclusts,"processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_assignmentsMergeClusts.txt")
+## make an annotation lookup table per above notes
+anno <- as.data.table(unique(bclusts$clusid))
+setnames(anno,"clusid")
+anno[clusid=="X1",anno:="Microglia"]
+anno[clusid=="X2",anno:="Endothelium"]
+anno[clusid=="X3",anno:="Oligodendrocytes"]
+anno[clusid=="X4",anno:="Vasc. SMC"]
+anno[clusid=="X5",anno:="OPC"]
+anno[clusid=="X6",anno:="Serotonergic"]
+anno[clusid=="X7",anno:="Mixed Neuropept."]
+anno[clusid=="DISCARD",anno:="DISCARD"]
+anno[clusid=="X10",anno:="Astro_RYR3"]
+anno[clusid=="X11",anno:="Astro_SERPINA3"]
+anno[clusid=="X12",anno:="NK_and_T_cells"]
+anno[clusid=="X13",anno:="Blood"]
+anno[clusid=="X14",anno:="Inhib_5HTR2A"]
+anno[clusid=="X16",anno:="Astro_FGFR3"]
+anno[clusid=="X17",anno:="LCNE"]
+anno[clusid=="X18",anno:="Ependyma"]
+
+fwrite(anno,"processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_mergeClusts_Annots.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
+
+
+PREVIOUS NOTES -- RES 1 -- too granular (see eg oligo several oligo clusters with same top LFC markers sets) /
+X1: FCGR1A, P2YR12+13, TREM2,
+X2: FLT1, KLF4, APOLD1, KLF2, PECAM1
+?? probably OPC, or bad cells X3: CNDP1 CXCl14 ENHO KLK6 AQP4 POSTN SLC6A3 TSHZ2 APOE..MAG..CX3CR1
+X4: DCN LAMA2 PHLDB2 CAV1 ABCC9 APOLD1 CDH6 FLT1 TAGLN CD4
+X5: TPH2 SLC6A4 DDC SLC18A2 ADRA1B NPNT CHODL HCRTR1
+?? X6: ATP2C2 PDGFRA OLIG2 VCAN CSPG4 OLIG1 PTPRZ1 BCAN ITGA8
+X7: 17A6 ADYCAP1 HTR2C NDST4 PCSK1 TAC1 C1QL3 CRH NPFFR2 CCK NPNT
+?? seems bad X8: 17A6 SST MYRF MAG GAD2 MOG..HTR2C, ERBB3, TAC1, ADCYAP1, PENK
+X9: MOG MAG MYRF KLK6
+X10: RYR3 (top), FGFR3, GJA1, AQP4
+?? X11: CCL5, NKG7, IL7R, CD3G, CCL4, CD52
+X12: FGFR3 (top), SPON1, RYR3, GJA1, AQP4
+?? X13: LYVE1, CD163, MS4A6A, CD14, F13A1, TGFBI, CD68, ITGB2, HLA-DMB
+X14: GAD1, GAD2, SST, PENK, HTR2C
+X15: RYR3 (top again), FGFR3, RGMA, GJA1, AQP4
+X16: LYPD6B, GAD1, GAD2, KIT, NXPH2, HTR2A, TRPC6
+?? X17: SLC6A3, TSHZ2, CX3CR1, ROS1, CD48
+X18: SLC17A6, TPH2, PVALB, SLC6A4, CRH, TAC1
+?? probably bad cells X19: SLC17A6, FGFR3, RYR3, SPON1, RGMA, TAC1, ADCYAP1, GJA1, HTR2C, SOX9, SST, CCK, AQP4, GAD2
+X20: MOG MAG MYRF KLK6
+X21: CNDP1 MYRF MAG KLK6 MOG
+?? X22: DCN TAGLN KLF4 ITGA8 CEMIP CAV1 KLF2 PECAM1
+X23: FGFR3 RGMA SPON1 SERPINA3 GJA1 SOX9 AQP4 MT1X (weaker enrichments than X10/12/15/24)
+X24: FGFR3, SPON1, SOX9, RGMA, MT1X, APOE, GJA1, MGST1
+X25: MOG MAG KLK6 UGT8 MYRF
+X26: DBH 18A2 6A2 TH CARTPT DDC CHODL MYRF MOG MAG
+X27: DBH 6A2 18A2 TH CHODL DDC CARTPT CCNA1
+?? X28: 17A7 ADAMTS16 CRYM RELN RASGRP1 PAX6 SPHKAP CHGB TRHDE RIT2 SYNPR PLD5 PVALB ANK1
+?? X29: CD36 ZBBX LOX TRPC6 NNAT ANXA1 EYA4 CCNA1 CP
+?? X30: VCAN CD36 PDGFRA OLIG2 WIF1 ATP2C2 CSPG4 ZBBX OLIG1

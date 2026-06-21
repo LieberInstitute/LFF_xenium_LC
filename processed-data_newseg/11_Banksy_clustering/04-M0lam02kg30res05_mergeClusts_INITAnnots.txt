@@ -1,0 +1,17 @@
+clusid	anno
+X1	Microglia
+X2	Endothelium
+X3	Oligodendrocytes
+X4	Vasc SMC
+X5	OPC
+X6	Serotonergic
+X7	Mixed Neuropept.
+DISCARD	DISCARD
+X10	Astro_RYR3
+X11	Astro_SERPINA3
+X12	NK_and_T_cells
+X13	Macrophages
+X14	Inhib_5HTR2A
+X16	Astro_FGFR3
+X17	LCNE
+X18	Mixed_Other

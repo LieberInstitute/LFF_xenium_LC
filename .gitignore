@@ -16,10 +16,13 @@ Trash
 *.qdata
 *.gz
 *.mat
+AGENTS.md
 raw-data/xenium/OUTPUT-X*
 processed-data/image_processing
 processed-data/Images/loupe-alignment/*
 processed-data/Images/VistoSeg/*
+.vscode
+.posit
 *.hdf5
 *.h5
 *.HDF5
