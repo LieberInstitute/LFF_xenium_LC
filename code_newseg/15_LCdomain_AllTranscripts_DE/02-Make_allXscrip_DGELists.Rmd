@@ -1,0 +1,170 @@
+---
+title: "02-Make_allXscrip_DGELists"
+author: "Bernie Mulvey"
+date: "06-24-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(SpatialExperiment)
+library(edgeR)
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+load all-transcript pseudobulks, saved in a list of domain definitions separately for each sample 
+```{r}
+## ugh, this tabulation approach in 01 doesn't return genes with 0 counts. make a list of all transcripts to consider, using the SPE as reference (we need it for the gene metadata and sample metadata anyhow).
+spe <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+## get gene metadata
+tmpg <- as.data.table(rowData(spe))
+tmpg <- tmpg[,.(ID,Symbol)]
+setnames(tmpg,c("gene_id","gene_name"))
+### counts have gene symbol as identifier
+tmpg <- as.data.frame(tmpg,row.names=tmpg$gene_id)
+
+## get sample metadata
+tmpcd <- as.data.table(colData(spe))
+tmpcd <- unique(tmpcd[,.(brnum,APOE,Age,Sex,YRI,donor)])
+```
+
+```{r}
+## load and rearrange pbulks into all samples per domain def
+dompbs <- list.files("processed-data_newseg/15_LCdomain_AllTranscripts_DE/01tmp/",full.names=T)
+
+alldompbs <- lapply(dompbs,function(p){
+  ### make sure the resulting counts table has all genes by merging it with a table of all genes --> set NAs (genes not in the output from code 1) to 0.
+  ## this will also get rid of the nontargeting probes that were tabulated in the process.
+  brnum <- gsub(p,pattern="^.*/(Br.*)\\.RDS$",replacement="\\1")
+  tmpcttab <- as.data.table(cbind(tmpg$gene_name,brnum)) ## two of the three columns in the outputs
+  setnames(tmpcttab,c("gene_name","brnum"))
+  
+  ## read in the list of outputs for the sample
+  pblist <- readRDS(p)
+  
+  ## tweak to only have target genes, but ALL target genes:
+  pblist <- lapply(pblist,function(z){
+    setnames(z,c("V1","N"),c("gene_name","count"))
+    z <- z[gene_name %in% tmpg$gene_name] # only actual genes
+    o <- merge.data.table(tmpcttab,z,by=c("brnum","gene_name"),all.x=T) # all rows of our template gene table, ensuring they are included for each sample
+    setnafill(o,type="const",cols="count",fill=0)
+    return(o)
+  })
+  
+  ## concat
+  allpb <- rbindlist(pblist,idcol="LCdef")
+  return(allpb)
+})
+alldompbs <- rbindlist(alldompbs)
+
+## flipping things around now: into a list of all samples per domain definition
+pb.bydom <- split(alldompbs,alldompbs$LCdef)
+pb.bydom <- lapply(pb.bydom,function(x){
+  y <- x[,LCdef:=NULL] # no longer needed, each list is named for the domain def
+  y <- dcast(x,gene_name~brnum,value.var = "count")
+  ## drop non-targeting probes
+  y <- y[gene_name %in% grep(gene_name,pattern="Unassigned|NegControl|Deprecated",value=T,invert=T)]
+  y <- as.data.frame(y,row.names=y$gene_name)
+  y$gene_name <- NULL
+  return(y)
+})
+```
+
+## get metadata and gene metadata
+```{r}
+dgels <- lapply(pb.bydom,function(x){
+  tmpcd2 <- tmpcd[brnum %in% colnames(x)]
+  tmpcd2 <- as.data.frame(tmpcd2,row.names=tmpcd2$brnum)[colnames(x),]
+  domdgel <- DGEList(counts=x,samples=tmpcd2,genes=tmpg[rownames(x),])
+  return(domdgel)
+})
+
+# sanity check: 33 (or 31 for srt20079) samples, 366 genes? aw ye 
+# lapply(dgels,dim)
+# $srt_domain12199
+# [1] 366  33
+# 
+# $srt_domain16119
+# [1] 366  33
+# 
+# $srt_domain20079
+# [1] 366  31
+# 
+# $srt_domain8426
+# [1] 366  33
+# 
+# $wd_domain12412
+# [1] 366  33
+# 
+# $wd_domain8492
+# [1] 366  33
+
+saveRDS(dgels,"processed-data_newseg/15_LCdomain_AllTranscripts_DE/02-Allxscript_pbulkDGEls_per_domaindef.RDS")
+```
+
+```{r}
+sessionInfo()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] SpatialExperiment_1.20.0    SingleCellExperiment_1.32.0 SummarizedExperiment_1.40.0
+ [4] Biobase_2.70.0              GenomicRanges_1.62.1        Seqinfo_1.0.0              
+ [7] IRanges_2.44.0              S4Vectors_0.48.1            BiocGenerics_0.56.0        
+[10] generics_0.1.4              MatrixGenerics_1.22.0       matrixStats_1.5.0          
+[13] BiocParallel_1.44.0         parallelly_1.47.0           edgeR_4.8.2                
+[16] limma_3.66.0                data.table_1.18.4          
+
+loaded via a namespace (and not attached):
+ [1] Matrix_1.7-4        rjson_0.2.23        compiler_4.5.2      Rcpp_1.1.1         
+ [5] magick_2.9.0        parallel_4.5.2      yaml_2.3.12         fastmap_1.2.0      
+ [9] statmod_1.5.1       lattice_0.22-7      here_1.0.2          XVector_0.50.0     
+[13] S4Arrays_1.10.1     knitr_1.51          datasets_4.5.2      DelayedArray_0.36.1
+[17] rprojroot_2.1.1     rlang_1.1.7         xfun_0.56           otel_0.2.0         
+[21] SparseArray_1.10.8  cli_3.6.5           magrittr_2.0.4      digest_0.6.39      
+[25] grid_4.5.2          locfit_1.5-9.12     rstudioapi_0.18.0   evaluate_1.0.5     
+[29] codetools_0.2-20    abind_1.4-8         rmarkdown_2.30      tools_4.5.2        
+[33] htmltools_0.5.9    

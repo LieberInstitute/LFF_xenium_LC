@@ -1,0 +1,298 @@
+---
+title: "03-CellsOfType_as_pctage_or_per_area_of_wdLCdomains"
+author: "Bernie Mulvey"
+date: "06-22-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+library(sf)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+since LCNE cells were identified using NM segmentation and kept overlapping NM and DAPI regions as distinct "nuclei" (with overlap zone going to the DAPI boundary), discontinuous NM segs or an NM seg and a DAPI seg within one biological LC neuron could result in 2 or more unique xenium cells. thus it is possible that we are double-counting neighbor cells for such neurons (e.g., an astrocyte equidistant from an NM body and a nucleus that are parts of the same LC neuron would be flagged as a neighbor for each of two Xenium LCNE "cells"). this is a problem specific to our approach to capturing LC-NE cells in the Xenium samples, whereas other cell types should not have this problem.
+
+a robust second approach will therefore be to determine how many of each non-LCNE cell type fall within the Xenium LC domain. These could be either normalized to the percentage of total cells in the domain (which might vary depending on tissue quality/area of the LC, which we don't have info on), or area of the domain.
+
+## load cell-domain assignments, banksy labels, and tabulate proportion of each label within  domain. include the DISCARD cluster here, more for the purposes of calculating an accurate denominator than because we're interested in knowing how many of these artifactual doublet xenium cells are within LC. 
+```{r}
+bsys <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_assignmentsMergeClusts.txt")
+anno <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_mergeClusts_Annots.txt")
+bsys <- merge.data.table(bsys,anno,by="clusid")
+
+wdlcs <- fread("processed-data_newseg/04_snSeqLabelTransfer/06-wdLCsmoothings_LUT.txt")
+wdlcs <- wdlcs[,.(rn,domain12412,domain8492)] # indicates whether a given cell is in LC domain
+setnames(wdlcs,c(2,3),c("wd_domain12412","wd_domain8492"))
+
+srtlcs <- fread("processed-data_newseg/07_visLabelTransfer/05-srtLCsmoothDoms_and_NMFpreds_lut.txt")
+srtlcs <- srtlcs[,.(rn,domain8426,domain12199,domain16119,domain20079)]
+setnames(srtlcs,c(2:5),c("srt_domain8426","srt_domain12199","srt_domain16119","srt_domain20079"))
+
+bsys <- merge.data.table(bsys,wdlcs,by="rn")
+bsys <- merge.data.table(bsys,srtlcs,by="rn")
+## extract brnum (sample) from cell barcode in rn
+bsys[,brnum:=gsub(rn,pattern="^(.*)_.*$",replacement="\\1")]
+```
+
+```{r}
+domdefs <- c("wd_domain12412","wd_domain8492","srt_domain8426","srt_domain12199","srt_domain16119","srt_domain20079")
+anses <- lapply(domdefs,function(x){
+  tmp <- copy(bsys)[get(x)=="LC"]
+  ans <- tmp[,.N,by=c("brnum","anno")]
+  totcells <- tmp[,.N,by="brnum"]
+  setnames(totcells,"N","LCdomainCellNum")
+  ans <- merge.data.table(ans,totcells,by="brnum")
+  ans[,prop_of_LCdomain_cells:=N/LCdomainCellNum]
+  return(ans)
+})
+names(anses) <- domdefs
+
+ans <- rbindlist(anses,idcol="LCDomainDef")
+
+fwrite(ans,"processed-data_newseg/14_CellTypeProximity/03-BsyLabelProportions_in_wdDomains_and_srtDomains.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
+
+the slightly trickier one will be defining the domain areas. we'll need the cell polygon coordinates again:
+```{r}
+allpoly <- fread("processed-data_newseg/14_CellTypeProximity/retainedCellBoundaries.txt.gz")
+
+domdefs <- c("wd_domain12412","wd_domain8492","srt_domain8426","srt_domain12199","srt_domain16119","srt_domain20079")
+
+area_anses <- lapply(domdefs,function(x){
+  tmp <- copy(bsys)[get(x)=="LC"]
+  tmp <- merge.data.table(tmp,allpoly,by.x="rn",by.y="cell_id")
+  lcdomlist <- split(tmp,tmp$brnum)
+  
+  ## get area of LC domain for each sample
+  lcareas <- lapply(lcdomlist,function(l){
+    # subset your data to the cells that make up your zone (already done)
+    # Define the gap distance-this should be large enough to bridge the space between dots in the same domain zone, but small enough not to merge distinct, separate ones.
+    # test values using br5415 -- should get 11 separate LC domain areas. testing this on several addnl brains with multiple discontig LC domain pieces returned the correct number of domains in each case.
+    gap_distance <- 30 ## 
+    # Then, apply st_union() to merge touching geometries, and st_cast() to break apart the unconnected bodies.
+    lccellpolygons_sf <- sf_polygon(
+      obj = l,
+      x = "vertex_x",
+      y = "vertex_y",
+      polygon_id = "cell_id",
+      keep = TRUE # Retains the label and other attributes
+    )
+    buffered_sf <- st_buffer(lccellpolygons_sf, dist = gap_distance)
+    merged_sf <- st_union(buffered_sf)
+    lczonepolys <- st_cast(merged_sf, "POLYGON")
+    # retract the the buffer area we applied in Step 1 to make cells touch
+    # This pulls the boundary back to meet the original cell polygons
+    tight_zones_sfc <- st_buffer(lczonepolys, dist = -gap_distance)
+    zones_sf <- st_sf(geometry = tight_zones_sfc)
+    zones_sf$area <- st_area(zones_sf) # get the area of each lc domain zone
+    lcdomtotarea <- sum(zones_sf$area) # get the total area of the lc domain zones
+    return(lcdomtotarea)
+  })
+  lcareas <- lapply(lcareas,as.data.table)
+  lcareas <- rbindlist(lcareas,idcol="brnum")
+  setnames(lcareas,"V1","LCdomarea")
+  
+  ## get total intra-LC cells per annotation type as before
+  ans <- tmp[,.N,by=c("brnum","anno")]
+  
+  ## append LC domain total area
+  ans <- merge.data.table(ans,lcareas,by="brnum")
+  
+  ## calculate number of cells of type anno per area
+  ans[,annoPerLCdomArea:=N/LCdomarea]
+  return(ans)
+})
+names(area_anses) <- domdefs
+
+saveRDS(area_anses,"processed-data_newseg/14_CellTypeProximity/03_BsyLabelCounts_per_LCDomainArea.RDS")
+```
+
+
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] parallelly_1.47.0           colorout_1.3-3              sfheaders_0.4.5            
+ [4] sf_1.0-24                   SpatialExperiment_1.20.0    SingleCellExperiment_1.32.0
+ [7] SummarizedExperiment_1.40.0 Biobase_2.70.0              GenomicRanges_1.62.1       
+[10] Seqinfo_1.0.0               IRanges_2.44.0              S4Vectors_0.48.1           
+[13] BiocGenerics_0.56.0         generics_0.1.4              MatrixGenerics_1.22.0      
+[16] matrixStats_1.5.0           gridExtra_2.3               ggtext_0.1.2               
+[19] ggplot2_4.0.2               data.table_1.18.4          
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6        rjson_0.2.23        xfun_0.56           lattice_0.22-7     
+ [5] vctrs_0.7.1         tools_4.5.2         tibble_3.3.1        proxy_0.4-29       
+ [9] R.oo_1.27.1         pkgconfig_2.0.3     Matrix_1.7-4        KernSmooth_2.23-26 
+[13] RColorBrewer_1.1-3  S7_0.2.1            lifecycle_1.0.5     compiler_4.5.2     
+[17] farver_2.1.2        htmltools_0.5.9     class_7.3-23        yaml_2.3.12        
+[21] pillar_1.11.1       R.utils_2.13.0      rsconnect_1.7.0     classInt_0.4-11    
+[25] DelayedArray_0.36.1 sessioninfo_1.2.3   magick_2.9.0        abind_1.4-8        
+[29] tidyselect_1.2.1    digest_0.6.39       dplyr_1.2.0         rprojroot_2.1.1    
+[33] fastmap_1.2.0       grid_4.5.2          here_1.0.2          cli_3.6.5          
+[37] SparseArray_1.10.8  magrittr_2.0.4      S4Arrays_1.10.1     dichromat_2.0-0.1  
+[41] e1071_1.7-17        withr_3.0.2         scales_1.4.0        rmarkdown_2.30     
+[45] XVector_0.50.0      otel_0.2.0          R.methodsS3_1.8.2   evaluate_1.0.5     
+[49] knitr_1.51          rlang_1.1.7         gridtext_0.1.5      Rcpp_1.1.1         
+[53] glue_1.8.0          DBI_1.2.3           xml2_1.5.2          rstudioapi_0.18.0  
+[57] R6_2.6.1            units_1.0-0        
+> sessioninfo::session_info()
+─ Session info ────────────────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/New_York
+ date     2026-06-22
+ rstudio  2026.01.1+403 Apple Blossom (desktop)
+ pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ────────────────────────────────────────────────────────────────────────────────────
+ package              * version date (UTC) lib source
+ abind                  1.4-8   2024-09-12 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ class                  7.3-23  2025-01-01 [1] CRAN (R 4.5.2)
+ classInt               0.4-11  2025-01-08 [1] CRAN (R 4.5.0)
+ cli                    3.6.5   2025-04-23 [1] CRAN (R 4.5.0)
+ colorout             * 1.3-3   2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ data.table           * 1.18.4  2026-05-06 [1] CRAN (R 4.5.2)
+ DBI                    1.2.3   2024-06-02 [1] CRAN (R 4.5.0)
+ DelayedArray           0.36.1  2026-03-31 [1] Bioconductor 3.22 (R 4.5.2)
+ dichromat              2.0-0.1 2022-05-02 [1] CRAN (R 4.5.0)
+ digest                 0.6.39  2025-11-19 [1] CRAN (R 4.5.2)
+ dplyr                  1.2.0   2026-02-03 [1] CRAN (R 4.5.2)
+ e1071                  1.7-17  2025-12-18 [1] CRAN (R 4.5.2)
+ evaluate               1.0.5   2025-08-27 [1] CRAN (R 4.5.0)
+ farver                 2.1.2   2024-05-13 [1] CRAN (R 4.5.0)
+ fastmap                1.2.0   2024-05-15 [1] CRAN (R 4.5.0)
+ generics             * 0.1.4   2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1  2025-12-08 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ ggplot2              * 4.0.2   2026-02-03 [1] CRAN (R 4.5.2)
+ ggtext               * 0.1.2   2022-09-16 [1] CRAN (R 4.5.0)
+ glue                   1.8.0   2024-09-30 [1] CRAN (R 4.5.0)
+ gridExtra            * 2.3     2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext               0.1.5   2022-09-16 [1] CRAN (R 4.5.0)
+ gtable                 0.3.6   2024-10-25 [1] CRAN (R 4.5.0)
+ here                   1.0.2   2025-09-15 [1] CRAN (R 4.5.0)
+ htmltools              0.5.9   2025-12-04 [1] CRAN (R 4.5.2)
+ IRanges              * 2.44.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ KernSmooth             2.23-26 2025-01-01 [1] CRAN (R 4.5.2)
+ knitr                  1.51    2025-12-20 [1] CRAN (R 4.5.2)
+ lattice                0.22-7  2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5   2026-01-08 [1] CRAN (R 4.5.2)
+ magick                 2.9.0   2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4   2025-09-12 [1] CRAN (R 4.5.0)
+ Matrix                 1.7-4   2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0   2025-01-07 [1] CRAN (R 4.5.0)
+ otel                   0.2.0   2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly           * 1.47.0  2026-04-17 [1] CRAN (R 4.5.2)
+ pillar                 1.11.1  2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig              2.0.3   2019-09-22 [1] CRAN (R 4.5.0)
+ proxy                  0.4-29  2025-12-29 [1] CRAN (R 4.5.2)
+ R.methodsS3            1.8.2   2022-06-13 [1] CRAN (R 4.5.0)
+ R.oo                   1.27.1  2025-05-02 [1] CRAN (R 4.5.0)
+ R.utils                2.13.0  2025-02-24 [1] CRAN (R 4.5.0)
+ R6                     2.6.1   2025-02-15 [1] CRAN (R 4.5.0)
+ RColorBrewer           1.1-3   2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1   2026-01-10 [1] CRAN (R 4.5.2)
+ rjson                  0.2.23  2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7   2026-01-09 [1] CRAN (R 4.5.2)
+ rmarkdown              2.30    2025-09-28 [1] CRAN (R 4.5.0)
+ rprojroot              2.1.1   2025-08-26 [1] CRAN (R 4.5.0)
+ rsconnect              1.7.0   2025-12-06 [1] CRAN (R 4.5.2)
+ rstudioapi             0.18.0  2026-01-16 [1] CRAN (R 4.5.2)
+ S4Arrays               1.10.1  2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.1  2026-04-04 [1] https://bioc-release.r-universe.dev (R 4.5.3)
+ S7                     0.2.1   2025-11-14 [1] CRAN (R 4.5.2)
+ scales                 1.4.0   2025-04-24 [1] CRAN (R 4.5.0)
+ Seqinfo              * 1.0.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3   2025-02-05 [1] CRAN (R 4.5.0)
+ sf                   * 1.0-24  2026-01-13 [1] CRAN (R 4.5.2)
+ sfheaders            * 0.4.5   2025-11-25 [1] CRAN (R 4.5.2)
+ SingleCellExperiment * 1.32.0  2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8  2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0  2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SummarizedExperiment * 1.40.0  2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ tibble                 3.3.1   2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect             1.2.1   2024-03-11 [1] CRAN (R 4.5.0)
+ units                  1.0-0   2025-10-09 [1] CRAN (R 4.5.0)
+ vctrs                  0.7.1   2026-01-23 [1] CRAN (R 4.5.2)
+ withr                  3.0.2   2024-10-28 [1] CRAN (R 4.5.0)
+ xfun                   0.56    2026-01-18 [1] CRAN (R 4.5.2)
+ xml2                   1.5.2   2026-01-17 [1] CRAN (R 4.5.2)
+ XVector                0.50.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ yaml                   2.3.12  2025-12-10 [1] CRAN (R 4.5.2)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+───────────────────────────────────────────────────────────────────────────────────────────────

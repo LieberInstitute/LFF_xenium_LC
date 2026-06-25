@@ -1,0 +1,318 @@
+---
+title: "02b-MapMyCells_check_Ependyma_and_maximalLCdomains_only"
+author: "Bernie Mulvey"
+date: "06-17-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(ggrastr)
+library(SpatialExperiment)
+library(escheR)
+library(Polychrome)
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(parallel)
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+xlc <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+## make a "maximal LC domain" by taking the union of cells labeled as any of the 2 wd/4 SRT xfer domains
+wdx <- fread("processed-data_newseg/04_snSeqLabelTransfer/06-wdLCsmoothings_LUT.txt")
+srtx <- fread("processed-data_newseg/07_visLabelTransfer/05-srtLCsmoothDoms_and_NMFpreds_lut.txt")
+
+srtx <- merge.data.table(srtx,wdx[,.(rn,domain12412,domain8492)],by="rn")
+srtx[,maxLC:=ifelse(domain12199=="LC" | domain12412=="LC"| domain16119=="LC"| domain20079=="LC"| domain8426=="LC"| domain8492=="LC",
+  "LC",
+  "Other")]
+
+# srtx[maxLC=="LC",.N]
+# [1] 54893
+
+maxlc <- srtx[,.(rn,maxLC)]
+rm(srtx,wdx)
+
+mmc <- fread("processed-data_newseg/12_MapMyCells/01-LCX_mapmycellsUploadCtscsv_10xWholeHumanBrain(CCN202210140)_HierarchicalMapping_UTC_1781663294501/01-LCX_mapmycellsUploadCtscsv_10xWholeHumanBrain(CCN202210140)_HierarchicalMapping_UTC_1781663294501.csv",skip=4)
+
+mmc <- merge.data.table(mmc,maxlc,by.x="cell_id",by.y="rn")
+mmc <- mmc[maxLC=="LC"|supercluster_name=="Ependymal"] # 60.9k cells
+
+### are any cells labeled LC domain but ependymal in nature? no point plotting if not.
+nrow(mmc[maxLC=="LC"&supercluster_name=="Ependymal"]) # 27...okay...
+
+
+### is there an imbalance in ependymal cells between E2/E4?
+tmpcd <- as.data.table(colData(xlc),keep.rownames=T)[,.(rn,APOE,brnum)]
+mmc <- merge.data.table(mmc,tmpcd,by.x="cell_id",by.y="rn")
+
+mmc[supercluster_name=="Ependymal",.N,by=c("APOE","supercluster_name")]
+### Nothing egregious by cell count...     
+# APOE supercluster_name     N
+#    <char>            <char> <int>
+# 1:  E4hom         Ependymal   895
+# 2:  E2hom         Ependymal  1152
+# 3:  E4het         Ependymal  1279
+# 4:  E2het         Ependymal  2769
+mmc[supercluster_name=="Ependymal",.N,by=c("brnum","APOE")]
+# there are samples with bigger populations than others, but most have ≥10 cells and its present across genotypes.
+#        brnum   APOE     N
+#      <char> <char> <int>
+#  1:  Br0942  E4hom   252
+#  2:  Br0946  E4hom     8
+#  3: Br1039L  E4hom    15
+#  4:  Br1039  E4hom    60
+#  5:  Br1105  E4hom    48
+#  6:  Br1285  E4hom    66
+#  7:  Br1556  E2hom   957
+#  8: Br1691L  E4hom    16
+#  9:  Br1706  E4hom    10
+# 10:  Br1884  E4hom   377
+# 11: Br2305L  E4hom     5
+# 12:  Br2305  E4hom    29
+# 13:  Br2582  E2hom    30
+# 14:  Br3974  E4het     3
+# 15:  Br5367  E2het    10
+# 16:  Br5368  E4het     7
+# 17:  Br5415  E2het  1593
+# 18:  Br5426  E2het   205
+# 19:  Br5460  E4het   443
+# 20:  Br5529  E2hom   165
+# 21:  Br5634  E2het     7
+# 22: Br5854L  E2het     2
+# 23:  Br5854  E2het    12
+# 24:  Br5941  E4hom     9
+# 25:  Br6085  E4het     3
+# 26:  Br6098  E4het    87
+# 27:  Br6119  E4het     6
+# 28:  Br6222  E4het    17
+# 29:  Br6263  E4het   505
+# 30:  Br6297  E2het   176
+# 31:  Br6423  E2het     1
+# 32:  Br6476  E4het   208
+# 33:  Br6538  E2het   763
+#       brnum   APOE     N
+
+# we'll plot anyhow but 
+
+mmc[maxLC=="LC"&supercluster_name=="Ependymal",maxLC_or_mmcEpend:="Both"]
+mmc[maxLC=="LC"&supercluster_name!="Ependymal",maxLC_or_mmcEpend:="LCdomain"]
+mmc[maxLC!="LC"&supercluster_name=="Ependymal",maxLC_or_mmcEpend:="Epend"]
+
+keepcell <- mmc$cell_id
+xlc <- xlc[,keepcell]
+
+mmc <- DataFrame(mmc,row.names=mmc$cell_id)[colnames(xlc),]
+xlc$label <- mmc$maxLC_or_mmcEpend
+
+```
+
+```{r}
+pal <- c("#5A4",
+         "#00F",
+         "#F0F")
+
+names(pal) <- c("Epend","LCdomain","Both")
+stopifnot(all(names(pal) %in% unique(xlc$label)))
+
+xlc$label <- factor(xlc$label,levels=names(pal))
+samps <- lapply(unique(xlc$brnum),function(b){xlc[,xlc$brnum==b]})
+
+names(samps) <- unique(xlc$brnum)
+rm(xlc)
+gc(full=T)
+
+plts <- mapply(s=samps,n=names(samps),SIMPLIFY=FALSE,function(s,n){
+  ## get genotype
+  apog <- unique(colData(s)$APOE)
+  p <- make_escheR(s,spot_size=0.5)
+  p <- add_fill(p,"label",point_size=0.5)+    guides(fill=guide_legend(override.aes = list(size=2)))
+  p <- p+scale_fill_manual(values=pal)
+  p <- p+ggtitle(paste0(n,"_",apog))+theme(title=element_text(size=9))
+  q <- rasterize(p,layers="Points",dpi=300,dev="cairo_png")
+  return(q)
+})
+
+png("plots_newseg/12_MapMyCells/02b-LCdomain_MapMyCellsEpendyma_olapcheck.png",height=36,width=18,unit="in",res=150)
+do.call("grid.arrange",c(plts,nrow=8))
+dev.off()
+
+```
+
+Well, the only spatial feature we can really go on among these labels is the ependyma/subependyma (astrocyte-rich), which does look like it mapped correctly. But boy is the rest ugly. and not just because of an ad hoc palette. Nonetheless, for exploratory purposes, let's try DE retaining these labels (but overriding them if weber-divecha labeled a cell as a LC-NE.)
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats4    stats     graphics 
+[5] grDevices utils     datasets  methods  
+[9] base     
+
+other attached packages:
+ [1] parallelly_1.47.0          
+ [2] colorout_1.3-3             
+ [3] Polychrome_1.5.4           
+ [4] escheR_1.10.0              
+ [5] SpatialExperiment_1.20.0   
+ [6] SingleCellExperiment_1.32.0
+ [7] SummarizedExperiment_1.40.0
+ [8] Biobase_2.70.0             
+ [9] GenomicRanges_1.62.1       
+[10] Seqinfo_1.0.0              
+[11] IRanges_2.44.0             
+[12] S4Vectors_0.48.1           
+[13] BiocGenerics_0.56.0        
+[14] generics_0.1.4             
+[15] MatrixGenerics_1.22.0      
+[16] matrixStats_1.5.0          
+[17] ggrastr_1.0.2              
+[18] gridExtra_2.3              
+[19] ggtext_0.1.2               
+[20] ggplot2_4.0.2              
+[21] data.table_1.18.2.1        
+
+loaded via a namespace (and not attached):
+ [1] SparseArray_1.10.8   xml2_1.5.2          
+ [3] lattice_0.22-7       magrittr_2.0.4      
+ [5] evaluate_1.0.5       grid_4.5.2          
+ [7] RColorBrewer_1.1-3   Matrix_1.7-4        
+ [9] rprojroot_2.1.1      scales_1.4.0        
+[11] abind_1.4-8          cli_3.6.5           
+[13] rlang_1.1.7          scatterplot3d_0.3-44
+[15] XVector_0.50.0       DelayedArray_0.36.1 
+[17] withr_3.0.2          otel_0.2.0          
+[19] S4Arrays_1.10.1      ggbeeswarm_0.7.3    
+[21] tools_4.5.2          dplyr_1.2.0         
+[23] colorspace_2.1-2     here_1.0.2          
+[25] vctrs_0.7.1          R6_2.6.1            
+[27] magick_2.9.0         lifecycle_1.0.5     
+[29] vipor_0.4.7          pkgconfig_2.0.3     
+[31] beeswarm_0.4.0       pillar_1.11.1       
+[33] gtable_0.3.6         glue_1.8.0          
+[35] Rcpp_1.1.1           xfun_0.56           
+[37] tibble_3.3.1         tidyselect_1.2.1    
+[39] knitr_1.51           dichromat_2.0-0.1   
+[41] rjson_0.2.23         farver_2.1.2        
+[43] labeling_0.4.3       compiler_4.5.2      
+[45] S7_0.2.1             gridtext_0.1.5      
+> sessioninfo::session_info()
+─ Session info ──────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       Positron
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/New_York
+ date     2026-06-17
+ pandoc   NA
+ quarto   1.8.27 @ /Applications/Positron.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ──────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [1] CRAN (R 4.5.0)
+ beeswarm               0.4.0    2021-06-01 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ cli                    3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ colorout             * 1.3-3    2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ colorspace             2.1-2    2025-09-22 [1] CRAN (R 4.5.0)
+ data.table           * 1.18.2.1 2026-01-27 [1] CRAN (R 4.5.2)
+ DelayedArray           0.36.1   2026-03-31 [1] Bioconductor 3.22 (R 4.5.2)
+ dichromat              2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
+ dplyr                  1.2.0    2026-02-03 [1] CRAN (R 4.5.2)
+ escheR               * 1.10.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ evaluate               1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ farver                 2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
+ generics             * 0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ ggbeeswarm             0.7.3    2025-11-29 [1] CRAN (R 4.5.2)
+ ggplot2              * 4.0.2    2026-02-03 [1] CRAN (R 4.5.2)
+ ggrastr              * 1.0.2    2023-06-01 [1] CRAN (R 4.5.0)
+ ggtext               * 0.1.2    2022-09-16 [1] CRAN (R 4.5.0)
+ glue                   1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
+ gridExtra            * 2.3      2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext               0.1.5    2022-09-16 [1] CRAN (R 4.5.0)
+ gtable                 0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
+ here                   1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ knitr                  1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ labeling               0.4.3    2023-08-29 [1] CRAN (R 4.5.0)
+ lattice                0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ magick                 2.9.0    2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ Matrix                 1.7-4    2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0    2025-01-07 [1] CRAN (R 4.5.0)
+ otel                   0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly           * 1.47.0   2026-04-17 [1] CRAN (R 4.5.2)
+ pillar                 1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig              2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
+ Polychrome           * 1.5.4    2025-04-06 [1] CRAN (R 4.5.0)
+ R6                     2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
+ RColorBrewer           1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rprojroot              2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ S4Arrays               1.10.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.1   2026-04-04 [1] https://bioc-release.r-universe.dev (R 4.5.3)
+ S7                     0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
+ scales                 1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
+ scatterplot3d          0.3-44   2023-05-05 [1] CRAN (R 4.5.0)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8   2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ tibble                 3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect             1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
+ vctrs                  0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
+ vipor                  0.4.7    2023-12-18 [1] CRAN (R 4.5.0)
+ withr                  3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
+ xfun                   0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ xml2                   1.5.2    2026-01-17 [1] CRAN (R 4.5.2)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.

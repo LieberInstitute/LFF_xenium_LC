@@ -1,0 +1,107 @@
+---
+title: "04-M0lam02kg30res05_spotplots_initialannos"
+author: "Bernie Mulvey"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(ggrastr)
+library(SpatialExperiment)
+library(escheR)
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(parallel)
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+spe <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+bsy <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_assignmentsMergeClusts.txt")
+anno <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_mergeClusts_Annots.txt")
+bsy <- merge.data.table(bsy,anno,by="clusid")
+bsy <- bsy[anno!="DISCARD"]
+
+spe <- spe[,bsy$rn]
+bsy <- DataFrame(bsy,row.names=bsy$rn)[colnames(spe),]
+
+spe$label <- bsy$anno
+unique(spe$label)
+```
+
+eschers
+```{r}
+# helper function to extract a legend and pipe back to a diff plot: from https://statisticsglobe.com/add-common-legend-to-combined-ggplot2-plots-in-r/#example-2-add-shared-legend-to-ggplot2-plots-using-gridextra-package 
+
+extract_legend <- function(my_ggp) {
+  step1 <- ggplot_gtable(ggplot_build(my_ggp))
+  step2 <- which(sapply(step1$grobs, function(x) x$name) == "guide-box")
+  step3 <- step1$grobs[[step2]]
+  return(step3)
+}
+
+pal <- Polychrome::palette36.colors(n=22)[c(3:17)]
+names(pal) <- anno[anno!="DISCARD",anno]
+pal[which(names(pal)=="Oligodendrocytes")] <- "#BCBCBC"
+
+spe$label <- factor(spe$label,levels=names(pal))
+
+samps <- unique(spe$brnum)
+samps <- lapply(samps,function(s){spe[,spe$brnum==s]})
+names(samps) <- unique(spe$brnum)
+rm(spe)
+
+tmplegdat <- as.data.table(cbind(as.character(samps[[1]]$label),spatialCoords(samps[[1]])))
+setnames(tmplegdat,1,"label")
+tmplegdat[,label:=factor(label,levels=names(pal))]
+
+leg.tmp <- ggplot(tmplegdat,aes(x=x_centroid,y=y_centroid,col=label))+
+  geom_point()+
+  scale_color_manual(values=pal)+
+  guides(color=guide_legend(ncol=2,override.aes=list(size=5)))+
+  theme(
+              legend.text = element_text(size = 10),
+              legend.title = element_text(size = 10, hjust = 0.5),
+              legend.spacing.y = unit(0, "cm"),
+              legend.spacing.x = unit(0.1, "cm"))
+leg.tmp2 <- extract_legend(leg.tmp)
+dev.off()
+
+## make main plots wihthout legend
+plts <- lapply(samps,function(x){
+    p <- make_escheR(x,spot_size=0.4)
+    p <- p |> add_fill("label",point_size = 0.4)
+    p <- p+scale_fill_manual(values=pal)
+    p <- p+guides(fill="none")
+    q <- rasterize(p,layers="Points",dpi=300,dev="cairo_png")
+    return(q)
+})
+
+png("plots_newseg/11_Banksy_clustering/04-M0lam02kg30res05_mergedClusts_spotplots_annos.png", width = 27, height = 90,units = "in",res = 300)
+do.call("grid.arrange",list(arrangeGrob(grobs=plts,ncol=5),leg.tmp2,ncol=2,widths=c(24,3)))
+dev.off()
+```

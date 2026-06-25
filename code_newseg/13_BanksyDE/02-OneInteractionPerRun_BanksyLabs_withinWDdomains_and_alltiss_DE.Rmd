@@ -1,7 +1,7 @@
 ---
-title: "02-OneInteractionPerRun_LCdom_or_snSeqLab_DE"
+title: "02-OneInteractionPerRun_BanksyLabs_withinWDdomains_and_alltiss_DE"
 author: "Bernie Mulvey"
-date: "06-04-26"
+date: "06-22-26"
 output: html_document
 ---
 
@@ -34,19 +34,15 @@ unloadNamespace("datasets")
 ```
 
 ```{r}
-dgels <- readRDS("processed-data_newseg/05_snSeqxferDomainDE/01a-unfilt_unnorm_pbulk_LCdomain_and_nmfpred_DGElists_2kctsampmin.RDS")
+dgels <- readRDS("processed-data_newseg/13_BanksyDE/01-BanksyLabels_wdLCdomains_DGELists.RDS")
 
-colnames(dgels$LCsmooth8492_orxfer$samples)[colnames(dgels$LCsmooth8492_orxfer$samples)=="clus"] <- "label"
-colnames(dgels$LCsmooth12412_orxfer$samples)[colnames(dgels$LCsmooth12412_orxfer$samples)=="clus"] <- "label"
-
-dgels$LCsmooth8492_orxfer$samples$donor <- gsub(dgels$LCsmooth8492$samples$brnum,pattern="L",replacement="")
-dgels$LCsmooth12412_orxfer$samples$donor <- gsub(dgels$LCsmooth12412_orxfer$samples$brnum,pattern="L",replacement="")
-
-dgels$LCsmooth8492_orxfer$genes <- as.data.frame(rownames(dgels$LCsmooth8492_orxfer$counts),row.names=rownames(dgels$LCsmooth8492_orxfer$counts))
-colnames(dgels$LCsmooth8492_orxfer$genes) <- "gene_name"
-
-dgels$LCsmooth12412_orxfer$genes <- as.data.frame(rownames(dgels$LCsmooth12412_orxfer$counts),row.names=rownames(dgels$LCsmooth12412_orxfer$counts))
-colnames(dgels$LCsmooth12412_orxfer$genes) <- "gene_name"
+i<-1
+for (i in c(1:length(dgels))){
+  dgels[[i]]$samples$donor <- gsub(dgels[[i]]$samples$brnum,pattern="L",replacement="")
+  newgtab <- as.data.frame(cbind(rownames(dgels[[i]]$counts),rownames(dgels[[i]]$counts)))
+  colnames(newgtab) <- c("gene_id","gene_name")
+  dgels[[i]]$genes <- newgtab[rownames(dgels[[i]]$counts),]
+}
 ```
 
 
@@ -57,11 +53,11 @@ colnames(dgels$LCsmooth12412_orxfer$genes) <- "gene_name"
 ```{r}
 sexfun <- function(dgel,n){
     dgelsex <- dgel
-    dgelsex$samples$label_sex <- paste0(dgelsex$samples$label, "_", dgel$samples$Sex)
+    dgelsex$samples$clus_sex <- paste0(dgelsex$samples$clus, "_", dgelsex$samples$Sex)
     
     # design mat
-    des <- model.matrix(~0 + label_sex + APOEsimple + Age + YRI, data = dgelsex$samples)
-    colnames(des) <- gsub(x = colnames(des), pattern = "label_sex", replacement = "")
+    des <- model.matrix(~0 + clus_sex + APOEsimple + Age + YRI, data = dgelsex$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "clus_sex", replacement = "")
     
     
     # filter using design
@@ -72,7 +68,7 @@ sexfun <- function(dgel,n){
     
     # define contrasts to pass to makeContrasts (we have to do it this way due to environment weirdness with parallelization)    contrasts_list <- list()
     contrasts_list <- list()
-    for (current_label in unique(dgelsex$samples$label)) {
+    for (current_label in unique(dgelsex$samples$clus)) {
         contrast_name <- paste0(current_label, "_Sex")
         contrast_formula <- paste0(current_label, "_M - ", current_label, "_F")
         
@@ -83,7 +79,7 @@ sexfun <- function(dgel,n){
     trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
 
     ## fit and fit contrasts
-    v.swt <- voomLmFit(dgelsex, design = des, block = as.factor(dgelsex$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt <- voomLmFit(dgelsex, design = des, block = as.factor(dgelsex$samples$brnum), adaptive.span = TRUE, sample.weights = TRUE)
     v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
     v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
 
@@ -96,7 +92,7 @@ sexfun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelsex, trasts = trastmat, detabs = sexlabel_detabs)
     
-    saveRDS(keeplist, paste0("processed-data_newseg/05_snSeqxferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_sexlabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/13_BanksyDE/02bTMP_keeplist_sexlabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -109,10 +105,10 @@ e2e4fun <- function(dgel,n){
     dgelE2E4 <- dgel
     dgelE2E4$samples$APOlargeGrp <- ifelse(dgelE2E4$samples$APOE %in% c("E2hom", "E2het"), yes = "E2", no = "E4")
     stopifnot(length(unique(dgelE2E4$samples$APOlargeGrp)) == 2)
-    dgelE2E4$samples$label_E2E4 <- paste0(dgelE2E4$samples$label, "_", dgelE2E4$samples$APOlargeGrp)
+    dgelE2E4$samples$clus_E2E4 <- paste0(dgelE2E4$samples$clus, "_", dgelE2E4$samples$APOlargeGrp)
     
-    des <- model.matrix(~0 + label_E2E4 + Sex + Age + YRI, data = dgelE2E4$samples)
-    colnames(des) <- gsub(x = colnames(des), pattern = "label_E2E4", replacement = "")
+    des <- model.matrix(~0 + clus_E2E4 + Sex + Age + YRI, data = dgelE2E4$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "clus_E2E4", replacement = "")
 
     # Filter using the design specified
     dgelE2E4 <- edgeR::normLibSizes(dgelE2E4)
@@ -122,7 +118,7 @@ e2e4fun <- function(dgel,n){
     
     # define contrasts to pass to makeContrasts (we have to do it this way due to environment weirdness with parallelization)
     contrasts_list <- list()
-    for (current_label in unique(dgelE2E4$samples$label)) {
+    for (current_label in unique(dgelE2E4$samples$clus)) {
         contrast_name <- paste0(current_label, "_E4vE2")
         contrast_formula <- paste0(current_label, "_E4 - ", current_label, "_E2")
         
@@ -133,7 +129,7 @@ e2e4fun <- function(dgel,n){
     trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
 
     ## fit and fit contrasts
-    v.swt <- voomLmFit(dgelE2E4, design = des, block = as.factor(dgelE2E4$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt <- voomLmFit(dgelE2E4, design = des, block = as.factor(dgelE2E4$samples$brnum), adaptive.span = TRUE, sample.weights = TRUE)
     v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
     v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
 
@@ -146,7 +142,7 @@ e2e4fun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelE2E4, trasts = trastmat, detabs = E2E4label_detabs)
                      
-    saveRDS(keeplist, paste0("processed-data_newseg/05_snSeqxferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_E2E4label_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/13_BanksyDE/02bTMP_keeplist_E2E4label_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)}
 ```
 
@@ -156,10 +152,10 @@ e2e4fun <- function(dgel,n){
 ```{r}
 apogenofun <- function(dgel,n){
     dgelApoAlleles <- dgel
-    dgelApoAlleles$samples$label_apo <- paste0(dgelApoAlleles$samples$label, "_", dgelApoAlleles$samples$APOE)
+    dgelApoAlleles$samples$clus_apo <- paste0(dgelApoAlleles$samples$clus, "_", dgelApoAlleles$samples$APOE)
     
-    des <- model.matrix(~0 + label_apo + Sex + Age + YRI, data = dgelApoAlleles$samples)
-    colnames(des) <- gsub(x = colnames(des), pattern = "label_apo", replacement = "")
+    des <- model.matrix(~0 + clus_apo + Sex + Age + YRI, data = dgelApoAlleles$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "clus_apo", replacement = "")
     
     # filter using the design specified
     dgelApoAlleles <- edgeR::normLibSizes(dgelApoAlleles)
@@ -168,7 +164,7 @@ apogenofun <- function(dgel,n){
     dgelApoAlleles <- edgeR::normLibSizes(dgelApoAlleles)
 
     contrasts_list <- list()
-    for (current_label in unique(dgelApoAlleles$samples$label)) {
+    for (current_label in unique(dgelApoAlleles$samples$clus)) {
         # Create a named vector of contrast formulas for the current label
         formulas <- c(
             paste0(current_label, "_E2hom - (0.5*", current_label, "_E4het + 0.5*", current_label, "_E4hom)"),
@@ -184,7 +180,7 @@ apogenofun <- function(dgel,n){
     trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
 
     # fit and fit contrasts
-    v.swt <- voomLmFit(dgelApoAlleles, design = des, block = as.factor(dgelApoAlleles$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt <- voomLmFit(dgelApoAlleles, design = des, block = as.factor(dgelApoAlleles$samples$brnum), adaptive.span = TRUE, sample.weights = TRUE)
     v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
     v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
 
@@ -197,7 +193,7 @@ apogenofun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelApoAlleles, trasts = trastmat, detabs = ApoAllelesLabel_detabs)
                      
-    saveRDS(keeplist, paste0("processed-data_newseg/05_snSeqxferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_ApoAllelesLabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/13_BanksyDE/02bTMP_keeplist_ApoAllelesLabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -212,17 +208,17 @@ ancesfun <- function(dgel,n){
     # make design matrices based on YRI being continuous or categorical
     if (is.numeric(dgelances$samples$YRI)) {
         # Continuous YRI setup
-        des <- model.matrix(~label:YRI + Sex + APOEsimple + Age, data = dgelances$samples)
-        colnames(des) <- gsub(x = colnames(des), pattern = "^label(.*):YRI$", replacement = "\\1_by_YRI")
-        trastmat <- paste0(unique(dgelances$samples$label), "_by_YRI") # These are coefficients, not contrasts
+        des <- model.matrix(~clus:YRI + Sex + APOEsimple + Age, data = dgelances$samples)
+        colnames(des) <- gsub(x = colnames(des), pattern = "^clus(.*):YRI$", replacement = "\\1_by_YRI")
+        trastmat <- paste0(unique(dgelances$samples$clus), "_by_YRI") # These are coefficients, not contrasts
         stopifnot(all(trastmat %in% colnames(des)))
     } else {
         # Categorical YRI setup
-        dgelances$samples$labAnces <- paste0(dgelances$samples$label, "_", dgelances$samples$YRI)
+        dgelances$samples$labAnces <- paste0(dgelances$samples$clus, "_", dgelances$samples$YRI)
         des <- model.matrix(~0 + labAnces + Sex + APOE + Age, data = dgelances$samples)
         
         contrasts_list <- list()
-        for (current_label in unique(dgelances$samples$label)) {
+        for (current_label in unique(dgelances$samples$clus)) {
             contrast_name <- paste0(current_label, "_YRI")
             contrast_formula <- paste0("labAnces", current_label, "_YRI - labAnces", current_label, "_CEU")
             
@@ -240,7 +236,7 @@ ancesfun <- function(dgel,n){
     dgelances <- edgeR::normLibSizes(dgelances)
 
     # Fit
-    v.swt <- voomLmFit(dgelances, design = des, block = as.factor(dgelances$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt <- voomLmFit(dgelances, design = des, block = as.factor(dgelances$samples$brnum), adaptive.span = TRUE, sample.weights = TRUE)
     
     # Fit contrasts or coefficients depending on YRI type
     if (is.numeric(dgelances$samples$YRI)) {
@@ -259,7 +255,7 @@ ancesfun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = dgelances, trasts = trastmat, detabs = yrilabel_detabs)
 
-    saveRDS(keeplist, paste0("processed-data_newseg/05_snSeqxferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_AncesByLabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/13_BanksyDE/02bTMP_keeplist_AncesByLabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -284,7 +280,7 @@ ancesapofun <- function(dgel,n){
   
     # for the categorical data, set it up and go
     newdgel$samples$APOlargeGrp <- ifelse(newdgel$samples$APOE %in% c("E2hom", "E2het"), yes = "E2", no = "E4")
-    newdgel$samples$lab_APOE_PredomAnces <- paste0(newdgel$samples$label, "_", newdgel$samples$APOlargeGrp, "_", newdgel$samples$YRIcat)
+    newdgel$samples$lab_APOE_PredomAnces <- paste0(newdgel$samples$clus, "_", newdgel$samples$APOlargeGrp, "_", newdgel$samples$YRIcat)
     
     # design matrix
     des <- model.matrix(~0 + lab_APOE_PredomAnces + Sex + Age, data = newdgel$samples)
@@ -298,7 +294,7 @@ ancesapofun <- function(dgel,n){
 
     # define contrasts
     contrasts_list <- list()
-    for (current_label in unique(newdgel$samples$label)) {
+    for (current_label in unique(newdgel$samples$clus)) {
         formulas <- c(
             paste0(current_label, "_E4_YRI - ", current_label, "_E4_CEU"),
             paste0(current_label, "_E2_YRI - ", current_label, "_E2_CEU"),
@@ -311,14 +307,14 @@ ancesapofun <- function(dgel,n){
     trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
 
     # fit, fit contrasts
-    v.swt <- voomLmFit(newdgel, design = des, block = as.factor(newdgel$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt <- voomLmFit(newdgel, design = des, block = as.factor(newdgel$samples$brnum), adaptive.span = TRUE, sample.weights = TRUE)
     v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
     v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
 
     # get toptabs, other results, and save
     yriapolabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
         o <- as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
-        setnames(o,"genes","gene_name") ## force uniformimty with other results
+        #setnames(o,"genes","gene_name") ## force uniformimty with other results
         return(o)
     })
     names(yriapolabel_detabs) <- colnames(v.swt.fit)
@@ -326,7 +322,7 @@ ancesapofun <- function(dgel,n){
     keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
                      dgel = newdgel, trasts = trastmat, detabs = yriapolabel_detabs)
                      
-    saveRDS(keeplist, paste0("processed-data_newseg/05_snSeqxferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_YRIAPOlabel_noMixClusts_", n, ".RDS"))
+    saveRDS(keeplist, paste0("processed-data_newseg/13_BanksyDE/02bTMP_keeplist_YRIAPOlabel_noMixClusts_", n, ".RDS"))
     gc(full = TRUE)
 }
 ```
@@ -351,20 +347,39 @@ gc(full=T)
 
 ## load the tmp RDSes
 ```{r}
-dom8492 <- list.files("processed-data_newseg/05_snSeqxferDomainDE/MODULARIZEDTMP_OUT",pattern="8492_orxfer.RDS",full.names = TRUE)
-dom12412 <- list.files("processed-data_newseg/05_snSeqxferDomainDE/MODULARIZEDTMP_OUT",pattern="12412_orxfer.RDS",full.names = TRUE)
-
+intraLC12 <- list.files("processed-data_newseg/13_BanksyDE",pattern="domain12412",full.names = TRUE)
+intraLC8 <- list.files("processed-data_newseg/13_BanksyDE",pattern="domain8492",full.names = TRUE)
+fulltiss <- list.files("processed-data_newseg/13_BanksyDE",pattern="wholetissue",full.names = TRUE)
 
 ## combine into one metalist
-dom8492out <- lapply(dom8492,readRDS)
-names(dom8492out) <- gsub(dom8492,pattern="processed-data_newseg/05_snSeqxferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+intra12o <- lapply(intraLC12,readRDS)
+names(intra12o) <- gsub(intraLC12,pattern="processed-data_newseg/13_BanksyDE/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
 
-dom12412out <- lapply(dom12412,readRDS)
-names(dom12412out) <- gsub(dom12412,pattern="processed-data_newseg/05_snSeqxferDomainDE/MODULARIZEDTMP_OUT/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
+intra8o <- lapply(intraLC8,readRDS)
+names(intra8o) <- gsub(intraLC8,pattern="processed-data_newseg/13_BanksyDE/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
 
-outlist <- list(dom8492=dom8492out, dom12412=dom12412out)
+wholetissue <- lapply(fulltiss,readRDS)
+names(wholetissue) <- gsub(fulltiss,pattern="processed-data_newseg/13_BanksyDE/02bTMP_keeplist_(.*)_noMix.*$",replacement="\\1")
 
-saveRDS(outlist,"processed-data_newseg/05_snSeqxferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdomainAndOtherLabelsXfered.RDS")
+outlist <- list(intraLC12412=intra12o, intraLC8492=intra8o, wholetissue=wholetissue)
+
+saveRDS(outlist,"processed-data_newseg/13_BanksyDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_BksyClus_inWDlcDoms_or_wholetiss.RDS")
+
+wtf <- lapply(outlist,function(a){
+  b <- lapply(a,function(h){
+    j <- h$detabs
+    d <- mapply(x=j,n=names(j),SIMPLIFY=FALSE,FUN=function(x,n){
+      z <- x[P.Value<0.05]
+      z[,contrast:=n]
+      return(z)
+    })
+    e <- rbindlist(d,idcol="something")
+    return(e)
+  })
+  k <- rbindlist(b,fill=T)
+  return(k)
+})
+
 ```
 ## can now delete 02bTMP RDSes.
 

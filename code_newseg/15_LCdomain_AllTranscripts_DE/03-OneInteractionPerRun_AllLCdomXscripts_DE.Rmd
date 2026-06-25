@@ -1,0 +1,538 @@
+---
+title: "03-OneInteractionPerRun_AllLCdomXscripts_DE.Rmd"
+author: "Bernie Mulvey"
+date: "06-24-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(edgeR)
+library(limma)
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+library(parallel)
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+dgels <- readRDS("processed-data_newseg/15_LCdomain_AllTranscripts_DE/02-Allxscript_pbulkDGEls_per_domaindef.RDS")
+
+## these already have genes, donor info, but need simple APOE column
+dgels <- lapply(dgels,function(x){
+  x$samples$APOEsimple <- ifelse(x$samples$APOE %in% c("E2hom","E2het"),"E2","E4")
+  return(x)
+})
+```
+
+
+##### In the next SEVERAL blocks, we will define a function that runs each DE analysis so that we can parallelize across dgelists (categorical or continuous YRI) and analysis parameters (defined functions). #####
+
+##### MODEL 1: SEX DE (Sex_cluster "interaction" edgeR style; APOE by carrier type #######
+####################################################################
+```{r}
+sexfun <- function(dgel,n){
+    dgelsex <- dgel
+    dgelsex$samples$clus_sex <- paste0(dgelsex$samples$clus, "_", dgelsex$samples$Sex)
+    
+    # design mat
+    des <- model.matrix(~0 + Sex + APOEsimple + Age + YRI, data = dgelsex$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "Sex", replacement = "")
+    
+    
+    # filter using design
+    dgelsex <- edgeR::normLibSizes(dgelsex)
+    keep <- filterByExpr.DGEList(dgelsex, design = des)
+    dgelsex <- dgelsex[keep, , keep.lib.sizes = FALSE]
+    dgelsex <- edgeR::normLibSizes(dgelsex)
+    
+    # define contrasts
+    trastmat <- makeContrasts("LCdom_sex"=M-F,levels=des)
+
+    ## fit and fit contrasts
+    v.swt <- voomLmFit(dgelsex, design = des, block = as.factor(dgelsex$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+
+    ## get top tables, save an RDS with the DE results and other parts
+    sexlabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+    })
+    names(sexlabel_detabs) <- colnames(trastmat)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = dgelsex, trasts = trastmat, detabs = sexlabel_detabs)
+    
+    saveRDS(keeplist, paste0("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_sexlabel_noMixClusts_", n, ".RDS"))
+    gc(full = TRUE)
+}
+```
+
+#####################################################################
+##### MODEL 2: E2/E4 carrier status "interaction" edgeR style #######
+#####################################################################
+```{r}
+e2e4fun <- function(dgel,n){
+    dgelE2E4 <- dgel
+    
+    des <- model.matrix(~0 + APOEsimple + Sex + Age + YRI, data = dgelE2E4$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "APOEsimple", replacement = "")
+
+    # Filter using the design specified
+    dgelE2E4 <- edgeR::normLibSizes(dgelE2E4)
+    keep <- filterByExpr.DGEList(dgelE2E4, design = des)
+    dgelE2E4 <- dgelE2E4[keep, , keep.lib.sizes = FALSE]
+    dgelE2E4 <- edgeR::normLibSizes(dgelE2E4)
+    
+    # define contrasts to pass to makeContrasts (we have to do it this way due to environment weirdness with parallelization)
+    trastmat <- makeContrasts("LCdom_E4vE2"=E4-E2,levels=des)
+
+    ## fit and fit contrasts
+    v.swt <- voomLmFit(dgelE2E4, design = des, block = as.factor(dgelE2E4$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+
+    ## get top tables, save an RDS with the DE results and other parts
+    E2E4label_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+    })
+    names(E2E4label_detabs) <- colnames(trastmat)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = dgelE2E4, trasts = trastmat, detabs = E2E4label_detabs)
+                     
+    saveRDS(keeplist, paste0("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_E2E4label_", n, ".RDS"))
+    gc(full = TRUE)}
+```
+
+##########################################################################
+#### MODEL 3: APOE alleles (E2hom/het, 4hom/het) "intxns" edgeR style; APOE by diplotype ####
+##########################################################################
+```{r}
+apogenofun <- function(dgel,n){
+    dgelApoAlleles <- dgel
+    
+    des <- model.matrix(~0 + APOE + Sex + Age + YRI, data = dgelApoAlleles$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "APOE", replacement = "")
+    
+    # filter using the design specified
+    dgelApoAlleles <- edgeR::normLibSizes(dgelApoAlleles)
+    keep <- filterByExpr.DGEList(dgelApoAlleles, design = des)
+    dgelApoAlleles <- dgelApoAlleles[keep, , keep.lib.sizes = FALSE]
+    dgelApoAlleles <- edgeR::normLibSizes(dgelApoAlleles)
+
+    # Create a named vector of contrast formulas for the current label
+    formulas <- c("E2hom - (0.5*E4het + 0.5*E4hom)",
+                  "E2het - (0.5*E4het + 0.5*E4hom)",
+                  "E4hom - (0.5*E2het + 0.5*E2hom)",
+                  "E4het - (0.5*E2het + 0.5*E2hom)",
+                  "E4hom - E4het",
+                  "E4hom - ((E4het + E2het + E2hom)/3)")
+    names(formulas) <- c("LCdom_E2hom_vs_anyE4", "LCdom_E2het_vs_anyE4", "LCdom_E4hom_vs_anyE2", "LCdom_E4het_vs_anyE2", "LCdom_E4hom_vs_E4het", "LCdom_E4hom_vs_others")
+    contrasts_list <- as.list(formulas)
+    trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
+
+    # fit and fit contrasts
+    v.swt <- voomLmFit(dgelApoAlleles, design = des, block = as.factor(dgelApoAlleles$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+
+    # get toptabs and other components, save
+    ApoAllelesLabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+    })
+    names(ApoAllelesLabel_detabs) <- colnames(trastmat)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = dgelApoAlleles, trasts = trastmat, detabs = ApoAllelesLabel_detabs)
+                     
+    saveRDS(keeplist, paste0("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_ApoAllelesLabel_", n, ".RDS"))
+    gc(full = TRUE)
+}
+```
+
+#############################################################################
+#### MODEL 4: label-by-YRI (continuous, categorical) styles, with APOEsimple control ####
+#############################################################################
+```{r}
+ancesfunCon <- function(dgel,n){
+    dgelances <- dgel
+    
+    # Continuous YRI setup
+    des <- model.matrix(~YRI + Sex + APOEsimple + Age, data = dgelances$samples)
+    trastmat <- "YRI" # These are coefficients, not contrasts
+    stopifnot(all(trastmat %in% colnames(des)))
+    
+    # Filtering using appropriate design from above
+    dgelances <- edgeR::normLibSizes(dgelances)
+    keep <- filterByExpr.DGEList(dgelances, design = des)
+    dgelances <- dgelances[keep, , keep.lib.sizes = FALSE]
+    dgelances <- edgeR::normLibSizes(dgelances)
+
+    # Fit
+    v.swt <- voomLmFit(dgelances, design = des, block = as.factor(dgelances$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    
+    # Fit contrasts or coefficients depending on YRI type
+    v.swt.fit <- contrasts.fit(v.swt, coefficients = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+    
+    # Get results and other components, save
+    yrilabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+    })
+    names(yrilabel_detabs) <- colnames(v.swt.fit)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = dgelances, trasts = trastmat, detabs = yrilabel_detabs)
+
+    saveRDS(keeplist, paste0("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_AncesContinuous_", n, ".RDS"))
+    gc(full = TRUE)
+}
+
+
+###
+###
+
+
+ancesfunCat <- function(dgel,n){
+    # make design matrices based on YRI as categorical
+    # Categorical YRI setup
+    message("Subsetting to 75%+ ancestry groups", n)
+    newsamp <- as.data.table(dgel$samples,keep.rownames=T)
+    newct <- dgel$counts
+    
+    newsamp <- newsamp[YRI>0.75|YRI<0.25]
+    newsamp[,YRIcat:=ifelse(YRI>0.75,"YRI","CEU")]
+    newct <- newct[,colnames(newct) %in% newsamp$rn]
+    newsamp <- as.data.frame(newsamp,row.names=newsamp$rn)[colnames(newct),]
+    newg <- as.data.frame(dgel$genes,row.names=rownames(dgel$genes))[rownames(newct),]
+    newdgel <- DGEList(counts=newct,samples=newsamp,genes=newg)
+  
+    des <- model.matrix(~0 + YRIcat + APOEsimple + Sex + Age, data = newdgel$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "^YRIcat(.*)$", replacement = "\\1")
+    trastmat <- makeContrasts("LCdom_YRIvCEU"=YRI-CEU,levels=des)
+
+    
+    # Filtering using appropriate design from above
+    newdgel <- edgeR::normLibSizes(newdgel)
+    keep <- filterByExpr.DGEList(newdgel, design = des)
+    newdgel <- newdgel[keep, , keep.lib.sizes = FALSE]
+    newdgel <- edgeR::normLibSizes(newdgel)
+
+    # Fit
+    v.swt <- voomLmFit(newdgel, design = des, block = as.factor(newdgel$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    
+    # Fit contrasts or coefficients depending on YRI type
+    v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+    
+    # Get results and other components, save
+    yrilabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+    })
+    names(yrilabel_detabs) <- colnames(v.swt.fit)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = newdgel, trasts = trastmat, detabs = yrilabel_detabs)
+
+    saveRDS(keeplist, paste0("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_AncesCategorical_", n, ".RDS"))
+    gc(full = TRUE)
+}
+```
+
+#############################################################################
+####### MODEL 5: label*YRI*E4orE2 (cat-cat-cat) "intxns" edgeR style ########
+#############################################################################
+```{r}
+ancesapofun <- function(dgel,n){
+    message("Subsetting to 75%+ ancestry groups", n)
+    newsamp <- as.data.table(dgel$samples,keep.rownames=T)
+    newct <- dgel$counts
+    
+    newsamp <- newsamp[YRI>0.75|YRI<0.25]
+    newsamp[,YRIcat:=ifelse(YRI>0.75,"YRI","CEU")]
+    newct <- newct[,colnames(newct) %in% newsamp$rn]
+    newsamp <- as.data.frame(newsamp,row.names=newsamp$rn)[colnames(newct),]
+    newg <- as.data.frame(dgel$genes,row.names=rownames(dgel$genes))[rownames(newct),]
+    newdgel <- DGEList(counts=newct,samples=newsamp,genes=newg)
+
+    # with the now categorical data, set it up and go
+    newdgel$samples$APOE_PredomAnces <- paste0(newdgel$samples$APOEsimple, "_", newdgel$samples$YRIcat)
+    
+    # design matrix
+    des <- model.matrix(~0 + APOE_PredomAnces + Sex + Age, data = newdgel$samples)
+    colnames(des) <- gsub(x = colnames(des), pattern = "^APOE_PredomAnces(.*)$", replacement = "\\1")
+    
+    # filter using the design
+    newdgel <- edgeR::normLibSizes(newdgel)
+    keep <- filterByExpr.DGEList(newdgel, design = des)
+    newdgel <- newdgel[keep, , keep.lib.sizes = FALSE]
+    newdgel <- edgeR::normLibSizes(newdgel)
+
+    # define contrasts
+    formulas <- c(
+      "E4_YRI - E4_CEU",
+      "E2_YRI - E2_CEU",
+      "E4_CEU - E2_CEU",
+      "E4_YRI - E2_YRI")
+    names(formulas) <- c("LCdom_E4YRI_vs_E4CEU", "LCdom_E2YRI_vs_E2CEU", "LCdom_E4CEU_vs_E2CEU", "LCdom_E4YRI_vs_E2YRI")
+    contrasts_list <- as.list(formulas)
+    trastmat <- do.call(makeContrasts, c(contrasts_list, list(levels = des)))
+
+    # fit, fit contrasts
+    v.swt <- voomLmFit(newdgel, design = des, block = as.factor(newdgel$samples$donor), adaptive.span = TRUE, sample.weights = TRUE)
+    v.swt.fit <- contrasts.fit(v.swt, contrasts = trastmat)
+    v.swt.fit.e <- eBayes(v.swt.fit, robust = TRUE)
+
+    # get toptabs, other results, and save
+    yriapolabel_detabs <- lapply(colnames(v.swt.fit), FUN = function(t) {
+        o <- as.data.table(topTable(v.swt.fit.e, coef = t, number = Inf, adjust.method = "BH"),keep.rownames=T)
+        #setnames(o,"genes","gene_name") ## force uniformimty with other results
+        return(o)
+    })
+    names(yriapolabel_detabs) <- colnames(v.swt.fit)
+
+    keeplist <- list(voomLFt = v.swt, trastsFit = v.swt.fit, eBay = v.swt.fit.e, 
+                     dgel = newdgel, trasts = trastmat, detabs = yriapolabel_detabs)
+                     
+    saveRDS(keeplist, paste0("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_YRIAPO_", n, ".RDS"))
+    gc(full = TRUE)
+}
+```
+
+
+## now run all of these * serially -- parallelization throwing an error now even though ive used an internal mclapply here before...
+```{r}
+funs <- list(sexfun,e2e4fun,apogenofun,ancesfunCon,ancesfunCat,ancesapofun)
+
+mapply(dgel=dgels,n=names(dgels),SIMPLIFY = FALSE,FUN=function(dgel,n){
+    lapply(X=funs,FUN=function(f){
+        f(dgel,n)
+    })
+})
+```
+
+## clean up, load the lists and concatenate into one giant result obj per domain definition set
+```{r}
+rm(list=ls())
+gc(full=T)
+```
+
+## load the tmp RDSes
+```{r}
+srt8426 <- list.files("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp",pattern="srt_domain8426",full.names = TRUE)
+srt12412 <- list.files("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp",pattern="srt_domain12199",full.names = TRUE)
+srt16119 <- list.files("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp",pattern="srt_domain16119",full.names = TRUE)
+srt20079 <- list.files("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp",pattern="srt_domain20079",full.names = TRUE)
+wd_domain8492 <- list.files("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp",pattern="wd_domain8492",full.names = TRUE)
+wd_domain12412 <- list.files("processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp",pattern="wd_domain12412",full.names = TRUE)
+
+## combine into one metalist
+srt8o <- lapply(srt8426,readRDS)
+names(srt8o) <- gsub(srt8426,pattern="processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_(.*)_srt.*$",replacement="\\1")
+
+srt12o <- lapply(srt12412,readRDS)
+names(srt12o) <- gsub(srt12412,pattern="processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_(.*)_srt.*$",replacement="\\1")
+
+srt16o <- lapply(srt16119,readRDS)
+names(srt16o) <- gsub(srt16119,pattern="processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_(.*)_srt.*$",replacement="\\1")
+
+srt20o <- lapply(srt20079,readRDS)
+names(srt20o) <- gsub(srt20079,pattern="processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_(.*)_srt.*$",replacement="\\1")
+
+wd8o <- lapply(wd_domain8492,readRDS)
+names(wd8o) <- gsub(wd_domain8492,pattern="processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_(.*)_wd.*$",replacement="\\1")
+
+wd12o <- lapply(wd_domain12412,readRDS)
+names(wd12o) <- gsub(wd_domain12412,pattern="processed-data_newseg/15_LCdomain_AllTranscripts_DE/03tmp/03bTMP_keeplist_(.*)_wd.*$",replacement="\\1")
+
+outlist <- list(srt8426=srt8o, srt12412=srt12o, srt16119=srt16o,srt20079=srt20o,wd8492=wd8o,wd12412=wd12o)
+
+saveRDS(outlist,"processed-data_newseg/15_LCdomain_AllTranscripts_DE/03-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdomaindefs_allXenTranscripts.RDS")
+### 
+### find nominal/near nominal DE events that have a stable effect direction across domain definitions (same sign and P<0.1 in 4 or more of the 6 definitions):
+stablenomde <- lapply(outlist,function(a){
+  b <- lapply(a,function(h){
+    j <- h$detabs
+    d <- mapply(x=j,n=names(j),SIMPLIFY=FALSE,FUN=function(x,n){
+      z <- x[P.Value<0.05]
+      z[,contrast:=n]
+      return(z)
+    })
+    e <- rbindlist(d,idcol="something")
+    return(e)
+  })
+  k <- rbindlist(b,fill=T)
+  return(k)
+})
+
+
+stablenomde2 <- stablenomde[something=="LCdom_E4vE2"][P.Value<0.1]
+stablenomde2[,sign:=ifelse(logFC>0,"e4up","e4down")]
+stablenomde2[,.N,by=c("rn","sign")][N>3]
+
+## only PLPP3 is a stable hit across domain definitions even when we take ALL transcripts in the domain. interestingly though (given NM-gene model results), both GPX3 and GPX4 are persistently E4-upregulated.
+#           rn   sign     N
+#       <char> <char> <int>
+#  1:     RYR3 e4down     6
+#  2:   P2RY12 e4down     6
+#  3:    PLPP3 e4down     6
+#  4:    GRID2 e4down     6
+#  5:     GPX4   e4up     6
+#  6:   CALCRL e4down     6
+#  7:   STK32B e4down     6
+#  8:   P2RY13 e4down     6
+#  9:     ENC1   e4up     6
+# 10:      ALK   e4up     6
+# 11:     PENK e4down     6
+# 12:    NPY1R e4down     6
+# 13:  RNASET2 e4down     5
+# 14:     GPX3   e4up     4
+# 15:   ELOVL2 e4down     6
+# 16:     PAX6 e4down     4
+# 17:    ITGAM e4down     4
+# 18:  CABLES1 e4down     5
+# 19:    THSD4   e4up     6
+# 20: B4GALNT1   e4up     4
+# 21:   CEMIP2   e4up     4
+# 22:   PTPRZ1 e4down     4
+# 23:   CARTPT   e4up     5
+# 24:   CTNNA3   e4up     4
+# 25:    LRRK1 e4down     4
+# 26:    RGS10 e4down     4
+# 27:    NXPH2 e4down     5
+# 28:    NDST4 e4down     5
+# 29:   CLDN11   e4up     4
+```
+## can now delete 03bTMP RDSes.
+
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] stats4    parallel  stats     graphics  grDevices utils     methods   base     
+
+other attached packages:
+ [1] SpatialExperiment_1.20.0    SingleCellExperiment_1.32.0 SummarizedExperiment_1.40.0
+ [4] Biobase_2.70.0              GenomicRanges_1.62.1        Seqinfo_1.0.0              
+ [7] IRanges_2.44.0              S4Vectors_0.48.1            BiocGenerics_0.56.0        
+[10] generics_0.1.4              MatrixGenerics_1.22.0       matrixStats_1.5.0          
+[13] BiocParallel_1.44.0         parallelly_1.47.0           colorout_1.3-3             
+[16] edgeR_4.8.2                 limma_3.66.0                data.table_1.18.4          
+
+loaded via a namespace (and not attached):
+ [1] Matrix_1.7-4        rjson_0.2.23        compiler_4.5.2      Rcpp_1.1.1         
+ [5] magick_2.9.0        yaml_2.3.12         fastmap_1.2.0       statmod_1.5.1      
+ [9] lattice_0.22-7      here_1.0.2          XVector_0.50.0      S4Arrays_1.10.1    
+[13] knitr_1.51          DelayedArray_0.36.1 rprojroot_2.1.1     rlang_1.1.7        
+[17] xfun_0.56           otel_0.2.0          SparseArray_1.10.8  cli_3.6.5          
+[21] magrittr_2.0.4      digest_0.6.39       grid_4.5.2          locfit_1.5-9.12    
+[25] rstudioapi_0.18.0   lifecycle_1.0.5     evaluate_1.0.5      codetools_0.2-20   
+[29] abind_1.4-8         rsconnect_1.7.0     rmarkdown_2.30      tools_4.5.2        
+[33] htmltools_0.5.9    
+> sessioninfo::session_info()
+─ Session info ────────────────────────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       RStudio
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/New_York
+ date     2026-06-24
+ rstudio  2026.01.1+403 Apple Blossom (desktop)
+ pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ────────────────────────────────────────────────────────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocParallel         * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ cli                    3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ codetools              0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
+ colorout             * 1.3-3    2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ data.table           * 1.18.4   2026-05-06 [1] CRAN (R 4.5.2)
+ DelayedArray           0.36.1   2026-03-31 [1] Bioconductor 3.22 (R 4.5.2)
+ digest                 0.6.39   2025-11-19 [1] CRAN (R 4.5.2)
+ edgeR                * 4.8.2    2025-12-23 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ evaluate               1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ fastmap                1.2.0    2024-05-15 [1] CRAN (R 4.5.0)
+ generics             * 0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ here                   1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ htmltools              0.5.9    2025-12-04 [1] CRAN (R 4.5.2)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ knitr                  1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ lattice                0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ limma                * 3.66.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ locfit                 1.5-9.12 2025-03-05 [1] CRAN (R 4.5.0)
+ magick                 2.9.0    2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ Matrix                 1.7-4    2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0    2025-01-07 [1] CRAN (R 4.5.0)
+ otel                   0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly           * 1.47.0   2026-04-17 [1] CRAN (R 4.5.2)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rmarkdown              2.30     2025-09-28 [1] CRAN (R 4.5.0)
+ rprojroot              2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ rsconnect              1.7.0    2025-12-06 [1] CRAN (R 4.5.2)
+ rstudioapi             0.18.0   2026-01-16 [1] CRAN (R 4.5.2)
+ S4Arrays               1.10.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.1   2026-04-04 [1] https://bioc-release.r-universe.dev (R 4.5.3)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8   2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ statmod                1.5.1    2025-10-09 [1] CRAN (R 4.5.0)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ xfun                   0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ yaml                   2.3.12   2025-12-10 [1] CRAN (R 4.5.2)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+───────────────────────────────────────────────────────────────────────────────────────────────
