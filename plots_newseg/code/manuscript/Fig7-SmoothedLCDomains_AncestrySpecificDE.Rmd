@@ -1,0 +1,436 @@
+---
+title: "Fig7-SmoothedLCDomains_AncestrySpecificDE"
+format: html
+date: "07-01-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+library(ggrastr)
+library(escheR)
+library(jaffelab)
+library(sf)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+options('styler.addins_style_transformer' = 'biocthis::bioc_style()')
+##
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn='')
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost='localhost')
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = '#000000'), axis.title.x = element_text(size = 9,color = '#000000'), axis.text.y = element_text(size = 8,color = '#000000'), axis.title.y = element_text(size =9,color = '#000000'), plot.title = element_markdown(size = 10,hjust=0.5,color = '#000000'), strip.text = element_text(size=11), legend.text = element_text(size=7,color = '#000000'), legend.title = element_text(size=8,hjust=0.5,color = '#000000'),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position='plot'))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace('datasets')
+```
+
+## Plot from a previously-plotted sample, showing transferred labels themselves, with similar anat to its visium counterpart
+## poss brs: Fig 2 (Br5941, Br0946, Br6538, Br1105) or Fig 1 (Br3974)
+## try Br5941, Br6538
+
+# SRT dom12199 least stringent, 20079 most stringent (44189, 32865 cells)
+```{r}
+
+# helper function to extract a legend and pipe back to a diff plot: from https://statisticsglobe.com/add-common-legend-to-combined-ggplot2-plots-in-r/#example-2-add-shared-legend-to-ggplot2-plots-using-gridextra-package 
+
+extract_legend <- function(my_ggp) {
+  step1 <- ggplot_gtable(ggplot_build(my_ggp))
+  step2 <- which(sapply(step1$grobs, function(x) x$name) == "guide-box")
+  step3 <- step1$grobs[[step2]]
+  return(step3)
+}
+```
+
+```{r}
+pal <- readRDS("../LFF_spatial_LC/plots/finalpal_somuchfornorainbows.RDS")
+
+xlc <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+lxf <- fread("processed-data_newseg/07_visLabelTransfer/05-srtLCsmoothDoms_and_NMFpreds_lut.txt")
+## use a permissive and strict domain for plotting
+lxf <- lxf[,.(rn,domain12199,domain20079,SRTnmfpred)]
+## convert working names to plotting names for cluster labels
+lxf[SRTnmfpred=="Astro_Oligo",SRTnmfpred:="Astro-Oligo Mixed"]
+lxf[SRTnmfpred=="Oligo_Astro",SRTnmfpred:="Oligo-Astro Mixed"]
+lxf[SRTnmfpred=="ACHE_SERT_Npep",SRTnmfpred:="*ACHE*, *SERT*,<br>Neuropept. Mixed"]
+lxf[SRTnmfpred=="ACHE_SERT_LC_WM",SRTnmfpred:="*ACHE*, *SERT*,<br>LC, Oligo Mixed"]
+lxf[SRTnmfpred=="Oligo_Complex",SRTnmfpred:="Oligo-Other<br>Types Mixed"]
+
+names(pal)[2] <- "*ACHE*, *SERT*,<br>LC, Oligo Mixed"
+names(pal)[3] <- "*ACHE*, *SERT*,<br>Neuropept. Mixed"
+names(pal)[9] <- "Oligo-Other<br>Types Mixed"
+
+stopifnot(all(lxf$SRTnmfpred %in% names(pal)))
+
+## add to coldata
+tmpcd <- as.data.table(colData(xlc),keep.rownames=T)
+tmpcd <- merge.data.table(tmpcd,lxf,by="rn")
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(xlc),]
+tmpcd$rn <- NULL
+colData(xlc) <- tmpcd
+
+rm(lxf)
+```
+
+### make the plots of Br5941 with cell annots, LC domain perimeter drawn on, and an inset that zooms to just the domain part. we'll do whatever rotating is necess. to match visium orientation in illustrator.
+
+### first, determine the domain boundaries.
+```{r}
+pane <- xlc[,xlc$brnum=="Br5941"]
+
+d12 <- st_as_sf(as.data.frame(spatialCoords(pane[,pane$domain12199=="LC"])),coords = c("x_centroid","y_centroid"))
+d20 <- st_as_sf(as.data.frame(spatialCoords(pane[,pane$domain20079=="LC"])),coords = c("x_centroid","y_centroid"))
+
+d12hullpt <- st_concave_hull(st_union(d12),ratio = 0.2)
+d20hullpt <- st_concave_hull(st_union(d20),ratio = 0.2)
+## create the data table we will use for overlaying the boundary polygons. geom_path will need the first point to also be popped into the last slot to close the shape
+dompoly12 <- rbind(d12hullpt[[1]][[1]],
+                  d12hullpt[[1]][[1]][1,])
+dompoly12 <- cbind(dompoly12,rep("LC",nrow(dompoly12)))
+
+dompoly20 <- rbind(d20hullpt[[1]][[1]],
+                  d20hullpt[[1]][[1]][1,])
+dompoly20 <- cbind(dompoly20,rep("LC",nrow(dompoly20)))
+
+dompoly12 <- as.data.table(dompoly12)
+dompoly20 <- as.data.table(dompoly20)
+
+setnames(dompoly12,c("xpol","ypol","dompol"))
+setnames(dompoly20,c("xpol","ypol","dompol"))
+
+dompoly12[,xpol:=as.numeric(xpol)]
+dompoly12[,ypol:=as.numeric(ypol)]
+dompoly20[,xpol:=as.numeric(xpol)]
+dompoly20[,ypol:=as.numeric(ypol)]
+
+rm(d12,d20,d12hullpt,d20hullpt)
+```
+
+### then, make full-section escher plot with the domain perimeter overlaid...
+```{r}
+# sizepal <- c(0.5,rep(0.2,8)) <- we need to pass a vector of point sizes to have the polygon-over-spot plotting scheme work here:
+
+sizesman <- ifelse(pane$SRTnmfpred=="LC",0.5,0.2)
+
+plt <- make_escheR(pane,y_reverse=FALSE)
+plt <- plt |> add_fill("SRTnmfpred",size=0.2,point_size = 0.2)
+
+
+## assign spot colors based on our existing palette
+p <- plt +
+  labs(fill="Transferred\nVisium Label")+
+  scale_fill_manual(values=pal)
+
+## override the escheR size settings with the spot sizes determined above:
+p@layers[[1]]$aes_params$size <- sizesman
+
+
+## draw LC domain boundary; drop guides for first panel; format for second to extract later
+p12 <- p + 
+  geom_path(data=dompoly12,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
+  scale_color_manual(values=pal)+guides(color="none",fill="none",size="none")
+
+p20 <- p +
+  geom_path(data=dompoly20,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
+  scale_color_manual(values=pal)+
+  guides(fill=guide_legend(override.aes=list(size=1.5)),size="none",color="none")
+
+### format
+
+## title
+p12 <- p12 + ggtitle("Br5941 (E4/E4, AA, M) SRT12199")
+p20 <- p20 + ggtitle("Br5941 (E4/E4, AA, M) SRT20079")
+
+## for consistency/illustrator editing simplifying
+p12 <- p12 + theme(panel.grid = element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      axis.ticks = element_blank(),
+      legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
+      legend.key.size = ggplot2::unit(0.075,"in"),
+      legend.title=element_text(size=7,hjust=0.5),
+      legend.background = element_blank(),
+      legend.box = element_blank(),
+      legend.box.spacing = ggplot2::unit(0,"in"),
+      legend.key = element_blank(),
+      legend.key.height=ggplot2::unit(0.0125,"in"),
+      legend.key.width=ggplot2::unit(0.0125,"in"),
+      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+      title=element_text(size=10,hjust=0.5))
+      # legend.position.inside = c(0.19,0.165),
+      # legend.position="inside")
+
+p20 <- p20 + theme(panel.grid = element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      axis.ticks = element_blank(),
+      legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
+      legend.key.size = ggplot2::unit(0.075,"in"),
+      legend.title=element_text(size=7,hjust=0.5),
+      legend.background = element_blank(),
+      legend.box = element_blank(),
+      legend.box.spacing = ggplot2::unit(0,"in"),
+      legend.key = element_blank(),
+      legend.key.height=ggplot2::unit(0.0125,"in"),
+      legend.key.width=ggplot2::unit(0.0125,"in"),
+      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+      title=element_text(size=10,hjust=0.5))
+      # legend.position.inside = c(0.19,0.165),
+      # legend.position="inside")
+
+
+### extract legend, then remove it from p20 itself
+leg <- extract_legend(p20)
+p20 <- p20+guides(color="none",fill="none",size="none")
+    
+
+p12 <- rasterize(p12,layers="Points",dpi=600,dev="cairo_png")
+p20 <- rasterize(p20,layers="Points",dpi=600,dev="cairo_png")
+
+pdf(paste0("plots_newseg/manuscript/Fig7/Fig7A-Predlabels_wDomainBounds_Br5941.pdf"),height=2,width=6.5)
+do.call("grid.arrange",list(arrangeGrob(grobs=c(p12,p20),ncol=2),leg,ncol=2,widths=c(5,1.5)))
+dev.off()
+
+rm(p12,p20,leg,sizesman,plt)
+```
+
+#### and an inset that just spans the LC area
+```{r}
+### get the min and max x and y coords of the LC polygon, add a little buffer space, and get cell IDs for all cells that correspond
+rownames(spatialCoords(pane)) <- colnames(pane)
+zoomcoord <- as.data.table(spatialCoords(pane),keep.rownames=T)
+range(dompoly20$xpol) # 140-1206
+range(dompoly20$ypol) # 2319-3753
+
+zoomcoord <- zoomcoord[greaterOrEqual(x_centroid,50)&lessOrEqual(x_centroid,1350)]
+zoomcoord <- zoomcoord[greaterOrEqual(y_centroid,2250)&lessOrEqual(y_centroid,3950)]
+
+pane2 <- pane[,zoomcoord$rn]
+
+
+sizesman <- ifelse(pane2$SRTnmfpred=="LC",0.75,0.5)
+
+plt <- make_escheR(pane2,y_reverse=FALSE)
+plt <- plt |> add_fill("SRTnmfpred",size=0.2,point_size = 0.2)
+
+
+## assign spot colors based on our existing palette; will use same legend
+p <- plt + 
+  scale_fill_manual(values=pal)
+
+## override the escheR size settings with the spot sizes determined above:
+p@layers[[1]]$aes_params$size <- sizesman
+
+
+## draw LC domain boundary
+p <- p + 
+  geom_path(data=dompoly20,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
+  scale_color_manual(values=pal)
+
+## no legends needed
+p <- p +
+  guides(fill="none",size="none",color="none")
+
+## no title
+
+## for consistency/illustrator editing simplifying
+p <- p+ theme(panel.grid = element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      axis.ticks = element_blank(),
+      legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
+      legend.key.size = ggplot2::unit(0.075,"in"),
+      legend.title=element_text(size=7,hjust=0.5),
+      legend.background = element_blank(),
+      legend.box = element_blank(),
+      legend.box.spacing = ggplot2::unit(0,"in"),
+      legend.key = element_blank(),
+      legend.key.height=ggplot2::unit(0.0125,"in"),
+      legend.key.width=ggplot2::unit(0.0125,"in"),
+      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+      title=element_text(size=10,hjust=0.5))
+      # legend.position.inside = c(0.19,0.165),
+      # legend.position="inside")
+
+p <- rasterize(p,layers="Points",dpi=600,dev="cairo_png")
+
+pdf(paste0("plots_newseg/manuscript/Fig7/7Ainset-Predlabels_wSRT20079DomainBounds_Br5941.pdf"),height=2.25,width=1.5)
+print(p)
+dev.off()
+
+rm(pane,pane2,plt,zoomcoord,dompoly12,dompoly20,sizesman)
+```
+
+### next, we want to plot the pseudobulk results for AA, EA, and all ancestries in each domain definition
+```{r}
+srtdomde <- readRDS("processed-data_newseg/08_VisXferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdoms_andOtherXferedVisLabels.RDS")
+wddomde <- readRDS("processed-data_newseg/05_snSeqxferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdomainAndOtherLabelsXfered.RDS")
+
+domde <- c(srtdomde,wddomde)
+pbulks <- lapply(domde,function(x){
+  y <- x$YRIAPOlabel$voomLFt$EList$E
+  keepn <- grep(colnames(y),pattern="^LC_Br",value=T)
+  y <- y[,keepn]
+  return(y)
+})
+
+sampinf <- lapply(domde,function(x){
+  y <- x$YRIAPOlabel$dgel$samples
+  keepn <- grep(rownames(y),pattern="^LC_Br",value=T)
+  y <- y[keepn,]
+  return(y)
+})
+
+### now each of these are set up for jaffelab::cleaningy. for accurate fit, include all label-ancestry combinations and extract the LC ones after.
+names(pbulks) <- c("SRT Transfer,<br>k1=0.08, k2=0.426","SRT Transfer,<br>k1=0.12, k2=0.199","SRT Transfer,<br>k1=0.16, k2=0.119","SRT Transfer,<br>k1=0.20, k2=0.079","snRNA-seq Transfer,<br>k1= 0.08, k2=0.492","snRNA-seq Transfer,<br>k1=0.12, k2=0.412")
+
+adjpbulks <- mapply(p=pbulks,s=sampinf,n=names(pbulks),SIMPLIFY=FALSE,function(p,s,n){
+  s$lab_APOE_PredomAnces <- factor(s$lab_APOE_PredomAnces,levels = unique(s$lab_APOE_PredomAnces))
+  s$Sex <- factor(s$Sex)
+  s$Age <- as.numeric(s$Age)
+  
+  p <- p[,rownames(s)]
+
+  modmat <-  model.matrix(~0+lab_APOE_PredomAnces+Age+Sex,data = s)
+  degs <- jaffelab::cleaningY(p,modmat,5) # correct for terms that arent in the ancestry-label groupings (term 1 intercept, 2,3,4,5 levels of lab_APOE_ancest, 6 Age, 7 Sex)
+  rownames(degs) <- rownames(p)
+  colnames(degs) <- colnames(p)
+  degs <- as.data.table(degs,keep.rownames=T)
+  setnames(degs,"rn","gene")
+  return(degs)
+})
+
+NTSRplts <- mapply(a=adjpbulks,s=sampinf,n=names(adjpbulks),SIMPLIFY=FALSE,function(a,s,n){
+  # melt, get gene of interest, append metadata for plotting 
+  b <- melt.data.table(a,id.vars="gene")
+  b[,variable:=as.character(variable)]
+  b <- b[gene=="NTSR2"&variable %in% grep(variable,pattern="LC_Br",value=T)]
+  b[,titleg:=paste0("*",gene,"*")]
+  
+  # drop existing rn from sample table if present
+  s$rn <- NULL
+  s2 <- as.data.table(s,keep.rownames=T)
+  s2[,YRIcat:=ifelse(YRIcat=="YRI","AA","EA")]
+  b <- merge.data.table(b,s2,by.x="variable",by.y="rn")
+
+  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="^LC_",replacement="")]
+  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="_",replacement=" ")]
+  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="YRI",replacement="AA")]
+  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="CEU",replacement="EA")]
+  b[,lab_APOE_PredomAnces:=factor(lab_APOE_PredomAnces,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
+  plt <- ggplot(b,aes(x=lab_APOE_PredomAnces,y=value,fill=YRIcat))+
+    geom_boxplot()+
+    labs(x="Ancestry",y=paste0("*",unique(b$gene),"* expression in LC Domain<br>(Age and Sex adjusted)"),fill="Predominant\nAncestry")+
+    ggtitle(n)+
+    theme(
+      axis.title.x=element_text(size=8),
+      axis.title.y=element_markdown(size=8),
+      legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
+      legend.title=element_text(size=7,hjust=0.5),
+      legend.background = element_blank(),
+      legend.box = element_blank(),
+      legend.box.spacing = ggplot2::unit(0,"in"),
+      #legend.key = element_blank(),
+      legend.key.height=ggplot2::unit(0.0125,"in"),
+      legend.key.width=ggplot2::unit(0.0125,"in"),
+      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+      title=element_markdown(size=9,hjust=0.5))
+      # legend.position.inside = c(0.19,0.165),
+      # legend.position="inside")
+
+  return(plt)
+})
+
+PLPplts <- mapply(a=adjpbulks,s=sampinf,n=names(adjpbulks),SIMPLIFY=FALSE,function(a,s,n){
+  # melt, get gene of interest, append metadata for plotting 
+  b <- melt.data.table(a,id.vars="gene")
+  b[,variable:=as.character(variable)]
+  b <- b[gene=="PLPP3"&variable %in% grep(variable,pattern="LC_Br",value=T)]
+  b[,titleg:=paste0("*",gene,"*")]
+  
+  # drop existing rn from sample table if present
+  s$rn <- NULL
+  s2 <- as.data.table(s,keep.rownames=T)
+  s2[,YRIcat:=ifelse(YRIcat=="YRI","AA","EA")]
+  b <- merge.data.table(b,s2,by.x="variable",by.y="rn")
+
+  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="^LC_",replacement="")]
+  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="_",replacement=" ")]
+  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="YRI",replacement="AA")]
+  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="CEU",replacement="EA")]
+  b[,lab_APOE_PredomAnces:=factor(lab_APOE_PredomAnces,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
+  plt <- ggplot(b,aes(x=lab_APOE_PredomAnces,y=value,fill=YRIcat))+
+    geom_boxplot()+
+    labs(x="Ancestry",y=paste0("*",unique(b$gene),"* expression in LC Domain<br>(Age and Sex adjusted)"),fill="Predominant\nAncestry")+
+    ggtitle(n)+
+    theme(
+      axis.title.x=element_text(size=8),
+      axis.title.y=element_markdown(size=8),
+      legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
+      legend.title=element_text(size=7,hjust=0.5),
+      legend.background = element_blank(),
+      legend.box = element_blank(),
+      legend.box.spacing = ggplot2::unit(0,"in"),
+      #legend.key = element_blank(),
+      legend.key.height=ggplot2::unit(0.0125,"in"),
+      legend.key.width=ggplot2::unit(0.0125,"in"),
+      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+      title=element_markdown(size=9,hjust=0.5))
+      # legend.position.inside = c(0.19,0.165),
+      # legend.position="inside")
+
+  return(plt)
+})
+
+## with either of these, just clean up in illustrator to have one legend, one y label
+pdf("plots_newseg/manuscript/Fig7/7B_opt1_PLPP3_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
+do.call("grid.arrange",c(PLPplts,nrow=2))
+dev.off()
+
+pdf("plots_newseg/manuscript/Fig7/7B_opt2_NTSR2_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
+do.call("grid.arrange",c(NTSRplts,nrow=2))
+dev.off()
+
+rm(adjpbulks,domde,NTSRplts,pbulks,PLPplts,sampinf,srtdomde,wddomde)
+gc(full=T)
+```
+
+### now, what about DE in astrocyte clusters themselves
+```{r}
+bsyde <- readRDS("processed-data_newseg/13_BanksyDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_BksyClus_inWDlcDoms_or_wholetiss.RDS")
+
+
+```

@@ -1,0 +1,439 @@
+---
+title: "05-LMM_Intra_wdOrSRT_LCdomain_and_wdOrSRTorBanksyLClabel_NonMultimapNMsegs_logcounts_toNMmetrics_keepranfx"
+author: "Bernie Mulvey"
+date: "06-15-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+library(lme4)
+library(car)
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+library(parallel)
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+for plotting residualized values, we want to have the random effects as well -- which the original version of this code didn't include in the returned output. so we'll re-run, now outputting a random effect coef table and a main effect coef table per gene per APOE variable encoding and NM metric.
+
+read in spe, append YRI genomic proportions, and slide info. this time, subset to NM+ segmentations that mapped to a CELL with an LC label by any approach used (manual expression-based definitions, weber-divecha label transfer, or SRT label transfer).
+```{r}
+lcx <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+
+## label transfers and manual lcs
+wdx <- fread("processed-data_newseg/04_snSeqLabelTransfer/06-wdLCsmoothings_LUT.txt")
+srt <- fread("processed-data_newseg/07_visLabelTransfer/05-srtLCsmoothDoms_and_NMFpreds_lut.txt")
+
+lccells <- merge.data.table(srt,wdx,by="rn")
+
+bsy <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_assignmentsMergeClusts.txt")
+bsyan <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_mergeClusts_Annots.txt")
+bsy <- merge.data.table(bsy,bsyan,by="clusid")
+bsy[,anno:=ifelse(anno=="LCNE","LC","Other")]
+
+lccells <- merge.data.table(lccells,bsy[,.(rn,anno)],by="rn")
+
+### subset to cells that are in ANY lc domain definition first...
+lccells <- lccells[domain8426=="LC"|domain12199=="LC"|domain16119=="LC"|domain20079=="LC"|domain12412=="LC"|domain8492=="LC"]
+lccells <- lccells[nmfpred=="LC"|SRTnmfpred=="LC"|anno=="LC",rn] # 18.2k intra-domain LC cells across all definitions, before considering NM seg regist.
+
+## read in nm measures-retain ONLY cells uniquely mapped to NMmoment
+lcxnm <- fread("processed-data_newseg/10_NManalyses/01-NMmetrics_per_QCretained_cell.txt")
+lcxnm <- lcxnm[cell_id %in% lccells&match_status=="unique_match",
+              .(cell_id,NM_mean_intensity,NM_median_intensity)] 
+# ^ 2892 LC cells ever annotated as LC cells AND in an LC domain AND registered to an NM seg
+
+lcx <- lcx[,lcxnm$cell_id]
+
+lcnm <- DataFrame(lcxnm,row.names=lcxnm$cell_id)[colnames(lcx),]
+
+## assign
+colData(lcx)$NM_mean_intensity <- lcnm$NM_mean_intensity
+colData(lcx)$NM_median_intensity <- lcnm$NM_median_intensity
+
+### get metadata
+flares <- fread("../LFF_spatial_LC/raw-data/ancestryAndHaplotypes/FLARE/global_ancestry_estimates.txt")
+
+lcnm.cd <- as.data.table(colData(lcx),keep.rownames=T)
+lcnm.cd <- lcnm.cd[,.(rn,NM_mean_intensity,NM_median_intensity,Age,Sex,APOE,donor,brnum)] # brnum = sample (donor with hemisphere); donor entries do not have hemisphere
+setnames(lcnm.cd,"APOE","APOEgeno")
+
+### append YRI
+stopifnot(all(lcnm.cd$donor%in%flares$ID))
+lcnm.cd <- merge.data.table(lcnm.cd,flares[,.(ID,YRI)],by.x="donor",by.y="ID")
+
+### xenium slide info
+techmet <- fread("raw-data/donor_sample_slide_kit.txt")
+stopifnot(all(lcnm.cd$brnum %in% techmet$Donor_sample))
+lcnm.cd <- merge.data.table(lcnm.cd,techmet[,.(Donor_sample,Xenium_slide)],by.x="brnum",by.y="Donor_sample")
+
+## we'll use two models with different approaches for APOE: E4+/- or individual genotypes (already in APOEgeno as E4hom/E4het/E2hom/E2het)
+lcnm.cd[,E4carrier:="No"]
+lcnm.cd[APOEgeno %in% c("E4hom","E4het"),E4carrier:="Yes"]
+
+lcnm.lct <- logcounts(lcx)
+lcnm.lct <- as.data.frame(as.matrix(lcnm.lct))
+
+```
+
+## clean up for modeling runs
+```{r}
+rm(lcx,lcxnm,lcnm,techmet, srt, wdx, flares)
+gc(full=T)
+```
+
+
+iterate over each gene and metric and APOE modeling specification
+nested rfx: none for donor (2 samples max per donor, mostly 1); sample (brnum) within slide 
+
+```{r}
+setDTthreads(1,restore_after_fork=FALSE)
+
+nmcor_apoes <- lapply(c("E4carrier","APOEgeno"),function(apo){
+    
+    nmcors <- lapply(c("NM_mean_intensity","NM_median_intensity"),function(nm){
+        results <- mclapply(c(1:nrow(lcnm.lct)),mc.cores=8,FUN=function(i){
+
+            setDTthreads(1,restore_after_fork=FALSE)
+            xpr <- lcnm.lct[i,]
+            xpr <- t(xpr)
+            xpr <- as.data.table(xpr,keep.rownames=T)
+            xpr <- merge.data.table(xpr,lcnm.cd,by="rn")
+            
+            curg <- colnames(xpr)[2]
+            
+            setnames(xpr,2,"val")
+            setnames(xpr,nm,"NMvar")
+            # fit lmms
+            f <- formula(paste0("NMvar ~ val + Age + Sex + YRI +", apo," + (1|Xenium_slide) + (1|Xenium_slide:brnum)"))
+            f2 <- formula(paste0("NMvar ~ Age + Sex + YRI + ", apo," + (1|Xenium_slide) + (1|Xenium_slide:brnum)")) # no term for gene
+            
+            lmmnm <- lmer(f,data=xpr)
+            
+            ## to perform LRT test, we shouldn't use REML, so run a second non REML
+            lmmnm.compare <- lmer(f,data=xpr,REML = FALSE)
+            lmmno <- lmer(f2,data=xpr,REML=FALSE)
+            
+            ## get LRT
+            lrt <- stats::anova(lmmnm.compare,lmmno)
+            
+            ## get anova for model coeffs in the REML NM model (car::Anova)
+            an <- as.data.table(Anova(lmmnm),keep.rownames=T)
+            
+            ## get model coefficients
+            fixfx <- as.data.table(fixef(lmmnm),keep.rownames=T)
+            setnames(fixfx,c("variable","coef"))
+            ## split Sex and APO into a variable column and group column for consistency with the anova table (e.g., SexM -> Sex , M) comes out as Sex here but "SexM" for the fixef. so to make sure we keep the sex coefficients, change SexM to Sex here
+            fixfx[variable=="SexM",var_group:="M"]
+            fixfx[variable=="SexM",variable:="Sex"]
+            # pattern to fix the APOE fixed effects will begin with the variable we're testing
+            fixpat <- paste0(apo,"(.*)")
+            fixfx[variable %in% grep(variable,pattern=apo,value=T),var_group:=gsub(variable,pattern=fixpat,replacement="\\1")]
+            fixfx[variable %in% grep(variable,pattern=apo,value=T),variable:=apo]
+            
+            ## make cleaner intercept rows
+            fixfx[variable=="(Intercept)",variable:="Intercept"]
+            ## append model coefficients
+            
+            an <- merge.data.table(fixfx,an,by.x="variable",by.y="rn")
+            an[variable=="val",variable:=curg]
+            
+            ## append LRT test
+            lrt <- as.data.table(lrt,keep.rownames=T)[rn=="lmmnm.compare",.(rn,Chisq,Df,`Pr(>Chisq)`,logLik)]
+            ## change 'loglik' to coef; change rn to "LRTvs_no_gene_coef"
+            lrt[,rn:="LRTvs_no_gene_coef"]
+            setnames(lrt,"rn","variable")
+            
+            an <- rbind(an,lrt,fill=T)
+            
+            ## add the NMvar being fitted
+            an[,NMvar:=nm]
+            
+            ## get the ranfx table
+            ranfxtab <- as.data.table(ranef(lmmnm))
+            ranfxtab[,gene_name:=curg]
+            ranfxtab[,NMvar:=nm]
+            
+            retlist <- list(an,ranfxtab)
+            names(retlist) <- c("fixed","ranfx")
+            return(retlist)
+        })
+        names(results) <- rownames(lcnm.lct)
+        return(results)
+    })
+    names(nmcors) <- c("NM_mean_intensity","NM_median_intensity")
+    return(nmcors)
+
+})
+names(nmcor_apoes) <- c("E4carrierYN","PerGeno")
+
+
+### a handful of these return error messages indicating one of the variables is constant. https://stats.stackexchange.com/questions/366784/how-to-get-around-the-glmer-warning-downdated-vtv-is-not-positive-definite
+    
+### only retain entries that are tabular results; concat those tabs for fixed and rand fx
+nmcor_apoe_fixfxtabs <- lapply(nmcor_apoes,function(x){
+    fixlist <- lapply(x,function(y){
+        lapply(y, function(z){
+            z[["fixed"]]
+        })
+    })
+    fixlist2 <- lapply(fixlist,FUN=function(x){
+        ret <- x[unlist(lapply(x,is.data.table))]
+        ret <- rbindlist(ret,idcol="gene_name")
+        return(ret)
+    })
+    return(fixlist2)
+})
+
+nmcor_apoe_ranfxtabs <- lapply(nmcor_apoes,function(x){
+    ranlist <- lapply(x,function(y){
+        lapply(y, function(z){
+            z[["ranfx"]]
+        })
+    })
+    ranlist2 <- lapply(ranlist,FUN=function(x){
+        ret <- x[unlist(lapply(x,is.data.table))]
+        ret <- rbindlist(ret,idcol="gene_name")
+        return(ret)
+    })
+    return(ranlist2)
+})
+
+
+## spot check that we have random effects for all genes that we got fixed effect results for
+stopifnot(all(unique(nmcor_apoe_fixfxtabs$E4carrierYN$NM_mean_intensity$gene_name) %in% unique(nmcor_apoe_ranfxtabs$E4carrierYN$NM_mean_intensity$gene_name)))
+
+### final list should rearrange these back together now
+finalout <- list(
+    E4carrierYN = list(
+        NM_mean_intensity = list(
+            fixed = nmcor_apoe_fixfxtabs$E4carrierYN$NM_mean_intensity,
+            ranfx = nmcor_apoe_ranfxtabs$E4carrierYN$NM_mean_intensity
+        ),
+        NM_median_intensity = list(
+            fixed = nmcor_apoe_fixfxtabs$E4carrierYN$NM_median_intensity,
+            ranfx = nmcor_apoe_ranfxtabs$E4carrierYN$NM_median_intensity
+        )
+    ),
+    PerGeno = list(
+        NM_mean_intensity = list(
+            fixed = nmcor_apoe_fixfxtabs$PerGeno$NM_mean_intensity,
+            ranfx = nmcor_apoe_ranfxtabs$PerGeno$NM_mean_intensity
+        ),
+        NM_median_intensity = list(
+            fixed = nmcor_apoe_fixfxtabs$PerGeno$NM_median_intensity,
+            ranfx = nmcor_apoe_ranfxtabs$PerGeno$NM_median_intensity
+        )
+))
+
+# save
+saveRDS(finalout,"processed-data_newseg/10_NManalyses/05-EverInLCdomain_wdXfer-orSRTxfer_LClabeled_NonMultimapNM_meanMedIntensity_LMMed_by_geneLogcounts_2apoeFactorizations_withRanEfFits.RDS")
+```
+
+seshinf
+```{r}
+sessioninfo::session_info()
+sessionInfo()
+```
+─ Session info ──────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       Positron
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/New_York
+ date     2026-06-28
+ pandoc   NA
+ quarto   1.9.38 @ /Applications/Positron.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ──────────────────────────────────
+ package              * version date (UTC) lib source
+ abind                  1.4-8   2024-09-12 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocParallel         * 1.44.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ boot                   1.3-32  2025-08-29 [1] CRAN (R 4.5.2)
+ car                  * 3.1-5   2026-02-03 [1] CRAN (R 4.5.2)
+ carData              * 3.0-6   2026-01-30 [1] CRAN (R 4.5.2)
+ cli                    3.6.5   2025-04-23 [1] CRAN (R 4.5.0)
+ codetools              0.2-20  2024-03-31 [1] CRAN (R 4.5.2)
+ colorout             * 1.3-3   2026-01-31 [1] Github (jalvesaq/colorout@64863bb)
+ data.table           * 1.18.4  2026-05-06 [1] CRAN (R 4.5.2)
+ DelayedArray           0.36.1  2026-03-31 [1] Bioconductor 3.22 (R 4.5.2)
+ dichromat              2.0-0.1 2022-05-02 [1] CRAN (R 4.5.0)
+ dplyr                  1.2.0   2026-02-03 [1] CRAN (R 4.5.2)
+ evaluate               1.0.5   2025-08-27 [1] CRAN (R 4.5.0)
+ farver                 2.1.2   2024-05-13 [1] CRAN (R 4.5.0)
+ Formula                1.2-5   2023-02-24 [1] CRAN (R 4.5.0)
+ generics             * 0.1.4   2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1  2025-12-08 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ ggplot2              * 4.0.2   2026-02-03 [1] CRAN (R 4.5.2)
+ ggtext               * 0.1.2   2022-09-16 [1] CRAN (R 4.5.0)
+ glue                   1.8.0   2024-09-30 [1] CRAN (R 4.5.0)
+ gridExtra            * 2.3     2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext               0.1.5   2022-09-16 [1] CRAN (R 4.5.0)
+ gtable                 0.3.6   2024-10-25 [1] CRAN (R 4.5.0)
+ here                   1.0.2   2025-09-15 [1] CRAN (R 4.5.0)
+ IRanges              * 2.44.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ knitr                  1.51    2025-12-20 [1] CRAN (R 4.5.2)
+ lattice                0.22-7  2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5   2026-01-08 [1] CRAN (R 4.5.2)
+ lme4                 * 1.1-38  2025-12-02 [1] CRAN (R 4.5.2)
+ magick                 2.9.0   2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4   2025-09-12 [1] CRAN (R 4.5.0)
+ MASS                   7.3-65  2025-02-28 [1] CRAN (R 4.5.2)
+ Matrix               * 1.7-4   2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0   2025-01-07 [1] CRAN (R 4.5.0)
+ minqa                  1.2.8   2024-08-17 [1] CRAN (R 4.5.0)
+ nlme                   3.1-168 2025-03-31 [1] CRAN (R 4.5.2)
+ nloptr                 2.2.1   2025-03-17 [1] CRAN (R 4.5.0)
+ otel                   0.2.0   2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly           * 1.47.0  2026-04-17 [1] CRAN (R 4.5.2)
+ pillar                 1.11.1  2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig              2.0.3   2019-09-22 [1] CRAN (R 4.5.0)
+ R6                     2.6.1   2025-02-15 [1] CRAN (R 4.5.0)
+ rbibutils              2.4.1   2026-01-21 [1] CRAN (R 4.5.2)
+ RColorBrewer           1.1-3   2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1   2026-01-10 [1] CRAN (R 4.5.2)
+ Rdpack                 2.6.5   2026-01-23 [1] CRAN (R 4.5.2)
+ reformulas             0.4.4   2026-02-02 [1] CRAN (R 4.5.2)
+ rjson                  0.2.23  2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7   2026-01-09 [1] CRAN (R 4.5.2)
+ rprojroot              2.1.1   2025-08-26 [1] CRAN (R 4.5.0)
+ S4Arrays               1.10.1  2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.1  2026-04-04 [1] https://bioc-release.r-universe.dev (R 4.5.3)
+ S7                     0.2.1   2025-11-14 [1] CRAN (R 4.5.2)
+ scales                 1.4.0   2025-04-24 [1] CRAN (R 4.5.0)
+ Seqinfo              * 1.0.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3   2025-02-05 [1] CRAN (R 4.5.0)
+ SingleCellExperiment * 1.32.0  2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8  2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0  2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SummarizedExperiment * 1.40.0  2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ tibble                 3.3.1   2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect             1.2.1   2024-03-11 [1] CRAN (R 4.5.0)
+ vctrs                  0.7.1   2026-01-23 [1] CRAN (R 4.5.2)
+ withr                  3.0.2   2024-10-28 [1] CRAN (R 4.5.0)
+ xfun                   0.56    2026-01-18 [1] CRAN (R 4.5.2)
+ xml2                   1.5.2   2026-01-17 [1] CRAN (R 4.5.2)
+ XVector                0.50.0  2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+─────────────────────────────────────────────
+> sessionInfo()
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats4    stats     graphics 
+[5] grDevices utils     datasets  methods  
+[9] base     
+
+other attached packages:
+ [1] BiocParallel_1.44.0        
+ [2] parallelly_1.47.0          
+ [3] colorout_1.3-3             
+ [4] car_3.1-5                  
+ [5] carData_3.0-6              
+ [6] lme4_1.1-38                
+ [7] Matrix_1.7-4               
+ [8] SpatialExperiment_1.20.0   
+ [9] SingleCellExperiment_1.32.0
+[10] SummarizedExperiment_1.40.0
+[11] Biobase_2.70.0             
+[12] GenomicRanges_1.62.1       
+[13] Seqinfo_1.0.0              
+[14] IRanges_2.44.0             
+[15] S4Vectors_0.48.1           
+[16] BiocGenerics_0.56.0        
+[17] generics_0.1.4             
+[18] MatrixGenerics_1.22.0      
+[19] matrixStats_1.5.0          
+[20] gridExtra_2.3              
+[21] ggtext_0.1.2               
+[22] ggplot2_4.0.2              
+[23] data.table_1.18.4          
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6        rjson_0.2.23       
+ [3] xfun_0.56           lattice_0.22-7     
+ [5] vctrs_0.7.1         tools_4.5.2        
+ [7] Rdpack_2.6.5        tibble_3.3.1       
+ [9] pkgconfig_2.0.3     RColorBrewer_1.1-3 
+[11] S7_0.2.1            lifecycle_1.0.5    
+[13] compiler_4.5.2      farver_2.1.2       
+[15] codetools_0.2-20    Formula_1.2-5      
+[17] pillar_1.11.1       nloptr_2.2.1       
+[19] MASS_7.3-65         DelayedArray_0.36.1
+[21] sessioninfo_1.2.3   magick_2.9.0       
+[23] reformulas_0.4.4    boot_1.3-32        
+[25] abind_1.4-8         nlme_3.1-168       
+[27] tidyselect_1.2.1    dplyr_1.2.0        
+[29] splines_4.5.2       rprojroot_2.1.1    
+[31] grid_4.5.2          here_1.0.2         
+[33] cli_3.6.5           SparseArray_1.10.8 
+[35] magrittr_2.0.4      S4Arrays_1.10.1    
+[37] dichromat_2.0-0.1   withr_3.0.2        
+[39] scales_1.4.0        XVector_0.50.0     
+[41] otel_0.2.0          evaluate_1.0.5     
+[43] knitr_1.51          rbibutils_2.4.1    
+[45] rlang_1.1.7         gridtext_0.1.5     
+[47] Rcpp_1.1.1          glue_1.8.0         
+[49] xml2_1.5.2          minqa_1.2.8        
+[51] R6_2.6.1  
