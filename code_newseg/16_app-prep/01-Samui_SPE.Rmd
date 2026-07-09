@@ -1,0 +1,92 @@
+---
+title: "Samui_SPE"
+author: "Bernie Mulvey"
+date: "07-09-2026"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+spe <- readRDS("processed-data_newseg/02_QC/05a-spe_filtered_genetargonly_log-and-nonlog-norms_withLowresHEs.RDS")
+
+colData(spe) <- colData(spe)[,c(17,18,1:3,13:14,19:25)]
+tmpcd <- as.data.table(colData(spe),keep.rownames=T)
+
+### domain and label transfer assignments
+srtdomlut <- fread("processed-data_newseg/07_visLabelTransfer/05-srtLCsmoothDoms_and_NMFpreds_lut.txt")
+names(srtdomlut)
+setnames(srtdomlut,c(2:6),c("SmoothedLC8_SRTxfer","SmoothedLC12_SRTxfer","SmoothedLC16_SRTxfer","SmoothedLC20_SRTxfer","Xfered_SRT_Label"))
+
+wddomlut <- fread("processed-data_newseg/04_snSeqLabelTransfer/06-wdLCsmoothings_LUT.txt")
+setnames(wddomlut,c(2:4),c("Xfered_snRNA_Label","SmoothedLC12_snRNAxfer","SmoothedLC8_snRNAxfer"))
+
+domlut <- merge.data.table(srtdomlut,wddomlut,by="rn")
+
+
+bsy <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_assignmentsMergeClusts.txt")
+an <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_mergeClusts_Annots.txt")
+bsy <- merge.data.table(bsy,an,by="clusid")
+bsy[anno=="DISCARD",anno:="DROPPED_CLUSTER"]
+bsy[,clusid:=NULL]
+luts <- merge.data.table(domlut,bsy,by="rn")
+
+setnames(luts,"anno","BanksyCluster_Label")
+tmpcd <- merge.data.table(tmpcd,luts,by="rn")
+tmpcd <- DataFrame(tmpcd,row.names=tmpcd$rn)[colnames(spe),]
+tmpcd$rn <- NULL
+colData(spe) <- tmpcd
+
+spe <- scater::computeLibraryFactors(spe)
+spe <- scater::logNormCounts(spe)
+
+saveRDS(spe,"processed-data_newseg/16_app-prep/01-SamuiSPE.RDS")
+```
+
+```{r}
+sessionInfo()
+```

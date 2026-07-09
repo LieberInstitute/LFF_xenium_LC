@@ -77,9 +77,12 @@ lccells <- lccells[nmfpred=="LC"|SRTnmfpred=="LC"|anno=="LC",rn] # 18.2k intra-d
 
 ## read in nm measures-retain ONLY cells uniquely mapped to NMmoment
 lcxnm <- fread("processed-data_newseg/10_NManalyses/01-NMmetrics_per_QCretained_cell.txt")
-lcxnm <- lcxnm[cell_id %in% lccells&match_status=="unique_match",
-              .(cell_id,NM_mean_intensity,NM_median_intensity)] 
-# ^ 2892 LC cells ever annotated as LC cells AND in an LC domain AND registered to an NM seg
+lcxnm <- lcxnm[cell_id %in% lccells&match_status=="unique_match"]
+## make sure that this left no ambiguous NM-to-cell assignments
+stopifnot(nrow(lcxnm[NM_bbox_n_cells==1])==nrow(lcxnm))
+## OK
+lcxnm <- lcxnm[,.(cell_id,NM_mean_intensity,NM_median_intensity)] 
+# ^ 2892 cells ever annotated as LC cells AND in 1+ LC domain definition AND uniquely registered to an NM seg
 
 lcx <- lcx[,lcxnm$cell_id]
 
@@ -143,7 +146,7 @@ nmcor_apoes <- lapply(c("E4carrier","APOEgeno"),function(apo){
             setnames(xpr,2,"val")
             setnames(xpr,nm,"NMvar")
             # fit lmms
-            f <- formula(paste0("NMvar ~ val + Age + Sex + YRI +", apo," + (1|Xenium_slide) + (1|Xenium_slide:brnum)"))
+            f <- formula(paste0("NMvar ~ val + Age + Sex + YRI +", apo," ex"))
             f2 <- formula(paste0("NMvar ~ Age + Sex + YRI + ", apo," + (1|Xenium_slide) + (1|Xenium_slide:brnum)")) # no term for gene
             
             lmmnm <- lmer(f,data=xpr)

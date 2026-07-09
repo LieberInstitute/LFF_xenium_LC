@@ -1,0 +1,100 @@
+---
+title: "03-CellType_per_LCdomain_Area"
+author: "Bernie Mulvey"
+date: "06-22-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+cprop <- fread("processed-data_newseg/14_CellTypeProximity/03-BsyLabelProportions_in_wdDomains_and_srtDomains.txt")
+
+## get donor metadata
+spe <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+tmpcd <- as.data.table(colData(spe),keep.rownames=T)
+tmpcd <- unique(tmpcd[,.(brnum,APOE,Sex,Age,YRI)])
+tmpcd[,APOE:=ifelse(APOE %in% c("E2hom","E2het"),"E2","E4")]
+tmpcd <- tmpcd[greaterOrEqual(YRI,0.75)|lessOrEqual(YRI,0.25)]
+tmpcd[,catAnc:=ifelse(greaterOrEqual(YRI,0.75),"AA","EA")]
+tmpcd[,APOE_Anc:=paste0(APOE," ",catAnc)]
+
+cprop <- merge.data.table(cprop,tmpcd,by="brnum")
+
+# exclude LCNE, which are going to be the brunt of things
+lapply(unique(cprop$LCDomainDef),function(d){
+  p <- ggplot(cprop[LCDomainDef==d&anno!="LCNE"],aes(x=anno,y=prop_of_LCdomain_cells,fill=APOE_Anc))+
+    geom_boxplot()+
+    ggtitle(paste0("Cell type proportions in LC domain ",d))+
+    theme(axis.text.x=element_text(size=8,angle=90,hjust=0.5,vjust=1))
+  png(paste0("plots_newseg/14_CellTypeProximity/05-ProportionLabels_in_LCdomain_",d,"_predomAncesStrat.png"),height=600,width=800)
+  print(p)
+  dev.off()
+})
+```
+
+```{r}
+cpa <- readRDS("processed-data_newseg/14_CellTypeProximity/03_BsyLabelCounts_per_LCDomainArea.RDS")
+
+cpa <- rbindlist(cpa,idcol="LCDomainDef")
+cpa <- merge.data.table(cpa,tmpcd,"brnum")
+# convert from per unit^2 to per 100 units^2
+cpa[,annoPerLCdomArea:=100*annoPerLCdomArea]
+
+## excluding LCNE cells, which are going to skew the y axis here
+lapply(unique(cpa$LCDomainDef),function(d){
+  p <- ggplot(cpa[LCDomainDef==d&anno!="LCNE"],aes(x=anno,y=annoPerLCdomArea,fill=APOE_Anc))+
+    geom_boxplot()+
+    ggtitle(paste0("Number of cells per 100 units^2\nof area in LC domain ",d))+
+    theme(axis.text.x=element_text(size=8,angle=90,hjust=0.5,vjust=1))
+  png(paste0("plots_newseg/14_CellTypeProximity/05-LabelsPerArea_in_LCdomain_",d,"_predomAncStrat.png"),height=600,width=800)
+  print(p)
+  dev.off()
+})
+
+
+```

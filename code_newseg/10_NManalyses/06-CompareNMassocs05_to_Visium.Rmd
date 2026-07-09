@@ -53,7 +53,8 @@ vislmm <- lapply(vislmm,function(v){
         setnames(x$fixed,"coef","coef_vis")
         x$fixed <- x$fixed[variable==gene_name]
         x$fixed[,fdr_vis:=p.adjust(pval_vis,method="BH")]
-        x$fixed[,bonf_vis:=pval_vis/length(unique(x$fixed$gene_name))]
+        x$fixed[,bonf_vis:=pval_vis*length(unique(x$fixed$gene_name))]
+        x$fixed[bonf_vis>1,bonf_vis:=1]
         return(x$fixed)
     })
     return(y)
@@ -72,7 +73,7 @@ xenlmm <- lapply(xenlmm,function(v){
         x$fixed[,coef_xen:=-1*coef_xen]
         x$fixed <- x$fixed[variable==gene_name]
         x$fixed[,fdr_xen:=p.adjust(pval_xen,method="BH")]
-        x$fixed[,bonf_xen:=pval_xen/length(unique(x$fixed$gene_name))]
+        x$fixed[,bonf_xen:=pval_xen*length(unique(x$fixed$gene_name))]
         return(x$fixed)
     })
     return(y)
@@ -106,7 +107,7 @@ ans <- lapply(reslist,function(x){
     return(anslist)
 })
 ```
-all comparisons: 163-164 concordant / 37-39 discordant / 200-203 total vis bonf sig + xen nom sig
+all comparisons: 26 genes concordant / 0 discordant / 26 total vis bonf sig + xen nom sig
 
 ```{r}
 sessionInfo()

@@ -1,0 +1,127 @@
+---
+title: "04-CellType_perDistance_fromLCNEcells_ancestrystrat"
+author: "Bernie Mulvey"
+date: "07-01-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = "#000000"), axis.title.x = element_text(size = 9,color = "#000000"), axis.text.y = element_text(size = 8,color = "#000000"), axis.title.y = element_text(size =9,color = "#000000"), plot.title = element_markdown(size = 10,hjust=0.5,color = "#000000"), strip.text = element_text(size=11), legend.text = element_text(size=7,color = "#000000"), legend.title = element_text(size=8,hjust=0.5,color = "#000000"),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position="plot"))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+```{r}
+cpd <- fread("processed-data_newseg/14_CellTypeProximity/02-CellTypes_within_9distances__ofEachLCNEcell_by_brnum.txt.gz")
+
+### we don't have instances of zero LC cell-neighbor type here, so we need to make a filler table to make sure the zero are represented.
+lccells <- unique(cpd$lc_cell_id)
+otherlabs <- unique(cpd$other_cell_label)
+zerotab <- CJ(lccells,otherlabs,unique=T)
+
+## make a [LC cell-id - other label - threshold] pairing to identify missing (0 neighbor) rows
+i<-1
+for (i in c(1:length(unique(cpd$dist_thresh)))){
+  newtab <- copy(zerotab)
+  newtab[,dist_thresh:=unique(cpd$dist_thresh)[i]]
+  if(i==1){
+    newzero <- newtab
+  } else {
+    newzero <- as.data.table(rbind(newzero,newtab))
+  }
+}
+rm(zerotab,i,newtab)
+
+newzero[,uuid:=paste0(lccells,"_",dist_thresh,"_",otherlabs)]
+cpd[,uuid:=paste0(lc_cell_id,"_",dist_thresh,"_",other_cell_label)]
+
+newzero <- newzero[!(uuid %in% cpd$uuid)]
+newzero[,N:=0]
+
+setnames(newzero,c("lc_cell_id","other_cell_label","dist_thresh","uuid","N"))
+newzero[,brnum:=gsub(lc_cell_id,pattern="^(.*)_.*$",replacement="\\1")]
+nameord <- names(cpd)
+newzero <- newzero[,..nameord]
+
+cpdfix <- as.data.table(rbind(cpd,newzero))
+rm(cpd,newzero,nameord,otherlabs,lccells)
+```
+
+# get donnor metadata. this time only consider the categorical ancestry groups (YRI>75% or <25%)
+```{r}
+spe <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-and-nonlog-norms.RDS")
+tmpcd <- as.data.table(colData(spe),keep.rownames=T)
+tmpcd <- unique(tmpcd[,.(brnum,APOE,Sex,Age,YRI)])
+tmpcd[,APOE:=ifelse(APOE %in% c("E2hom","E2het"),"E2","E4")]
+tmpcd <- tmpcd[greaterOrEqual(YRI,0.75) | lessOrEqual(YRI,0.25)]
+tmpcd[,catAnc:=ifelse(greaterOrEqual(YRI,0.75),"AA","EA")]
+tmpcd[,APO_Ancest:=paste0(APOE," ",catAnc)]
+
+cpdfix <- merge.data.table(cpdfix,tmpcd,by="brnum")
+plts <- lapply(unique(cpdfix$dist_thresh),function(x){
+  p <- ggplot(cpdfix[dist_thresh==x],aes(x=other_cell_label,y=N,fill=APO_Ancest))+geom_boxplot(outliers = FALSE)
+  p <- p+theme(axis.text.x=element_text(size=8,angle=90,hjust=0.5,vjust=1))
+  p <- p+ggtitle(paste0("Cells within ",x," units\nof LCNE cells (outliers not plotted)"))
+  png(paste0("plots_newseg/14_CellTypeProximity/04-CellTypesWithin_",x,"units_of_LCNEcells_byCatAncest.png"),height=500,width=700,units = "px")
+  print(p)
+  dev.off()
+})
+```
+
+## not much to see here at the per cell level; too sparse. get averages.
+```{r}
+cpdavg <- cpdfix[,mean(N),by=c("brnum","other_cell_label","dist_thresh")]
+cpdavg <- merge.data.table(cpdavg,tmpcd,by="brnum")
+setnames(cpdavg,"V1","mean_withinDist_for_donorLCNEcells")
+
+lapply(unique(cpdavg$dist_thresh),function(x){
+  p <- ggplot(cpdavg[dist_thresh==x],aes(x=other_cell_label,y=mean_withinDist_for_donorLCNEcells,fill=APO_Ancest))+geom_boxplot(outliers = FALSE)
+  p <- p+theme(axis.text.x=element_text(size=8,angle=90,hjust=0.5,vjust=1))
+  p <- p+ggtitle(paste0("Mean cells within ",x," units\nof LCNE cells (outliers not plotted)"))
+  png(paste0("plots_newseg/14_CellTypeProximity/04-MeanCellsWithin_",x,"units_of_LCNEcells_byCatAncest.png"),height=500,width=700,units = "px")
+  print(p)
+  dev.off()
+})
+
+
+```

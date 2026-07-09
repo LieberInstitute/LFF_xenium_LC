@@ -1,0 +1,17 @@
+---
+title: "STs-Write_ISS_NM_LMMs"
+date: "2026-07-09"
+author: "Bernie Mulvey"
+format: html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+
+# library(SpatialFeatureExperiment)
+
+```

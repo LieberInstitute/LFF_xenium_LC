@@ -1,5 +1,5 @@
 ---
-title: "11b-LMM_spotlogcounts_toNMmetrics_keepranfx"
+title: "02-LMM_cell_logcounts_toNMmetrics_keepranfx"
 author: "Bernie Mulvey"
 date: "06-15-26"
 output: html_document

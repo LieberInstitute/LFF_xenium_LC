@@ -13,6 +13,7 @@ library(data.table)
 library(ggplot2)
 library(ggtext)
 library(gridExtra)
+library(Polychrome)
 library(SpatialExperiment)
 library(ggrastr)
 library(escheR)
@@ -45,7 +46,20 @@ options(bphost='localhost')
 
 
 ## ggplot defaults
-theme_set(theme_bw()+theme(axis.text.x = element_text(size = 8,color = '#000000'), axis.title.x = element_text(size = 9,color = '#000000'), axis.text.y = element_text(size = 8,color = '#000000'), axis.title.y = element_text(size =9,color = '#000000'), plot.title = element_markdown(size = 10,hjust=0.5,color = '#000000'), strip.text = element_text(size=11), legend.text = element_text(size=7,color = '#000000'), legend.title = element_text(size=8,hjust=0.5,color = '#000000'),axis.ticks = element_line(linewidth=0.5),panel.grid.major = element_line(linewidth=0.5),panel.grid.minor=element_line(linewidth=0.25),plot.title.position='plot'))
+theme_set(theme_bw()+
+  theme(panel.grid = element_blank(),
+    axis.text.x = element_text(size = 8,color = '#000000'), 
+    axis.title.x = element_text(size = 9,color = '#000000'), 
+    axis.text.y = element_text(size = 8,color = '#000000'), 
+    axis.title.y = element_text(size =9,color = '#000000'), 
+    plot.title = element_markdown(size = 10,hjust=0.5,color = '#000000'), 
+    strip.text = element_text(size=11), 
+    legend.text = element_text(size=7,color = '#000000'),
+    legend.title = element_text(size=8,hjust=0.5,color = '#000000'),
+    axis.ticks = element_line(linewidth=0.5),
+    panel.grid.major = element_line(linewidth=0.25),
+    panel.grid.minor=element_line(linewidth=0.125),
+    plot.title.position='plot'))
 
 ## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
 unloadNamespace('datasets')
@@ -134,6 +148,7 @@ rm(d12,d20,d12hullpt,d20hullpt)
 ```
 
 ### then, make full-section escher plot with the domain perimeter overlaid...
+(for main fig, dom12199 only)
 ```{r}
 # sizepal <- c(0.5,rep(0.2,8)) <- we need to pass a vector of point sizes to have the polygon-over-spot plotting scheme work here:
 
@@ -218,8 +233,13 @@ p20 <- p20+guides(color="none",fill="none",size="none")
 p12 <- rasterize(p12,layers="Points",dpi=600,dev="cairo_png")
 p20 <- rasterize(p20,layers="Points",dpi=600,dev="cairo_png")
 
-pdf(paste0("plots_newseg/manuscript/Fig7/Fig7A-Predlabels_wDomainBounds_Br5941.pdf"),height=2,width=6.5)
+pdf(paste0("plots_newseg/manuscript/SuppFigs/Predlabels_SRT12199_SRT20079_wDomainBounds_Br5941.pdf"),height=2,width=6.5)
 do.call("grid.arrange",list(arrangeGrob(grobs=c(p12,p20),ncol=2),leg,ncol=2,widths=c(5,1.5)))
+dev.off()
+
+# main: srtdom12
+pdf(paste0("plots_newseg/manuscript/Fig7/Fig7A-Predlabels_SRT12199_wDomainBounds_Br5941.pdf"),height=2,width=6.5)
+do.call("grid.arrange",list(arrangeGrob(grobs=c(p12),leg,ncol=2,widths=c(2.5,1.25)))
 dev.off()
 
 rm(p12,p20,leg,sizesman,plt)
@@ -294,7 +314,7 @@ dev.off()
 rm(pane,pane2,plt,zoomcoord,dompoly12,dompoly20,sizesman)
 ```
 
-### next, we want to plot the pseudobulk results for AA, EA, and all ancestries in each domain definition
+### next, we want to plot the pseudobulk results for AA, EA, and all ancestries in each domain definition (one for main fig, rest for supp)
 ```{r}
 srtdomde <- readRDS("processed-data_newseg/08_VisXferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdoms_andOtherXferedVisLabels.RDS")
 wddomde <- readRDS("processed-data_newseg/05_snSeqxferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdomainAndOtherLabelsXfered.RDS")
@@ -332,105 +352,245 @@ adjpbulks <- mapply(p=pbulks,s=sampinf,n=names(pbulks),SIMPLIFY=FALSE,function(p
   setnames(degs,"rn","gene")
   return(degs)
 })
+```
 
-NTSRplts <- mapply(a=adjpbulks,s=sampinf,n=names(adjpbulks),SIMPLIFY=FALSE,function(a,s,n){
+sup figs: all 6 domain defs per gene
+```{r}
+domdesupplts <- function(pltg="PLPP3"){
+  retplts <- mapply(a=adjpbulks,s=sampinf,n=names(adjpbulks),SIMPLIFY=FALSE,function(a,s,n){
   # melt, get gene of interest, append metadata for plotting 
-  b <- melt.data.table(a,id.vars="gene")
-  b[,variable:=as.character(variable)]
-  b <- b[gene=="NTSR2"&variable %in% grep(variable,pattern="LC_Br",value=T)]
-  b[,titleg:=paste0("*",gene,"*")]
-  
-  # drop existing rn from sample table if present
-  s$rn <- NULL
-  s2 <- as.data.table(s,keep.rownames=T)
-  s2[,YRIcat:=ifelse(YRIcat=="YRI","AA","EA")]
-  b <- merge.data.table(b,s2,by.x="variable",by.y="rn")
+    b <- melt.data.table(a,id.vars="gene")
+    b[,variable:=as.character(variable)]
+    b <- b[gene==pltg&variable %in% grep(variable,pattern="LC_Br",value=T)]
+    b[,titleg:=paste0("*",gene,"*")]
+    
+    # drop existing rn from sample table if present
+    s$rn <- NULL
+    s2 <- as.data.table(s,keep.rownames=T)
+    s2[,YRIcat:=ifelse(YRIcat=="YRI","AA","EA")]
+    b <- merge.data.table(b,s2,by.x="variable",by.y="rn")
 
-  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="^LC_",replacement="")]
-  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="_",replacement=" ")]
-  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="YRI",replacement="AA")]
-  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="CEU",replacement="EA")]
-  b[,lab_APOE_PredomAnces:=factor(lab_APOE_PredomAnces,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
-  plt <- ggplot(b,aes(x=lab_APOE_PredomAnces,y=value,fill=YRIcat))+
-    geom_boxplot()+
-    labs(x="Ancestry",y=paste0("*",unique(b$gene),"* expression in LC Domain<br>(Age and Sex adjusted)"),fill="Predominant\nAncestry")+
-    ggtitle(n)+
-    theme(
-      axis.title.x=element_text(size=8),
-      axis.title.y=element_markdown(size=8),
-      legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
-      legend.title=element_text(size=7,hjust=0.5),
-      legend.background = element_blank(),
-      legend.box = element_blank(),
-      legend.box.spacing = ggplot2::unit(0,"in"),
-      #legend.key = element_blank(),
-      legend.key.height=ggplot2::unit(0.0125,"in"),
-      legend.key.width=ggplot2::unit(0.0125,"in"),
-      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
-      title=element_markdown(size=9,hjust=0.5))
-      # legend.position.inside = c(0.19,0.165),
-      # legend.position="inside")
+    b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="^LC_",replacement="")]
+    b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="_",replacement=" ")]
+    b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="YRI",replacement="AA")]
+    b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="CEU",replacement="EA")]
+    b[,lab_APOE_PredomAnces:=factor(lab_APOE_PredomAnces,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
+    plt <- ggplot(b,aes(x=lab_APOE_PredomAnces,y=value,fill=YRIcat))+
+      geom_boxplot(outlier.size = 0.4)+
+      labs(x="Ancestry",y=paste0("*",unique(b$gene),"* expression in LC Domain<br>(Age and Sex adjusted)"),fill="Predominant\nAncestry")+
+      ggtitle(n)+
+      theme(
+        axis.title.x=element_text(size=8),
+        axis.title.y=element_markdown(size=8),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
+        legend.title=element_text(size=7,hjust=0.5),
+        legend.background = element_blank(),
+        legend.box = element_blank(),
+        legend.box.spacing = ggplot2::unit(0,"in"),
+        #legend.key = element_blank(),
+        legend.key.height=ggplot2::unit(0.0125,"in"),
+        legend.key.width=ggplot2::unit(0.0125,"in"),
+        legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+        title=element_markdown(size=9,hjust=0.5))
+        # legend.position.inside = c(0.19,0.165),
+        # legend.position="inside")
 
-  return(plt)
-})
+    return(plt)
+  })
+  return(retplts)
+}
 
-PLPplts <- mapply(a=adjpbulks,s=sampinf,n=names(adjpbulks),SIMPLIFY=FALSE,function(a,s,n){
-  # melt, get gene of interest, append metadata for plotting 
-  b <- melt.data.table(a,id.vars="gene")
-  b[,variable:=as.character(variable)]
-  b <- b[gene=="PLPP3"&variable %in% grep(variable,pattern="LC_Br",value=T)]
-  b[,titleg:=paste0("*",gene,"*")]
-  
-  # drop existing rn from sample table if present
-  s$rn <- NULL
-  s2 <- as.data.table(s,keep.rownames=T)
-  s2[,YRIcat:=ifelse(YRIcat=="YRI","AA","EA")]
-  b <- merge.data.table(b,s2,by.x="variable",by.y="rn")
 
-  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="^LC_",replacement="")]
-  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="_",replacement=" ")]
-  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="YRI",replacement="AA")]
-  b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="CEU",replacement="EA")]
-  b[,lab_APOE_PredomAnces:=factor(lab_APOE_PredomAnces,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
-  plt <- ggplot(b,aes(x=lab_APOE_PredomAnces,y=value,fill=YRIcat))+
-    geom_boxplot()+
-    labs(x="Ancestry",y=paste0("*",unique(b$gene),"* expression in LC Domain<br>(Age and Sex adjusted)"),fill="Predominant\nAncestry")+
-    ggtitle(n)+
-    theme(
-      axis.title.x=element_text(size=8),
-      axis.title.y=element_markdown(size=8),
-      legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
-      legend.title=element_text(size=7,hjust=0.5),
-      legend.background = element_blank(),
-      legend.box = element_blank(),
-      legend.box.spacing = ggplot2::unit(0,"in"),
-      #legend.key = element_blank(),
-      legend.key.height=ggplot2::unit(0.0125,"in"),
-      legend.key.width=ggplot2::unit(0.0125,"in"),
-      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
-      title=element_markdown(size=9,hjust=0.5))
-      # legend.position.inside = c(0.19,0.165),
-      # legend.position="inside")
-
-  return(plt)
-})
-
+PLPplts <- domdesupplts(pltg="PLPP3")
+NTSRplts <- domdesupplts(pltg="NTSR2")
+FGFRplts <- domdesupplts(pltg="FGFR3")
 ## with either of these, just clean up in illustrator to have one legend, one y label
-pdf("plots_newseg/manuscript/Fig7/7B_opt1_PLPP3_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
+pdf("plots_newseg/manuscript/SuppFigs/PLPP3_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
 do.call("grid.arrange",c(PLPplts,nrow=2))
 dev.off()
 
-pdf("plots_newseg/manuscript/Fig7/7B_opt2_NTSR2_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
+pdf("plots_newseg/manuscript/SuppFigs/NTSR2_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
 do.call("grid.arrange",c(NTSRplts,nrow=2))
+dev.off()
+
+pdf("plots_newseg/manuscript/SuppFigs/FGFR3_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
+do.call("grid.arrange",c(FGFRplts,nrow=2))
+dev.off()
+```
+
+### Main fig plot: dom12199 (srt)
+```{r}
+b <- melt.data.table(adjpbulks$`SRT Transfer,<br>k1=0.12, k2=0.199`,id.vars="gene")
+b[,variable:=as.character(variable)]
+b <- b[gene %in% c("PLPP3","NTSR2","FGFR3")&variable %in% grep(variable,pattern="LC_Br",value=T)]
+b[,titleg:=paste0("*",gene,"*")]
+    
+# drop existing rn from sample table if present
+tmpsampinf <- sampinf$dom12199 
+tmpsampinf$rn <- NULL
+s2 <- as.data.table(tmpsampinf,keep.rownames=T)
+s2[,YRIcat:=ifelse(YRIcat=="YRI","AA","EA")]
+b <- merge.data.table(b,s2,by.x="variable",by.y="rn")
+
+b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="^LC_",replacement="")]
+b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="_",replacement=" ")]
+b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="YRI",replacement="AA")]
+b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="CEU",replacement="EA")]
+b[,lab_APOE_PredomAnces:=factor(lab_APOE_PredomAnces,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
+
+plt <- ggplot(b,aes(x=lab_APOE_PredomAnces,y=value,fill=YRIcat))+
+  geom_boxplot(outlier.size = 0.4)+
+  facet_wrap(~titleg,ncol=3)+
+  labs(x="Ancestry",y=paste0("Expression in ISS LC Domain<br>(Age and Sex adjusted)"),fill="Predominant\nAncestry")+
+  theme(
+    axis.title.x=element_text(size=8),
+    axis.text.x=element_text(size=7,angle=90,vjust=0.5,hjust=1),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.title.y=element_markdown(size=8),
+    legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
+    legend.title=element_text(size=7,hjust=0.5),
+    legend.background = element_blank(),
+    legend.box = element_blank(),
+    legend.box.spacing = ggplot2::unit(0,"in"),
+    strip.text = element_markdown(size=9),
+    strip.background = element_blank(),
+    strip.background.y = element_blank(),
+    strip.background.x=element_blank(),
+    #legend.key = element_blank(),
+    legend.key.height=ggplot2::unit(0.0125,"in"),
+    legend.key.width=ggplot2::unit(0.0125,"in"),
+    legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+    title=element_markdown(size=9,hjust=0.5))
+    # legend.position.inside = c(0.19,0.165),
+    # legend.position="inside")
+
+pdf("plots_newseg/manuscript/Fig7/7B_LCpbulk_xpr_SRT12199.pdf",height=2.25,width=3.5)
+print(plt)
 dev.off()
 
 rm(adjpbulks,domde,NTSRplts,pbulks,PLPplts,sampinf,srtdomde,wddomde)
 gc(full=T)
 ```
 
+## and then, banksy clusters in the same samples
+```{r}
+bcl <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_assignmentsMergeClusts.txt")
+banno <- fread("processed-data_newseg/11_Banksy_clustering/04-M0lam02kg30res05_mergeClusts_Annots.txt")
+bcl <- merge.data.table(bcl,banno,by="clusid")
+
+bcl[anno=="Astro_RYR3",anno:="Astro *RYR3*"]
+bcl[anno=="Astro_FGFR3",anno:="Astro *FGFR3*"]
+bcl[anno=="Astro_SERPINA3",anno:="Astro *SERPINA3*"]
+bcl[anno=="Inhib_5HTR2A",anno:="GABA *5HTR2A*"]
+bcl[,anno:=gsub(anno,pattern="_",replacement=" ")]
+bcl[anno=="Endothelium",anno:="Endothel."]
+bcl[anno=="Oligodendrocytes",anno:="Oligodend."]
+bcl[anno=="NK and T cells",anno:="NK/T Cells"]
+bcl[anno=="Serotonergic",anno:="5HTergic"]
+bcl[anno=="Mixed Neuropept.",anno:="Mixed Npept."]
+
+bankpan <- xlc[,xlc$brnum=="Br5941"]
+bcl <- DataFrame(bcl,row.names=bcl$rn)[colnames(bankpan),]
+bankpan$anno <- bcl$anno
+bankpan <- bankpan[,bankpan$anno!="DISCARD"]
+### palette:
+# 1 - blood
+# 2 - OPC
+# 3 - Mixed Npept.
+# 4 Astro_FGFR3
+# 5 - Microglia
+# 6 NK/T
+# 7 Oligo (sub gray)
+# 8 GABA 5htr2a
+# 9 Astro RYR3
+# 10 astro serpina3
+# 11 ependyma
+# 12 - vasc smc
+# 13 - lcne
+# 14 - endothel
+# 15 - 5HTergic
+
+pal <- Polychrome::palette36.colors(n=22)[c(3:17)]
+names(pal) <- c("Blood","OPC","Mixed Npept.","Astro *FGFR3*",
+                "Microglia","NK/T Cells","Oligodend.","GABA *5HTR2A*",
+                "Astro *RYR3*","Astro *SERPINA3*","Ependyma","Vasc. SMC",
+                "LCNE","Endothel.","5HTergic")
+
+        
+
+pal[which(names(pal)=="Oligodend.")] <- "#BCBCBC"
+
+bankpan$anno <- factor(bankpan$anno,levels=c("LCNE","Astro *FGFR3*","Astro *RYR3*",
+                                             "Astro *SERPINA3*","Ependyma","Microglia",
+                                             "5HTergic","GABA *5HTR2A*","Mixed Npept.",
+                                             "Oligodend.", "OPC",
+                                             "Blood","Endothel.","Vasc. SMC","NK/T Cells"))
+
+
+## plot it
+plt <- make_escheR(bankpan,y_reverse=FALSE)
+plt <- plt |> add_fill("anno",size=0.325,point_size = 0.325)
+
+
+## assign spot colors based on our existing palette
+p <- plt +
+  labs(fill="Banksy Cluster")+
+  scale_fill_manual(values=pal)+
+  guides(fill=guide_legend(override.aes=list(size=2)))+
+  theme(legend.text=element_markdown(size=7),
+        legend.title=element_text(size=7),
+        legend.key.size=unit(0.2,"cm"))
+
+png("plots_newseg/manuscript/Fig7/7C-BanksyClusters.png",width=3.5,height=3,units="in",res=300)
+print(p)
+dev.off()
+```
+
 ### now, what about DE in astrocyte clusters themselves
 ```{r}
-bsyde <- readRDS("processed-data_newseg/13_BanksyDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_BksyClus_inWDlcDoms_or_wholetiss.RDS")
+bsyde <- readRDS("processed-data_newseg/13_BanksyDE/04-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_BksyClus_inSRTlcDoms_or_wholetiss.RDS")
 
+intra12detab <- bsyde$intraLC12199$YRIAPOlabel$detabs
+wholetissdetab <- bsyde$wholetissue$YRIAPOlabel$detabs
 
+emats <- list(intraLC12199=bsyde$intraLC12199$YRIAPOlabel$voomLFt$EList$E,
+              wholetissue=bsyde$wholetissue$YRIAPOlabel$voomLFt$EList$E)
+metas <- list(bsyde$intraLC12199$YRIAPOlabel$dgel$samples,
+              bsyde$wholetissue$YRIAPOlabel$dgel$samples)
+
+cleanys <- mapply(e=emats,m=metas,SIMPLIFY=FALSE,function(e,m){
+  astrocols <- grep(colnames(e),pattern="Astro_FGFR3|Astro_RYR3",value=T)
+  e <- e[,astrocols]
+  m <- m[astrocols,]
+  
+  m$lab_APOE_PredomAnces <- factor(m$lab_APOE_PredomAnces,levels = unique(m$lab_APOE_PredomAnces))
+  m$Sex <- factor(m$Sex)
+  m$Age <- as.numeric(m$Age)
+
+  mod <- model.matrix(~0+lab_APOE_PredomAnces+Age+Sex,data = m)
+  cleannum <- length(unique(m$lab_APOE_PredomAnces))+1
+  cleanexp <- jaffelab::cleaningY(e,mod,cleannum) # correct for terms that arent in the ancestry-label groupings (term 1 intercept + 4 levels of lab_APOE_ancest * 2 clusters, 6 Age, 7 Sex)
+
+  cleanexp <- as.data.table(cleanexp,keep.rownames=T)
+  cleanexp.melt <- melt.data.table(cleanexp,id.vars="rn")
+  cleanexp.melt <- cleanexp.melt[rn %in% c("FGFR3","PLPP3","NTSR2")]
+  cleanexp.melt[,brnum:=gsub(variable,pattern="^.*_(Br.*)$",replacement="\\1")]
+  cleanexp.melt[,clus:=gsub(variable,pattern="^(.*)_Br.*$",replacement="\\1")]
+  setnames(cleanexp.melt,"rn","gene")
+  return(cleanexp.melt)
+})
+names(cleanys) <- names(emats)
+
+cleanys <- rbindlist(cleanys,idcol="Tissue_Region")
+sampmd <- as.data.table(bsyde$wholetissue$YRIAPOlabel$dgel$samples)
+sampmd <- unique(sampmd[,.(brnum,APOEsimple,YRIcat)])
+cleanys <- merge.data.table(cleanys,sampmd,by="brnum")
+cleanys[YRIcat=="CEU",YRIcat:="EA"]
+cleanys[YRIcat=="YRI",YRIcat:="AA"]
+cleanys[,APO_Anc:=paste0(APOEsimple,YRIcat)]
+
+ggplot(cleanys[gene=="PLPP3"],aes(x=APO_Anc,y=as.numeric(value),fill=APO_Anc))+facet_wrap(clus~Tissue_Region)+geom_boxplot()
 ```
