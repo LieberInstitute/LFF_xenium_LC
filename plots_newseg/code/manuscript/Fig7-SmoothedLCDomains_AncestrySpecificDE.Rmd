@@ -120,31 +120,21 @@ rm(lxf)
 pane <- xlc[,xlc$brnum=="Br5941"]
 
 d12 <- st_as_sf(as.data.frame(spatialCoords(pane[,pane$domain12199=="LC"])),coords = c("x_centroid","y_centroid"))
-d20 <- st_as_sf(as.data.frame(spatialCoords(pane[,pane$domain20079=="LC"])),coords = c("x_centroid","y_centroid"))
 
 d12hullpt <- st_concave_hull(st_union(d12),ratio = 0.2)
-d20hullpt <- st_concave_hull(st_union(d20),ratio = 0.2)
 ## create the data table we will use for overlaying the boundary polygons. geom_path will need the first point to also be popped into the last slot to close the shape
 dompoly12 <- rbind(d12hullpt[[1]][[1]],
                   d12hullpt[[1]][[1]][1,])
 dompoly12 <- cbind(dompoly12,rep("LC",nrow(dompoly12)))
 
-dompoly20 <- rbind(d20hullpt[[1]][[1]],
-                  d20hullpt[[1]][[1]][1,])
-dompoly20 <- cbind(dompoly20,rep("LC",nrow(dompoly20)))
-
 dompoly12 <- as.data.table(dompoly12)
-dompoly20 <- as.data.table(dompoly20)
 
 setnames(dompoly12,c("xpol","ypol","dompol"))
-setnames(dompoly20,c("xpol","ypol","dompol"))
 
 dompoly12[,xpol:=as.numeric(xpol)]
 dompoly12[,ypol:=as.numeric(ypol)]
-dompoly20[,xpol:=as.numeric(xpol)]
-dompoly20[,ypol:=as.numeric(ypol)]
 
-rm(d12,d20,d12hullpt,d20hullpt)
+rm(d12,d12hullpt)
 ```
 
 ### then, make full-section escher plot with the domain perimeter overlaid...
@@ -161,7 +151,8 @@ plt <- plt |> add_fill("SRTnmfpred",size=0.2,point_size = 0.2)
 ## assign spot colors based on our existing palette
 p <- plt +
   labs(fill="Transferred\nVisium Label")+
-  scale_fill_manual(values=pal)
+  scale_fill_manual(values=pal)+
+  guides(fill=guide_legend(override.aes=list(size=1.5)))
 
 ## override the escheR size settings with the spot sizes determined above:
 p@layers[[1]]$aes_params$size <- sizesman
@@ -170,20 +161,12 @@ p@layers[[1]]$aes_params$size <- sizesman
 ## draw LC domain boundary; drop guides for first panel; format for second to extract later
 p12 <- p + 
   geom_path(data=dompoly12,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
-  scale_color_manual(values=pal)+guides(color="none",fill="none",size="none")
-
-p20 <- p +
-  geom_path(data=dompoly20,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
-  scale_color_manual(values=pal)+
-  guides(fill=guide_legend(override.aes=list(size=1.5)),size="none",color="none")
-
-### format
+  scale_color_manual(values=pal)+guides(color="none",size="none")
 
 ## title
 p12 <- p12 + ggtitle("Br5941 (E4/E4, AA, M) SRT12199")
-p20 <- p20 + ggtitle("Br5941 (E4/E4, AA, M) SRT20079")
 
-## for consistency/illustrator editing simplifying
+### format for consistency/illustrator editing simplifying
 p12 <- p12 + theme(panel.grid = element_blank(),
       axis.text.x=element_blank(),
       axis.text.y=element_blank(),
@@ -194,55 +177,28 @@ p12 <- p12 + theme(panel.grid = element_blank(),
       legend.key.size = ggplot2::unit(0.075,"in"),
       legend.title=element_text(size=7,hjust=0.5),
       legend.background = element_blank(),
-      legend.box = element_blank(),
+      # legend.box = element_blank(),
       legend.box.spacing = ggplot2::unit(0,"in"),
       legend.key = element_blank(),
       legend.key.height=ggplot2::unit(0.0125,"in"),
       legend.key.width=ggplot2::unit(0.0125,"in"),
       legend.key.spacing.y = ggplot2::unit(0.04,"in"),
-      title=element_text(size=10,hjust=0.5))
+      title=element_text(size=9,hjust=0.5))
       # legend.position.inside = c(0.19,0.165),
       # legend.position="inside")
-
-p20 <- p20 + theme(panel.grid = element_blank(),
-      axis.text.x=element_blank(),
-      axis.text.y=element_blank(),
-      axis.title.x=element_blank(),
-      axis.title.y=element_blank(),
-      axis.ticks = element_blank(),
-      legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
-      legend.key.size = ggplot2::unit(0.075,"in"),
-      legend.title=element_text(size=7,hjust=0.5),
-      legend.background = element_blank(),
-      legend.box = element_blank(),
-      legend.box.spacing = ggplot2::unit(0,"in"),
-      legend.key = element_blank(),
-      legend.key.height=ggplot2::unit(0.0125,"in"),
-      legend.key.width=ggplot2::unit(0.0125,"in"),
-      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
-      title=element_text(size=10,hjust=0.5))
-      # legend.position.inside = c(0.19,0.165),
-      # legend.position="inside")
-
-
-### extract legend, then remove it from p20 itself
-leg <- extract_legend(p20)
-p20 <- p20+guides(color="none",fill="none",size="none")
-    
 
 p12 <- rasterize(p12,layers="Points",dpi=600,dev="cairo_png")
-p20 <- rasterize(p20,layers="Points",dpi=600,dev="cairo_png")
 
-pdf(paste0("plots_newseg/manuscript/SuppFigs/Predlabels_SRT12199_SRT20079_wDomainBounds_Br5941.pdf"),height=2,width=6.5)
-do.call("grid.arrange",list(arrangeGrob(grobs=c(p12,p20),ncol=2),leg,ncol=2,widths=c(5,1.5)))
-dev.off()
+# pdf(paste0("plots_newseg/manuscript/SuppFigs/Predlabels_SRT12199_SRT20079_wDomainBounds_Br5941.pdf"),height=2,width=6.5)
+# do.call("grid.arrange",list(arrangeGrob(grobs=c(p12,p20),ncol=2),leg,ncol=2,widths=c(5,1.5)))
+# dev.off()
 
 # main: srtdom12
-pdf(paste0("plots_newseg/manuscript/Fig7/Fig7A-Predlabels_SRT12199_wDomainBounds_Br5941.pdf"),height=2,width=6.5)
-do.call("grid.arrange",list(arrangeGrob(grobs=c(p12),leg,ncol=2,widths=c(2.5,1.25)))
+pdf(paste0("plots_newseg/manuscript/Fig7/Fig7A-Predlabels_SRT12199_wDomainBounds_Br5941.pdf"),height=2,width=2,onefile = F)
+print(p12)
 dev.off()
 
-rm(p12,p20,leg,sizesman,plt)
+rm(p12,sizesman,plt,p)
 ```
 
 #### and an inset that just spans the LC area
@@ -250,11 +206,11 @@ rm(p12,p20,leg,sizesman,plt)
 ### get the min and max x and y coords of the LC polygon, add a little buffer space, and get cell IDs for all cells that correspond
 rownames(spatialCoords(pane)) <- colnames(pane)
 zoomcoord <- as.data.table(spatialCoords(pane),keep.rownames=T)
-range(dompoly20$xpol) # 140-1206
-range(dompoly20$ypol) # 2319-3753
+range(dompoly12$xpol) # 88-1256
+range(dompoly12$ypol) # 2177-4019
 
 zoomcoord <- zoomcoord[greaterOrEqual(x_centroid,50)&lessOrEqual(x_centroid,1350)]
-zoomcoord <- zoomcoord[greaterOrEqual(y_centroid,2250)&lessOrEqual(y_centroid,3950)]
+zoomcoord <- zoomcoord[greaterOrEqual(y_centroid,2050)&lessOrEqual(y_centroid,4150)]
 
 pane2 <- pane[,zoomcoord$rn]
 
@@ -275,7 +231,7 @@ p@layers[[1]]$aes_params$size <- sizesman
 
 ## draw LC domain boundary
 p <- p + 
-  geom_path(data=dompoly20,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
+  geom_path(data=dompoly12,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
   scale_color_manual(values=pal)
 
 ## no legends needed
@@ -311,124 +267,102 @@ pdf(paste0("plots_newseg/manuscript/Fig7/7Ainset-Predlabels_wSRT20079DomainBound
 print(p)
 dev.off()
 
-rm(pane,pane2,plt,zoomcoord,dompoly12,dompoly20,sizesman)
+### keep srt12199 domain polygon so we can show the banksy clusters within it too
+rm(pane,pane2,p,sizesman)
 ```
 
-### next, we want to plot the pseudobulk results for AA, EA, and all ancestries in each domain definition (one for main fig, rest for supp)
+### and the visium LC in the same donor
+```{r}
+vlc <- readRDS("../LFF_spatial_LC/processed-data/06-countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+
+vclus <- readRDS("../LFF_spatial_LC/processed-data/07_featureSelection_dimred_harmony_clustering/04-Initial_louvLeid_res0.5-1-2_clusterings.RDS")
+vclus <- vclus$HARMONYlmbna_HDG_SVG_2575
+vclus <- vclus[,.(rn,snnHARMONYlmbna_HDG_SVG_2575_louv_res1)]
+setnames(vclus,2,"clusid")
+
+anno <- fread("../LFF_spatial_LC/processed-data/08_validitycheck_25hdg75svg_louv1/10-25hdg75svg_louv1_annots.txt")
+vclus <- merge(vclus,anno[,.(clusid,plot_anno)],by="clusid")
+vclus[plot_anno=="Oligo and Other Types Mixed",plot_anno:="Oligo-Other<br>Types Mixed"]
+vclus[plot_anno=="*ACHE*, *SERT*, LC, Oligo Mixed",plot_anno:="*ACHE*, *SERT*,<br>LC, Oligo Mixed"]
+vclus[plot_anno=="*ACHE*, *SERT*, Neuropeptide Mixed",plot_anno:="*ACHE*, *SERT*,<br>Neuropept. Mixed"]
+stopifnot(all(vclus$plot_anno %in% names(pal)))
+
+vclus <- DataFrame(vclus,row.names=vclus$rn)[colnames(vlc),]
+# length(unique(vlc[,vlc$brnum=="Br5941"]$sample_id)) # 2
+vlc$plot_anno <- vclus$plot_anno
+vlc <- vlc[,vlc$brnum=="Br5941"]
+vlc$pltalph <- ifelse(vlc$plot_anno=="LC",1,0.6)
+
+samps <- unique(vlc$sample_id)
+visplt <- lapply(samps,function(x){
+    plt <- make_escheR(vlc[,vlc$sample_id==x],y_reverse=FALSE)
+    plt <- add_fill(plt,"plot_anno",size=0.75,point_size = 0.75)
+    plt <- plt + 
+        scale_fill_manual(values=pal)+
+        aes(alpha=pltalph)+
+        guides(fill="none",size="none",color="none",alpha="none") # use the one from the xenium panel
+    plt <- plt+ theme(panel.grid = element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      axis.ticks = element_blank(),
+      legend.text = element_markdown(size=6,margin=margin(0,0,0,0,"in")),
+      legend.key.size = ggplot2::unit(0.075,"in"),
+      legend.title=element_text(size=7,hjust=0.5),
+      legend.background = element_blank(),
+      legend.box = element_blank(),
+      legend.box.spacing = ggplot2::unit(0,"in"),
+      legend.key = element_blank(),
+      legend.key.height=ggplot2::unit(0.0125,"in"),
+      legend.key.width=ggplot2::unit(0.0125,"in"),
+      legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+      title=element_text(size=10,hjust=0.5))
+    plt <- rasterize(plt,layers="Points",dpi=300,dev="cairo_png")
+    
+    return(plt)
+})
+
+pdf(paste0("plots_newseg/manuscript/Fig7/7B-VisiumLCs_Br5941.pdf"),height=2.25,width=3)
+do.call("grid.arrange",c(visplt,nrow=1))
+dev.off()
+```
+
+### next, we want to plot the pseudobulk results for AA, EA, and all ancestries in 12199
 ```{r}
 srtdomde <- readRDS("processed-data_newseg/08_VisXferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdoms_andOtherXferedVisLabels.RDS")
-wddomde <- readRDS("processed-data_newseg/05_snSeqxferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdomainAndOtherLabelsXfered.RDS")
 
-domde <- c(srtdomde,wddomde)
-pbulks <- lapply(domde,function(x){
-  y <- x$YRIAPOlabel$voomLFt$EList$E
-  keepn <- grep(colnames(y),pattern="^LC_Br",value=T)
-  y <- y[,keepn]
-  return(y)
-})
+pbulk <- srtdomde$dom12199$YRIAPOlabel$voomLFt$EList$E
+keepn <- grep(colnames(pbulk),pattern="^LC_Br",value=T)
 
-sampinf <- lapply(domde,function(x){
-  y <- x$YRIAPOlabel$dgel$samples
-  keepn <- grep(rownames(y),pattern="^LC_Br",value=T)
-  y <- y[keepn,]
-  return(y)
-})
+sampinf <- srtdomde$dom12199$YRIAPOlabel$dgel$samples
+keepn <- grep(rownames(sampinf),pattern="^LC_Br",value=T)
+sampinf <- sampinf[keepn,]
 
-### now each of these are set up for jaffelab::cleaningy. for accurate fit, include all label-ancestry combinations and extract the LC ones after.
-names(pbulks) <- c("SRT Transfer,<br>k1=0.08, k2=0.426","SRT Transfer,<br>k1=0.12, k2=0.199","SRT Transfer,<br>k1=0.16, k2=0.119","SRT Transfer,<br>k1=0.20, k2=0.079","snRNA-seq Transfer,<br>k1= 0.08, k2=0.492","snRNA-seq Transfer,<br>k1=0.12, k2=0.412")
+### cleaning y for the pbulk
+sampinf$lab_APOE_PredomAnces <- factor(sampinf$lab_APOE_PredomAnces,levels = unique(sampinf$lab_APOE_PredomAnces))
+sampinf$Sex <- factor(sampinf$Sex)
+sampinf$Age <- as.numeric(sampinf$Age)
 
-adjpbulks <- mapply(p=pbulks,s=sampinf,n=names(pbulks),SIMPLIFY=FALSE,function(p,s,n){
-  s$lab_APOE_PredomAnces <- factor(s$lab_APOE_PredomAnces,levels = unique(s$lab_APOE_PredomAnces))
-  s$Sex <- factor(s$Sex)
-  s$Age <- as.numeric(s$Age)
-  
-  p <- p[,rownames(s)]
+pbulk <- pbulk[,rownames(sampinf)]
 
-  modmat <-  model.matrix(~0+lab_APOE_PredomAnces+Age+Sex,data = s)
-  degs <- jaffelab::cleaningY(p,modmat,5) # correct for terms that arent in the ancestry-label groupings (term 1 intercept, 2,3,4,5 levels of lab_APOE_ancest, 6 Age, 7 Sex)
-  rownames(degs) <- rownames(p)
-  colnames(degs) <- colnames(p)
-  degs <- as.data.table(degs,keep.rownames=T)
-  setnames(degs,"rn","gene")
-  return(degs)
-})
-```
-
-sup figs: all 6 domain defs per gene
-```{r}
-domdesupplts <- function(pltg="PLPP3"){
-  retplts <- mapply(a=adjpbulks,s=sampinf,n=names(adjpbulks),SIMPLIFY=FALSE,function(a,s,n){
-  # melt, get gene of interest, append metadata for plotting 
-    b <- melt.data.table(a,id.vars="gene")
-    b[,variable:=as.character(variable)]
-    b <- b[gene==pltg&variable %in% grep(variable,pattern="LC_Br",value=T)]
-    b[,titleg:=paste0("*",gene,"*")]
-    
-    # drop existing rn from sample table if present
-    s$rn <- NULL
-    s2 <- as.data.table(s,keep.rownames=T)
-    s2[,YRIcat:=ifelse(YRIcat=="YRI","AA","EA")]
-    b <- merge.data.table(b,s2,by.x="variable",by.y="rn")
-
-    b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="^LC_",replacement="")]
-    b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="_",replacement=" ")]
-    b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="YRI",replacement="AA")]
-    b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="CEU",replacement="EA")]
-    b[,lab_APOE_PredomAnces:=factor(lab_APOE_PredomAnces,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
-    plt <- ggplot(b,aes(x=lab_APOE_PredomAnces,y=value,fill=YRIcat))+
-      geom_boxplot(outlier.size = 0.4)+
-      labs(x="Ancestry",y=paste0("*",unique(b$gene),"* expression in LC Domain<br>(Age and Sex adjusted)"),fill="Predominant\nAncestry")+
-      ggtitle(n)+
-      theme(
-        axis.title.x=element_text(size=8),
-        axis.title.y=element_markdown(size=8),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.major.x = element_blank(),
-        legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
-        legend.title=element_text(size=7,hjust=0.5),
-        legend.background = element_blank(),
-        legend.box = element_blank(),
-        legend.box.spacing = ggplot2::unit(0,"in"),
-        #legend.key = element_blank(),
-        legend.key.height=ggplot2::unit(0.0125,"in"),
-        legend.key.width=ggplot2::unit(0.0125,"in"),
-        legend.key.spacing.y = ggplot2::unit(0.04,"in"),
-        title=element_markdown(size=9,hjust=0.5))
-        # legend.position.inside = c(0.19,0.165),
-        # legend.position="inside")
-
-    return(plt)
-  })
-  return(retplts)
-}
-
-
-PLPplts <- domdesupplts(pltg="PLPP3")
-NTSRplts <- domdesupplts(pltg="NTSR2")
-FGFRplts <- domdesupplts(pltg="FGFR3")
-## with either of these, just clean up in illustrator to have one legend, one y label
-pdf("plots_newseg/manuscript/SuppFigs/PLPP3_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
-do.call("grid.arrange",c(PLPplts,nrow=2))
-dev.off()
-
-pdf("plots_newseg/manuscript/SuppFigs/NTSR2_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
-do.call("grid.arrange",c(NTSRplts,nrow=2))
-dev.off()
-
-pdf("plots_newseg/manuscript/SuppFigs/FGFR3_LCdomPbulks_byApoAnc.pdf",height=4,width=6.75)
-do.call("grid.arrange",c(FGFRplts,nrow=2))
-dev.off()
+modmat <-  model.matrix(~0+lab_APOE_PredomAnces+Age+Sex,data = sampinf)
+degs <- jaffelab::cleaningY(pbulk,modmat,5) # correct for terms that arent in the ancestry-label groupings (term 1 intercept, 2,3,4,5 levels of lab_APOE_ancest, 6 Age, 7 Sex)
+rownames(degs) <- rownames(pbulk)
+colnames(degs) <- colnames(pbulk)
+degs <- as.data.table(degs,keep.rownames=T)
+setnames(degs,"rn","gene")
 ```
 
 ### Main fig plot: dom12199 (srt)
 ```{r}
-b <- melt.data.table(adjpbulks$`SRT Transfer,<br>k1=0.12, k2=0.199`,id.vars="gene")
+b <- melt.data.table(degs,id.vars="gene")
 b[,variable:=as.character(variable)]
 b <- b[gene %in% c("PLPP3","NTSR2","FGFR3")&variable %in% grep(variable,pattern="LC_Br",value=T)]
 b[,titleg:=paste0("*",gene,"*")]
     
 # drop existing rn from sample table if present
-tmpsampinf <- sampinf$dom12199 
+tmpsampinf <- sampinf
 tmpsampinf$rn <- NULL
 s2 <- as.data.table(tmpsampinf,keep.rownames=T)
 s2[,YRIcat:=ifelse(YRIcat=="YRI","AA","EA")]
@@ -531,25 +465,184 @@ bankpan$anno <- factor(bankpan$anno,levels=c("LCNE","Astro *FGFR3*","Astro *RYR3
 
 
 ## plot it
-plt <- make_escheR(bankpan,y_reverse=FALSE)
-plt <- plt |> add_fill("anno",size=0.325,point_size = 0.325)
+dompoly12[dompol=="LC",dompol:="LCNE"] # to use the banksy palette for LC domain boundary color
 
+plt <- make_escheR(bankpan,y_reverse=FALSE)
+plt <- plt |> add_fill("anno",size=0.2375,point_size = 0.2375)
+plt <- plt + 
+  geom_path(data=dompoly12,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
+  scale_color_manual(values=pal)
 
 ## assign spot colors based on our existing palette
 p <- plt +
   labs(fill="Banksy Cluster")+
   scale_fill_manual(values=pal)+
-  guides(fill=guide_legend(override.aes=list(size=2)))+
+  guides(fill=guide_legend(override.aes=list(size=2)),color="none")+
   theme(legend.text=element_markdown(size=7),
         legend.title=element_text(size=7),
         legend.key.size=unit(0.2,"cm"))
 
-png("plots_newseg/manuscript/Fig7/7C-BanksyClusters.png",width=3.5,height=3,units="in",res=300)
+pdf("plots_newseg/manuscript/Fig7/7C-BanksyClusters_Br5941.pdf",width=2.5,height=1.5)
 print(p)
+dev.off()
+
+## an inset of above with LC domain boundary and cluster labels
+plt <- make_escheR(bankpan[,colnames(bankpan) %in% zoomcoord$rn],y_reverse=FALSE)
+plt <- plt |> add_fill("anno",size=0.325,point_size = 0.325)
+plt <- plt + 
+  geom_path(data=dompoly12,aes(x=xpol,y=ypol,group=dompol,col=dompol))+
+  scale_color_manual(values=pal)+
+  scale_fill_manual(values=pal)+
+  guides(color="none",fill=guide_legend(override.aes=list(size=2)))+
+  theme(legend.text=element_markdown(size=7),
+        legend.title=element_text(size=7),
+        legend.key.size=unit(0.2,"cm"))
+
+pdf("plots_newseg/manuscript/Fig7/7C-BanksyClusters_inSRT12199inset_Br5941.pdf",width=2.5,height=1.5)
+print(plt)
+dev.off()
+
+rm(plt)
+```
+
+### now, what about DE in astrocyte clusters themselves? First, all astrocytes combined, within domain:
+```{r}
+## single astro cluster DE, cross-anc and single-anc
+inlc.1astde <- readRDS("processed-data_newseg/13_BanksyDE/06-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_BksyClus_collapsedAstros_inSRTlcDoms_or_wholetiss.RDS")
+
+### E2-E4, Age Sex YRI controlled ### 
+inlc.1astde.alldon <- inlc.1astde$intraLC12199$E2E4label$voomLFt$EList$E
+keepn <- grep(colnames(inlc.1astde.alldon),pattern="^All_Astrocytes_Br",value=T)
+inlc.1astde.alldon <- inlc.1astde.alldon[,keepn]
+inlc.1ast.alldon.samps <- inlc.1astde$intraLC12199$E2E4label$dgel$samples[keepn,]
+## cleaning y
+
+inlc.1ast.alldon.samps$clus_E2E4 <- factor(inlc.1ast.alldon.samps$clus_E2E4)
+inlc.1ast.alldon.samps$Sex <- factor(inlc.1ast.alldon.samps$Sex)
+inlc.1ast.alldon.samps$Age <- as.numeric(inlc.1ast.alldon.samps$Age)
+inlc.1ast.alldon.samps$YRI <- as.numeric(inlc.1ast.alldon.samps$YRI)
+mod.alldon <-  model.matrix(~0+clus_E2E4+Age+Sex+YRI,data = inlc.1ast.alldon.samps)
+degs.alldon <- jaffelab::cleaningY(inlc.1astde.alldon,mod.alldon,3) # correct for terms that arent in the ancestry-label groupings (term 1 intercept, 2 APOE genos)
+
+degs.alldon <- as.data.table(degs.alldon,keep.rownames=T)
+setnames(degs.alldon,"rn","gene")
+degs.alldon[,contrast:="Ancestry-Controlled"]
+
+# organize for plotting
+inlc.1ast.alldon.samps <- as.data.table(inlc.1ast.alldon.samps,keep.rownames=T)
+setnames(inlc.1ast.alldon.samps,"rn","pbulkid")
+
+degs.alldon <- melt.data.table(degs.alldon,id.vars = c("gene","contrast"))
+degs.alldon[,variable:=as.character(variable)]
+degs.alldon <- merge.data.table(degs.alldon,inlc.1ast.alldon.samps[,c("pbulkid","APOEsimple")],by.x="variable",by.y="pbulkid")
+degs.alldon <- degs.alldon[gene %in% c("PLPP3","FGFR3","NTSR2")]
+degs.alldon[,titleg:=paste0("*",gene,"*")]
+
+allast.pal <- c(E2="#009E73",E4="#D55E00") # to match fig 6 E2/E4 palette
+
+p.allast.alldon <- ggplot(degs.alldon,aes(x=APOEsimple,y=as.numeric(value),fill=APOEsimple))+
+  geom_boxplot(outlier.size = 0.4)+
+  facet_wrap(~titleg,ncol=3)+
+  labs(x="APOE Genotype",y=paste0("Expression in All ISS LC Domain<br>Astrocytes (Age, Sex, %AA adjusted)"),fill="APOE Status")+
+  scale_fill_manual(values=allast.pal)+
+  guides(fill="none")+ ## unnecess
+  theme(
+    axis.title.x=element_text(size=8),
+    axis.text.x=element_text(size=7,angle=90,vjust=0.5,hjust=1),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.title.y=element_markdown(size=8),
+    legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
+    legend.title=element_text(size=7,hjust=0.5),
+    legend.background = element_blank(),
+    legend.box = element_blank(),
+    legend.box.spacing = ggplot2::unit(0,"in"),
+    strip.text = element_markdown(size=9),
+    strip.background = element_blank(),
+    strip.background.y = element_blank(),
+    strip.background.x=element_blank(),
+    #legend.key = element_blank(),
+    legend.key.height=ggplot2::unit(0.0125,"in"),
+    legend.key.width=ggplot2::unit(0.0125,"in"),
+    legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+    title=element_markdown(size=9,hjust=0.5))
+
+pdf("plots_newseg/manuscript/Fig7/7D_AllSRT12199_Astro_AllDonorE2E4_boxplot.pdf",height=2.25,width=2.25)
+print(p.allast.alldon)
+dev.off()
+
+rm(degs.alldon,mod.alldon,inlc.1ast.alldon.samps,inlc.1astde.alldon,p.allast.alldon,allast.pal)
+gc(full=T)
+```
+
+
+### All astrocyte, Ancestry-Stratified E2-E4, Age Sex YRI controlled ### 
+```{r}
+inlc.1astde.ancstrat <- inlc.1astde$intraLC12199$YRIAPOlabel$voomLFt$EList$E
+keepn <- grep(colnames(inlc.1astde.ancstrat),pattern="^All_Astrocytes_Br",value=T)
+inlc.1astde.ancstrat <- inlc.1astde.ancstrat[,keepn]
+inlc.1ast.ancstrat.samps <- inlc.1astde$intraLC12199$YRIAPOlabel$dgel$samples[keepn,]
+
+inlc.1ast.ancstrat.samps$lab_APOE_PredomAnces <- 
+  factor(inlc.1ast.ancstrat.samps$lab_APOE_PredomAnces,
+  levels = unique(inlc.1ast.ancstrat.samps$lab_APOE_PredomAnces))
+inlc.1ast.ancstrat.samps$Sex <- factor(inlc.1ast.ancstrat.samps$Sex)
+inlc.1ast.ancstrat.samps$Age <- as.numeric(inlc.1ast.ancstrat.samps$Age)
+mod.ancstrat <-  model.matrix(~0+lab_APOE_PredomAnces+Age+Sex,data = inlc.1ast.ancstrat.samps)
+degs.ancstrat <- jaffelab::cleaningY(inlc.1astde.ancstrat,mod.ancstrat,5) # correct for terms that arent in the ancestry-label groupings (term 1 intercept, 4 ancestry-APOE groups)
+
+
+degs.ancstrat <- as.data.table(degs.ancstrat,keep.rownames=T)
+setnames(degs.ancstrat,"rn","gene")
+degs.ancstrat[,contrast:="Ancestry-Stratified"]
+
+# organize for plotting
+degs.ancstrat <- melt.data.table(degs.ancstrat,id.vars = c("gene","contrast"))
+degs.ancstrat[,variable:=as.character(variable)]
+inlc.1ast.ancstrat.samps <- as.data.table(inlc.1ast.ancstrat.samps,keep.rownames=T)
+degs.ancstrat <- merge.data.table(degs.ancstrat,inlc.1ast.ancstrat.samps[,c("rn","lab_APOE_PredomAnces","YRIcat")],by.x="variable",by.y="rn")
+degs.ancstrat[,lab_APOE_PredomAnces:=as.character(lab_APOE_PredomAnces)]
+degs.ancstrat[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="All_Astrocytes_",replacement="")]
+degs.ancstrat[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="_",replacement=" ")]
+degs.ancstrat[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="YRI",replacement="AA")]
+degs.ancstrat[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="CEU",replacement="EA")]
+degs.ancstrat[,lab_APOE_PredomAnces:=factor(lab_APOE_PredomAnces,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
+degs.ancstrat[,YRIcat:=ifelse(YRIcat=="CEU","EA","AA")]
+degs.ancstrat <- degs.ancstrat[gene %in% c("FGFR3","PLPP3","NTSR2")]
+degs.ancstrat[,titleg:=paste0("*",gene,"*")]
+### plots ###
+p.allast.ancstrat <- ggplot(data=degs.ancstrat,aes(x=lab_APOE_PredomAnces,y=value,fill=YRIcat))+
+  geom_boxplot(outlier.size = 0.4)+
+  facet_wrap(~titleg,nrow=1)+
+  labs(x="Gene",y=paste0("Expression in All ISS LC Domain<br>Astrocytes (Age, Sex adjusted)"),fill="APOE-Ancestry Group")+
+  guides(fill="none")+ # we already have a copy of this in another panel
+  theme(
+    axis.title.x=element_text(size=8),
+    axis.text.x=element_text(size=7,angle=90,vjust=0.5,hjust=1),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.title.y=element_markdown(size=8),
+    legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
+    legend.title=element_text(size=7,hjust=0.5),
+    legend.background = element_blank(),
+    legend.box = element_blank(),
+    legend.box.spacing = ggplot2::unit(0,"in"),
+    strip.text = element_markdown(size=9),
+    strip.background = element_blank(),
+    strip.background.y = element_blank(),
+    strip.background.x=element_blank(),
+    #legend.key = element_blank(),
+    legend.key.height=ggplot2::unit(0.0125,"in"),
+    legend.key.width=ggplot2::unit(0.0125,"in"),
+    legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+    title=element_markdown(size=9,hjust=0.5))
+
+pdf("plots_newseg/manuscript/Fig7/7D_AllAstr_intraSRT12199_AncestryStratDE.pdf",height=2.25,width=2.25)
+print(p.allast.ancstrat)
 dev.off()
 ```
 
-### now, what about DE in astrocyte clusters themselves
+## Aaaand within domain 12199, by astrocyte cluster (and ancestry)
 ```{r}
 bsyde <- readRDS("processed-data_newseg/13_BanksyDE/04-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_BksyClus_inSRTlcDoms_or_wholetiss.RDS")
 
@@ -590,7 +683,322 @@ sampmd <- unique(sampmd[,.(brnum,APOEsimple,YRIcat)])
 cleanys <- merge.data.table(cleanys,sampmd,by="brnum")
 cleanys[YRIcat=="CEU",YRIcat:="EA"]
 cleanys[YRIcat=="YRI",YRIcat:="AA"]
-cleanys[,APO_Anc:=paste0(APOEsimple,YRIcat)]
+cleanys[,APO_Anc:=paste0(APOEsimple," ",YRIcat)]
+cleanys[,APO_Anc:=factor(APO_Anc,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
+cleanys[,titleg:=paste0("*",gene,"*")]
 
-ggplot(cleanys[gene=="PLPP3"],aes(x=APO_Anc,y=as.numeric(value),fill=APO_Anc))+facet_wrap(clus~Tissue_Region)+geom_boxplot()
+### intraLC
+intraLC.ancstrat.byastclus <- lapply(unique(cleanys$clus),function(x){
+  p <- ggplot(cleanys[Tissue_Region=="intraLC12199" & gene %in% c("FGFR3","PLPP3","NTSR2")&clus==x],aes(x=APO_Anc,y=as.numeric(value),fill=YRIcat))+
+    facet_wrap(~titleg,nrow=1)+
+    geom_boxplot(outlier.size = 0.4)+
+    labs(x="APOE Genotype",
+         y=paste0("Expression in ",
+          gsub(x,pattern="Astro_",replacement="*"),"* Astrocytes<br>of ISS LC Domain (Age, Sex adjusted)"),fill="APO_Anc")+
+    guides(fill="none")+ # use from preceding ancestry-strat plot
+    theme(
+    axis.title.x=element_text(size=8),
+    axis.text.x=element_text(size=7,angle=90,vjust=0.5,hjust=1),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.title.y=element_markdown(size=8),
+    legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
+    legend.title=element_text(size=7,hjust=0.5),
+    legend.background = element_blank(),
+    legend.box = element_blank(),
+    legend.box.spacing = ggplot2::unit(0,"in"),
+    strip.text = element_markdown(size=9),
+    strip.background = element_blank(),
+    strip.background.y = element_blank(),
+    strip.background.x=element_blank(),
+    #legend.key = element_blank(),
+    legend.key.height=ggplot2::unit(0.0125,"in"),
+    legend.key.width=ggplot2::unit(0.0125,"in"),
+    legend.key.spacing.y = ggplot2::unit(0.04,"in"),
+    title=element_markdown(size=9,hjust=0.5))
+
+})
+
+### save em
+pdf("plots_newseg/manuscript/Fig7/7D_intraSRT12199_ancstrat_byAstroClus.pdf",height=4.75,width=2.25)
+do.call("grid.arrange",c(intraLC.ancstrat.byastclus,nrow=2))
+dev.off()
 ```
+
+### last, not a cell type density effect:
+```{r}
+cpa <- readRDS("processed-data_newseg/14_CellTypeProximity/03_BsyLabelCounts_per_LCDomainArea.RDS")
+
+cpa <- rbindlist(cpa,idcol="LCDomainDef")
+## get metadata for all samples using the spe
+tmpcd <- as.data.table(colData(xlc),keep.rownames=T)
+tmpcd <- unique(tmpcd[,.(brnum,APOE,Sex,Age,YRI)])
+tmpcd <- tmpcd[greaterOrEqual(YRI,0.75)|lessOrEqual(YRI,0.25)]
+tmpcd[,catanc:=ifelse(YRI>0.5,"AA","EA")]
+tmpcd[,e2e4:=ifelse(APOE %in% c("E4hom","E4het"),"E4","E2")]
+tmpcd[,APOE_Anc:=paste0(e2e4," ",catanc)]
+cpa <- merge.data.table(cpa,tmpcd,"brnum")
+cpa[,APOE_Anc:=factor(APOE_Anc,levels=c("E2 AA","E4 AA","E2 EA","E4 EA"))]
+
+# convert from per unit^2 to per 100 units^2
+cpa[,annoPerLCdomArea:=100*annoPerLCdomArea]
+cpa <- cpa[LCDomainDef=="srt_domain12199" & anno %in% c("Astro_RYR3","Astro_FGFR3","LCNE")]
+cpa[,anno:=gsub(anno,pattern="^(.*)_(.*)$",replacement=paste0("\\1"," *","\\2","*"))]
+## excluding LCNE cells, which are going to skew the y axis here
+
+
+### version 1: boxplot by apoeanc group, colored by cell type
+p2 <- ggplot(cpa[anno!="LCNE"],aes(x=APOE_Anc,y=annoPerLCdomArea,fill=anno))+
+  geom_boxplot()+
+  labs(y="Cells per 100 units^2<br>of ISS LC domain area",x="APOE-Ancestry Group",fill="Cell Type")+
+  theme(axis.text.x=element_markdown(size=8,angle=90,hjust=0.5,vjust=1))+
+  scale_fill_manual(values=pal)+
+  theme(axis.text.x=element_markdown(size=7,angle=90,hjust=0.5,vjust=1),
+    axis.title.x=element_text(size=8),
+    axis.title.y=element_markdown(size=8),
+    axis.text.y=element_text(size=7),
+    legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
+    legend.title=element_markdown(size=7,hjust=0.5),
+    legend.background = element_blank(),
+    legend.box = element_blank(),
+    legend.box.spacing = ggplot2::unit(0,"in"),
+    title=element_markdown(size=9,hjust=0.5))
+
+pdf("plots_newseg/manuscript/Fig7/7E_intraSRT12199_cellTypeDensity_by_Anc.pdf",width=2.5,height=2)
+print(p2)
+dev.off()
+
+
+### version 2: boxplot by cell type
+## excluding LCNE cells, which are going to skew the y axis here
+cpa[,anno:=gsub(x=anno,pattern=" ",replacement="<br>")]
+
+p <- ggplot(cpa[anno!="LCNE"],aes(x=anno,y=annoPerLCdomArea,fill=APOE_Anc))+
+  geom_boxplot()+
+  labs(y="Cells per 100 units^2<br>of ISS LC domain area",
+    fill="APOE-Ancestry<br>Group",
+    x="Cell Type")+
+  theme(axis.text.x=element_markdown(size=7,angle=90,hjust=0.5,vjust=1),
+    legend.text = element_markdown(size=7,margin=margin(0,0,0,0,"in")),
+    axis.title.y=element_markdown(size=8),
+    axis.text.y=element_text(size=7),
+    axis.title.x=element_text(size=8),
+    legend.title=element_markdown(size=7,hjust=0.5),
+    legend.background = element_blank(),
+    legend.box = element_blank(),
+    legend.box.spacing = ggplot2::unit(0,"in"),
+    title=element_markdown(size=9,hjust=0.5))
+pdf("plots_newseg/manuscript/Fig7/7E_intraSRT12199_cellTypeDensity_by_Celltype.pdf",width=2.5,height=2)
+print(p)
+dev.off()
+
+```
+
+seshinf
+```{r}
+sessionInfo()
+sessioninfo::session_info()
+
+```
+R version 4.5.2 (2025-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Tahoe 26.3.1
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices
+[5] utils     methods   base     
+
+other attached packages:
+ [1] BiocParallel_1.44.0        
+ [2] parallelly_1.47.0          
+ [3] sf_1.0-24                  
+ [4] jaffelab_0.99.34           
+ [5] rafalib_1.0.4              
+ [6] escheR_1.10.0              
+ [7] ggrastr_1.0.2              
+ [8] SpatialExperiment_1.20.0   
+ [9] SingleCellExperiment_1.32.0
+[10] SummarizedExperiment_1.40.0
+[11] Biobase_2.70.0             
+[12] GenomicRanges_1.62.1       
+[13] Seqinfo_1.0.0              
+[14] IRanges_2.44.0             
+[15] S4Vectors_0.48.1           
+[16] BiocGenerics_0.56.0        
+[17] generics_0.1.4             
+[18] MatrixGenerics_1.22.0      
+[19] matrixStats_1.5.0          
+[20] Polychrome_1.5.4           
+[21] gridExtra_2.3              
+[22] ggtext_0.1.2               
+[23] ggplot2_4.0.2              
+[24] data.table_1.18.4          
+
+loaded via a namespace (and not attached):
+ [1] DBI_1.2.3            rlang_1.1.7         
+ [3] magrittr_2.0.4       otel_0.2.0          
+ [5] e1071_1.7-17         compiler_4.5.2      
+ [7] systemfonts_1.3.1    vctrs_0.7.1         
+ [9] stringr_1.6.0        pkgconfig_2.0.3     
+[11] magick_2.9.0         XVector_0.50.0      
+[13] labeling_0.4.3       markdown_2.0        
+[15] ggbeeswarm_0.7.3     ragg_1.5.0          
+[17] purrr_1.2.1          xfun_0.56           
+[19] litedown_0.9         DelayedArray_0.36.1 
+[21] parallel_4.5.2       R6_2.6.1            
+[23] stringi_1.8.7        RColorBrewer_1.1-3  
+[25] limma_3.66.0         Rcpp_1.1.1          
+[27] knitr_1.51           Matrix_1.7-4        
+[29] splines_4.5.2        tidyselect_1.2.1    
+[31] dichromat_2.0-0.1    abind_1.4-8         
+[33] codetools_0.2-20     lattice_0.22-7      
+[35] tibble_3.3.1         withr_3.0.2         
+[37] S7_0.2.1             evaluate_1.0.5      
+[39] units_1.0-0          proxy_0.4-29        
+[41] xml2_1.5.2           pillar_1.11.1       
+[43] KernSmooth_2.23-26   rprojroot_2.1.1     
+[45] commonmark_2.0.0     scales_1.4.0        
+[47] class_7.3-23         glue_1.8.0          
+[49] scatterplot3d_0.3-44 tools_4.5.2         
+[51] locfit_1.5-9.12      fs_1.6.6            
+[53] grid_4.5.2           edgeR_4.8.2         
+[55] colorspace_2.1-2     nlme_3.1-168        
+[57] beeswarm_0.4.0       googledrive_2.1.2   
+[59] vipor_0.4.7          cli_3.6.5           
+[61] textshaping_1.0.4    gargle_1.6.1        
+[63] segmented_2.2-1      S4Arrays_1.10.1     
+[65] viridisLite_0.4.3    dplyr_1.2.0         
+[67] gtable_0.3.6         classInt_0.4-11     
+[69] SparseArray_1.10.8   rjson_0.2.23        
+[71] farver_2.1.2         lifecycle_1.0.5     
+[73] here_1.0.2           statmod_1.5.1       
+[75] gridtext_0.1.5       MASS_7.3-65         
+> sessioninfo::session_info()
+─ Session info ──────────────────────────────
+ setting  value
+ version  R version 4.5.2 (2025-10-31)
+ os       macOS Tahoe 26.3.1
+ system   aarch64, darwin20
+ ui       Positron
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       America/New_York
+ date     2026-07-11
+ pandoc   NA
+ quarto   1.9.38 @ /Applications/Positron.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ──────────────────────────────────
+ package              * version  date (UTC) lib source
+ abind                  1.4-8    2024-09-12 [1] CRAN (R 4.5.0)
+ beeswarm               0.4.0    2021-06-01 [1] CRAN (R 4.5.0)
+ Biobase              * 2.70.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocGenerics         * 0.56.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ BiocParallel         * 1.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ class                  7.3-23   2025-01-01 [1] CRAN (R 4.5.2)
+ classInt               0.4-11   2025-01-08 [1] CRAN (R 4.5.0)
+ cli                    3.6.5    2025-04-23 [1] CRAN (R 4.5.0)
+ codetools              0.2-20   2024-03-31 [1] CRAN (R 4.5.2)
+ colorspace             2.1-2    2025-09-22 [1] CRAN (R 4.5.0)
+ commonmark             2.0.0    2025-07-07 [1] CRAN (R 4.5.0)
+ data.table           * 1.18.4   2026-05-06 [1] CRAN (R 4.5.2)
+ DBI                    1.2.3    2024-06-02 [1] CRAN (R 4.5.0)
+ DelayedArray           0.36.1   2026-03-31 [1] Bioconductor 3.22 (R 4.5.2)
+ dichromat              2.0-0.1  2022-05-02 [1] CRAN (R 4.5.0)
+ dplyr                  1.2.0    2026-02-03 [1] CRAN (R 4.5.2)
+ e1071                  1.7-17   2025-12-18 [1] CRAN (R 4.5.2)
+ edgeR                  4.8.2    2025-12-23 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ escheR               * 1.10.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ evaluate               1.0.5    2025-08-27 [1] CRAN (R 4.5.0)
+ farver                 2.1.2    2024-05-13 [1] CRAN (R 4.5.0)
+ fs                     1.6.6    2025-04-12 [1] CRAN (R 4.5.0)
+ gargle                 1.6.1    2026-01-29 [1] CRAN (R 4.5.2)
+ generics             * 0.1.4    2025-05-09 [1] CRAN (R 4.5.0)
+ GenomicRanges        * 1.62.1   2025-12-08 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ ggbeeswarm             0.7.3    2025-11-29 [1] CRAN (R 4.5.2)
+ ggplot2              * 4.0.2    2026-02-03 [1] CRAN (R 4.5.2)
+ ggrastr              * 1.0.2    2023-06-01 [1] CRAN (R 4.5.0)
+ ggtext               * 0.1.2    2022-09-16 [1] CRAN (R 4.5.0)
+ glue                   1.8.0    2024-09-30 [1] CRAN (R 4.5.0)
+ googledrive            2.1.2    2025-09-10 [1] CRAN (R 4.5.0)
+ gridExtra            * 2.3      2017-09-09 [1] CRAN (R 4.5.0)
+ gridtext               0.1.5    2022-09-16 [1] CRAN (R 4.5.0)
+ gtable                 0.3.6    2024-10-25 [1] CRAN (R 4.5.0)
+ here                   1.0.2    2025-09-15 [1] CRAN (R 4.5.0)
+ IRanges              * 2.44.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ jaffelab             * 0.99.34  2026-02-24 [1] Github (LieberInstitute/jaffelab@e7a26ca)
+ KernSmooth             2.23-26  2025-01-01 [1] CRAN (R 4.5.2)
+ knitr                  1.51     2025-12-20 [1] CRAN (R 4.5.2)
+ labeling               0.4.3    2023-08-29 [1] CRAN (R 4.5.0)
+ lattice                0.22-7   2025-04-02 [1] CRAN (R 4.5.2)
+ lifecycle              1.0.5    2026-01-08 [1] CRAN (R 4.5.2)
+ limma                  3.66.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ litedown               0.9      2025-12-18 [1] CRAN (R 4.5.2)
+ locfit                 1.5-9.12 2025-03-05 [1] CRAN (R 4.5.0)
+ magick                 2.9.0    2025-09-08 [1] CRAN (R 4.5.0)
+ magrittr               2.0.4    2025-09-12 [1] CRAN (R 4.5.0)
+ markdown               2.0      2025-03-23 [1] CRAN (R 4.5.0)
+ MASS                   7.3-65   2025-02-28 [1] CRAN (R 4.5.2)
+ Matrix                 1.7-4    2025-08-28 [1] local (/Users/bmulvey/Desktop/Matrix)
+ MatrixGenerics       * 1.22.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+ matrixStats          * 1.5.0    2025-01-07 [1] CRAN (R 4.5.0)
+ nlme                   3.1-168  2025-03-31 [1] CRAN (R 4.5.2)
+ otel                   0.2.0    2025-08-29 [1] CRAN (R 4.5.0)
+ parallelly           * 1.47.0   2026-04-17 [1] CRAN (R 4.5.2)
+ pillar                 1.11.1   2025-09-17 [1] CRAN (R 4.5.0)
+ pkgconfig              2.0.3    2019-09-22 [1] CRAN (R 4.5.0)
+ Polychrome           * 1.5.4    2025-04-06 [1] CRAN (R 4.5.0)
+ proxy                  0.4-29   2025-12-29 [1] CRAN (R 4.5.2)
+ purrr                  1.2.1    2026-01-09 [1] CRAN (R 4.5.2)
+ R6                     2.6.1    2025-02-15 [1] CRAN (R 4.5.0)
+ rafalib              * 1.0.4    2025-04-08 [1] CRAN (R 4.5.0)
+ ragg                   1.5.0    2025-09-02 [1] CRAN (R 4.5.0)
+ RColorBrewer           1.1-3    2022-04-03 [1] CRAN (R 4.5.0)
+ Rcpp                   1.1.1    2026-01-10 [1] CRAN (R 4.5.2)
+ rjson                  0.2.23   2024-09-16 [1] CRAN (R 4.5.0)
+ rlang                  1.1.7    2026-01-09 [1] CRAN (R 4.5.2)
+ rprojroot              2.1.1    2025-08-26 [1] CRAN (R 4.5.0)
+ S4Arrays               1.10.1   2025-12-08 [1] Bioconductor 3.22 (R 4.5.2)
+ S4Vectors            * 0.48.1   2026-04-04 [1] https://bioc-release.r-universe.dev (R 4.5.3)
+ S7                     0.2.1    2025-11-14 [1] CRAN (R 4.5.2)
+ scales                 1.4.0    2025-04-24 [1] CRAN (R 4.5.0)
+ scatterplot3d          0.3-44   2023-05-05 [1] CRAN (R 4.5.0)
+ segmented              2.2-1    2026-01-29 [1] CRAN (R 4.5.2)
+ Seqinfo              * 1.0.0    2025-10-29 [1] Bioconductor 3.22 (R 4.5.2)
+ sessioninfo            1.2.3    2025-02-05 [1] CRAN (R 4.5.0)
+ sf                   * 1.0-24   2026-01-13 [1] CRAN (R 4.5.2)
+ SingleCellExperiment * 1.32.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ SparseArray            1.10.8   2025-12-18 [1] Bioconductor 3.22 (R 4.5.2)
+ SpatialExperiment    * 1.20.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ statmod                1.5.1    2025-10-09 [1] CRAN (R 4.5.0)
+ stringi                1.8.7    2025-03-27 [1] CRAN (R 4.5.0)
+ stringr                1.6.0    2025-11-04 [1] CRAN (R 4.5.0)
+ SummarizedExperiment * 1.40.0   2025-10-29 [1] https://bioc-release.r-universe.dev (R 4.5.2)
+ systemfonts            1.3.1    2025-10-01 [1] CRAN (R 4.5.0)
+ textshaping            1.0.4    2025-10-10 [1] CRAN (R 4.5.0)
+ tibble                 3.3.1    2026-01-11 [1] CRAN (R 4.5.2)
+ tidyselect             1.2.1    2024-03-11 [1] CRAN (R 4.5.0)
+ units                  1.0-0    2025-10-09 [1] CRAN (R 4.5.0)
+ vctrs                  0.7.1    2026-01-23 [1] CRAN (R 4.5.2)
+ vipor                  0.4.7    2023-12-18 [1] CRAN (R 4.5.0)
+ viridisLite            0.4.3    2026-02-04 [1] CRAN (R 4.5.2)
+ withr                  3.0.2    2024-10-28 [1] CRAN (R 4.5.0)
+ xfun                   0.56     2026-01-18 [1] CRAN (R 4.5.2)
+ xml2                   1.5.2    2026-01-17 [1] CRAN (R 4.5.2)
+ XVector                0.50.0   2025-10-29 [1] Bioconductor 3.22 (R 4.5.1)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library
+ [2] /Users/bmulvey/Library/R/arm64/4.5/library
+ * ── Packages attached to the search path.
+
+─────────────────────────────────────────────

@@ -10,8 +10,61 @@ knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
 #### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
 knitr::opts_knit$set(root.dir = here::here())
 
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
+
+
 library(data.table)
 
 # library(SpatialFeatureExperiment)
+
+```
+
+read in result files. only write out the effect tables for the E2/E4 two-condition models, mean intensity and median intensity of each.
+```{r}
+lmm02 <- readRDS("processed-data_newseg/10_NManalyses/02-AllNMsegCells_meanMedIntensity_LMMed_by_geneLogcounts_2apoeFactorizations_withRanEfFits.RDS")
+
+lmm03 <- readRDS("processed-data_newseg/10_NManalyses/03-UniqueMappedNMsegCells_meanMedIntensity_LMMed_by_geneLogcounts_2apoeFactorizations_withRanEfFits.RDS")
+
+lmm04 <- readRDS("processed-data_newseg/10_NManalyses/04-Manual-wdXfer-orSRTxfer_LClabeled_AllNMsegMapped_meanMedIntensity_LMMed_by_geneLogcounts_2apoeFactorizations_withRanEfFits.RDS")
+
+lmm05 <- readRDS("processed-data_newseg/10_NManalyses/05-EverInLCdomain_wdXfer-orSRTxfer_LClabeled_NonMultimapNM_meanMedIntensity_LMMed_by_geneLogcounts_2apoeFactorizations_withRanEfFits.RDS")
+
+lmmres <- list(AllNMcells=lmm02$E4carrierYN,UniqueNMcells=lmm03$E4carrierYN,AllLClabeled=lmm04$E4carrierYN,LCdomAndLClabeledAndUniqueNM=lmm05$E4carrierYN)
+
+lmmres <- lapply(lmmres,function(x){
+    restabs <- lapply(x,function(y){
+        fixef <- y$fixed
+        ranef <- y$ranfx
+        # make random effect table columns match up with fixed so we can rbind
+        ranef <- ranef[,.(gene_name,grpvar,grp,condval,condsd,NMvar)]
+        setnames(ranef,c("grpvar","grp"),c("variable","var_group"))
+        setnames(ranef,c("condval","condsd"),c("randomIntercept_Coef","randomIntercept_SD"))
+
+        setnames(fixef,"Pr(>Chisq)","pval")
+        ## fdr for gene effects only
+        fixef[gene_name==variable,fdr_gene:=p.adjust(pval,method="BH",n = length(unique(fixef$gene_name)))]
+        fixef[gene_name==variable,bonf_gene:=pval*length(unique(fixef$gene_name))]
+        fixef[greaterOrEqual(bonf_gene,1),bonf_gene:=1]
+
+        jtres <- rbind(fixef,ranef,fill=TRUE)
+        return(jtres)
+    })
+    restabs <- rbindlist(restabs)
+    return(restabs)
+})
+
+mapply(d=lmmres,n=names(lmmres),SIMPLIFY=FALSE,function(d,n){
+    fwrite(d,paste0("plots_newseg/manuscript/SuppTabs/ST-NMlmmResults_",n,".txt"),sep='\t',quote=F,row.names=F,col.names=T)
+})
+
 
 ```
