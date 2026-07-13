@@ -1,0 +1,252 @@
+---
+title: "Xen_DEpowerAnalysis"
+author: "Bernie Mulvey"
+date: "2025-06-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+library(ggplot2)
+library(ggtext)
+library(gridExtra)
+library(SpatialExperiment)
+library(ssizeRNA)
+library(dreamlet)
+library(edgeR)
+# library(SpatialFeatureExperiment)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# to Renviron.site. see e.g. top response on https://stackoverflow.com/questions/73638290/python-on-mac-is-it-safe-to-set-objc-disable-initialize-fork-safety-yes-globall 
+library(parallelly)
+options(parallelly.supportsMulticore.disableOn="")
+options(parallelly.fork.enable=TRUE)
+library(BiocParallel)
+options(bphost="localhost")
+library(parallel)
+
+## ggplot defaults
+theme_set(theme_bw()+theme(axis.text.x = element_text(size = 9), axis.title.x = element_text(size = 8), axis.text.y = element_text(size = 8), axis.title.y = element_text(size =9), plot.title = element_markdown(size = 11,hjust=0.5), strip.text = element_text(size=11), legend.text = element_text(size=8), legend.title = element_text(size=9,hjust=0.5)))
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+load spe
+```{r}
+lc3 <- readRDS("processed-data/06-countsOnly_noImgData_QCed_SPE_split_to_tissSections.RDS")
+
+# load clusters + annots
+louvs <- readRDS("processed-data/07_featureSelection_dimred_harmony_clustering/04-Initial_louvLeid_res0.5-1-2_clusterings.RDS")
+louvs <- louvs[["HARMONYlmbna_HDG_SVG_2575"]][,.(rn,snnHARMONYlmbna_HDG_SVG_2575_louv_res1)]
+setnames(louvs,2,"clusid")
+
+finalann <- fread("processed-data/08_validitycheck_25hdg75svg_louv1/10-25hdg75svg_louv1_annots.txt")
+
+louvs <- merge.data.table(louvs,finalann,by="clusid")
+louvs <- DataFrame(louvs,row.names=louvs$rn)[colnames(lc3),]
+
+colLabels(lc3) <- louvs$anno
+lc3 <- lc3[,!(lc3$brnum %in% paste0("Br",c(5517,5276,5712)))]
+```
+
+get pseudobulks per donor, not tissue section
+```{r}
+ag <- dreamlet::aggregateToPseudoBulk(lc3,sample_id = "brnum",cluster_id = "label")
+
+## get the lc samples
+agl <- ag@assays@data@listData$LC
+# make a dense matrix
+agl <- as.matrix(agl)
+# filter out uncounted genes
+agl <- agl[rowSums(agl)>0,]
+# there is one zero-count donor in there too
+agl <- agl[,colSums(agl)>0]
+
+## make DGElist, perform low-count filtering
+dge <- DGEList(counts = agl)
+dge <- calcNormFactors(dge)
+## filter out low count genes using edgeR
+filt <- filterByExpr(dge)
+dge <- dge[filt,,keep.lib.sizes=FALSE]
+
+
+## ^ this gives us 29 pseudobulks and ~9.2k genes.
+```
+
+per the ssize RNA documentation, we now want to get the gene-specific means and dispersions
+```{r}
+m <- apply(dge$counts,1,mean)
+
+dge <- calcNormFactors(dge)
+dge <- estimateCommonDisp(dge)
+dge <- estimateTagwiseDisp(dge)
+
+# draw a random distribution of fold-changes (we don't know what they will be for APOE)
+fc <- function(x){exp(rnorm(x, log2(1.5), 0.5*log2(1.25)))}
+
+pdf("~/Desktop/K01 Drafting/prelim_dat/LC_poweranalysis_by_brnum_l2FCranges_pt1topt6.pdf",height=2.5,width=2.5)
+set.seed(42)
+pa <- ssizeRNA_vary(nGenes=nrow(dge),
+                    pi0 = 0.95,
+                    m=200,
+                    mu=m,
+                    disp=dge$tagwise.dispersion,
+                    fc=fc,
+                    fdr=0.05,
+                    power=0.8,
+                    maxN=55,
+                    replace=FALSE)
+dev.off()
+
+# pdf("local_ref/lognormdist_FC.pdf",height=4,width=4)
+# set.seed(42)
+# median(log2(fc(nrow(dge)))) # ~0.84
+# dev.off()
+
+tmpcd <- as.data.table(colData(lc3))
+rm(list=grep(ls(),pattern="tmpcd",value=T,invert=T))
+```
+
+### wrangle some estimates of how many individual LC neurons we'll have in a tissue section
+```{r}
+tmp <- tmpcd[Prop_NM>0.003&label=="LC",.(sample_id,brnum,N_NMbodies)]
+tmp2 <- unique(tmp[,.(sample_id,brnum)])
+tmp2[,Nspot:=.N,by="sample_id"]
+tmp2 <- tmp2[,Nsamp:=.N,by="brnum"]
+tmp <- merge.data.table(tmp,unique(tmp2[,.(Nsamp,Nspot,brnum)]),by="brnum")
+
+ansNM <- tmp[,avgbodPerTiss:=sum(N_NMbodies)/Nsamp,by="brnum"]
+ansNM[,avgbodPerSpot:=sum(N_NMbodies)/sum(Nspot),by="brnum"]
+ansNM <- unique(ansNM[,.(brnum,avgbodPerTiss,avgbodPerSpot)])
+
+rm(tmp,tmp2)
+```
+
+### load visium and xenium HYP
+```{r}
+hypv <- readRDS("../../local_hthspatial/spatial_HYP/processed-data/13-SamuiSPE.RDS")
+
+hypx <- readRDS("../../local_hthspatial/xenium_HYP/processed-data/11-XeniumSPE_forSamui.RDS")
+
+hypv <- hypv[,hypv$HARMONYlmbna_nnsvg10_k15=="Ventromedial nucleus"]
+hypx <- hypx[,hypx$banksy_cluster_group=="VMH (4)"]
+
+
+vcd <- as.data.table(colData(hypv))
+xcd <- as.data.table(colData(hypx),keep.rownames=T) # we'll use this to draw cells from for power analysis in the next step
+
+vcd[,Nspot:=.N,by="sample_id"]
+xcd[,Ncell:=.N,by="sample_id"]
+
+
+ansv <- vcd[,mean(Nspot),by="brnum"]
+setnames(ansv,2,"mn_VMHspot")
+ansx <- xcd[,mean(Ncell),by="BrNum"]
+setnames(ansx,"BrNum","brnum")
+setnames(ansx,2,"mn_VMHcell")
+ans <- merge.data.table(ansv,ansx,"brnum")
+
+ans[,cellperspot:=mn_VMHcell/mn_VMHspot]
+## assume each lc cell has twice the area of a vmh neuron
+ans[,LCequivperspot:=cellperspot/4]
+## 1.5-2.5 LC neurons per LC domain spot; similar estimate results from getting donorwise avg number of NM bodies per spot
+rm(ansv,ansx,vcd,hypv)
+gc(full=T)
+```
+
+we have 74.5k VMH neurons in the xenium dataset, which will more than suffice to do this simulation.
+```{r}
+# grab a number of cells equivalent tto expected number of LC neurons in a sample. only draw once from a given VMH donor
+brsamp <- unique(xcd[,.(sample_id,BrNum)])
+
+cellsizesims <- mclapply(c(1:1200),mc.cores = 4,FUN = function(x){
+    set.seed((42+x))
+    n <- sample(x=round(ansNM$avgbodPerTiss),size = length(unique(brsamp$BrNum)),replace=FALSE)
+    
+    # grab one xenium sample at random per donor
+    samps <- unlist(lapply(unique(brsamp$BrNum),function(x){
+        sample(brsamp[BrNum==x,sample_id],1)
+    }))
+    
+    # grab that many cells from one VMH sample
+    i<-1
+    for (i in c(1:length(samps))){
+        samp <- samps[i]
+        cells <- sample(xcd[sample_id==samp,rn],size=n[i],replace=FALSE)
+        if(i==1){keepcells <- cells} else {keepcells <- c(keepcells,cells)}
+        rm(samp,cells)
+    }
+    rm(i)
+    
+    tmpspe <- hypx[,keepcells]
+    
+    ag <- dreamlet::aggregateToPseudoBulk(tmpspe,sample_id = "sample_id",cluster_id = "banksy_cluster_group",assay = "counts") # nice, it lets us do that without a hitch
+    
+    ## get the samplewise pbulks
+    agl <- ag@assays@data@listData
+    agl <- as.matrix(agl[[1]])
+    
+    # filter out uncounted genes
+    agl <- agl[rowSums(agl)>0,]
+    # and countless samples (there shouldnt be any)
+    agl <- agl[,colSums(agl)>0]
+    
+    ## make DGElist, perform low-count filtering
+    dge <- DGEList(counts = agl)
+    dge <- calcNormFactors(dge)
+    ## filter out low count genes using edgeR
+    filt <- filterByExpr(dge)
+    dge <- dge[filt,,keep.lib.sizes=FALSE]
+    
+    m <- apply(dge$counts,1,mean)
+    
+    dge <- calcNormFactors(dge)
+    dge <- estimateCommonDisp(dge)
+    dge <- estimateTagwiseDisp(dge)
+    
+    # draw a random distribution of fold-changes (we don't know what they will be for APOE)
+    fc <- function(x){exp(rnorm(x, log2(1.5), 0.5*log2(1.25)))}
+    pa <- ssizeRNA_vary(nGenes=nrow(dge),
+                        pi0 = 0.95,
+                        m=200,
+                        mu=m,
+                        disp=dge$tagwise.dispersion,
+                        fc=fc,
+                        fdr=0.05,
+                        power=0.8,
+                        maxN=30,
+                        replace=FALSE)
+    dev.off()
+    return(pa)
+})
+
+
+# get sample sizes that each run suggests to plot a histogram from
+tmpdat <- as.data.table(unlist(lapply(cellsizesims,function(x){x$ssize[2]})))
+# some of these failed; grab the first 1,000 successful tests
+tmpdat <- tmpdat[!is.na(V1)]
+tmpdat <- tmpdat[1:1000]
+
+# can ignore warning about missing values -- seems to be some complex bug they deemed not worth the fix. real "tidy". https://github.com/tidyverse/ggplot2/issues/4200  
+pdf("~/Desktop/XenVMH_nLCcellsSims_ssizerna.pdf",height=3,width=3)
+ggplot(tmpdat,aes(x=V1))+
+    #scale_x_continuous(limits = c(7,35))+
+    geom_histogram(breaks=seq(6,36,2))+
+    xlab("N Xenium Samples\nfor 80% Power for log2FCs\n0.3-0.6 at FDR<0.05")+
+    geom_vline(xintercept=29,linetype="dashed")+
+    ylab("Number of simulations achieving\n80% power with N samples")+
+    theme(axis.title.y=element_text(size=10,color = "#000000"),axis.title.x=element_text(size=10,color = "#000000"),axis.text.x=element_text(size=9,color = "#000000"),axis.text.y=element_text(size=9,color = "#000000"))
+dev.off()
+```

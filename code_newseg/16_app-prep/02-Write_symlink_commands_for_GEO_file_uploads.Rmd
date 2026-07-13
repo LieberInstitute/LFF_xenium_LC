@@ -1,0 +1,106 @@
+---
+title: "02-Write_symlink_commands_for_GEO_file_uploads"
+author: "Bernie Mulvey"
+date: "07-13-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+unloadNamespace("datasets")
+```
+
+### make symlink commands from geo table:
+```{r}
+srcfiles <- fread("processed-data_newseg/16_app-prep/02-geo_upload_filepaths.txt",header=F)
+setnames(srcfiles,c(1:3),c("path_sampleID","altID","note"))
+setnames(srcfiles,c(4:8),paste0("DAPI_procdat",c(4:8)))
+setnames(srcfiles,c(9:13),paste0("NMDAPI_procdat",c(9:13)))
+setnames(srcfiles,c(14:15),paste0("DAPI_rawdat",c(1:2)))
+setnames(srcfiles,c(16:17),paste0("NMDAPI_rawdat",c(1:2)))
+
+srcfiles <- melt.data.table(srcfiles,id.vars = c("path_sampleID","altID","note"))
+setnames(srcfiles,"value","file")
+srcfiles[,variable:=as.character(variable)]
+srcfiles[,variable:=gsub(variable,pattern="^(.*DAPI)_.*$",replacement="\\1")]
+
+srcfiles[,lnname:=variable]
+
+srcfiles[variable=="DAPI",variable:="/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/raw-data/xenium/xenium-instrument"]
+
+dapipaths <- fread("processed-data_newseg/16_app-prep/DAPIxenoutpaths.txt",header=F)
+dapipaths[,path_sampleID:=gsub(V1,pattern="^.*__(Br.*)__2025.*$",replacement="\\1")]
+
+srcfiles[path_sampleID=="Br6119",alt_pathID:="Br6119_re-dis"]
+srcfiles[path_sampleID=="Br6263",alt_pathID:="Br6263_re-dis"]
+dapipaths <- dapipaths[path_sampleID %in% c(srcfiles$path_sampleID,srcfiles$alt_pathID)]
+
+srcfiles1 <- merge.data.table(srcfiles,dapipaths,by="path_sampleID")
+srcfiles2 <- merge.data.table(srcfiles,dapipaths,by.x="alt_pathID",by.y="path_sampleID")
+srcfiles <- as.data.table(rbind(srcfiles1,srcfiles2))
+setnames(srcfiles,"V1","path_orig")
+
+srcfiles[variable=="NMDAPI",variable:="/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing_new/xeniumRanger"]
+srcfiles[variable=="/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing_new/xeniumRanger",variable:=paste0(variable,"/xeniumranger_NM_DAPI_",path_sampleID,"/outs")]
+
+srcfiles[variable=="/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/raw-data/xenium/xenium-instrument",variable:=paste0(variable,"/",path_orig)]
+
+srcfiles[,path_orig:=NULL]
+srcfiles[,variable:=paste0(variable,"/",file)]
+
+## not necessary for .png files
+srcfiles[file %in% grep(file,pattern="png",value=T,invert = T),lnname:=paste0(lnname,"_",path_sampleID,"_",file)]
+srcfiles[file %in% grep(file,pattern="png",value=T),lnname:=file]
+srcfiles[file %in% grep(file,pattern="png",value=T),variable:=paste0("/dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data/xenium_imageProcessing_new/registrations/",file)]
+
+## outpath: 
+srcfiles[,comm:=paste0("ln -s ",variable," /dcs05/lieber/marmaypag/LFF_spatialLC_LIBD4140/LFF_xenium_LC/processed-data_newseg/16_app-prep/GEO_upload/",lnname)]
+write.table(unique(srcfiles$comm),"processed-data_newseg/16_app-prep/02-geo_symlink_commands.txt",sep='\t',quote=F,row.names=F,col.names=F)
+```
+
+and make an updated geo table reflecting the different names:
+```{r}
+newgtab <- fread("processed-data_newseg/16_app-prep/02-geo_upload_filepaths.txt",header=F)
+setnames(newgtab,c(1:3),c("path_sampleID","altID","note"))
+setnames(newgtab,c(4:8),paste0("DAPI_procdat",c(4:8)))
+setnames(newgtab,c(9:13),paste0("NMDAPI_procdat",c(9:13)))
+setnames(newgtab,c(14:15),paste0("DAPI_rawdat",c(1:2)))
+setnames(newgtab,c(16:17),paste0("NMDAPI_rawdat",c(1:2)))
+
+# unchanged DAPI procdat 8/NMDAPI proccdat 13 
+
+newgtab[,DAPI_procdat4:=paste0("DAPI_",path_sampleID,"_",DAPI_procdat4)]
+newgtab[,DAPI_procdat5:=paste0("DAPI_",path_sampleID,"_",DAPI_procdat5)]
+newgtab[,DAPI_procdat6:=paste0("DAPI_",path_sampleID,"_",DAPI_procdat6)]
+newgtab[,DAPI_procdat7:=paste0("DAPI_",path_sampleID,"_",DAPI_procdat7)]
+
+newgtab[,NMDAPI_procdat9:=paste0("NMDAPI_",path_sampleID,"_",NMDAPI_procdat9)]
+newgtab[,NMDAPI_procdat10:=paste0("NMDAPI_",path_sampleID,"_",NMDAPI_procdat10)]
+newgtab[,NMDAPI_procdat11:=paste0("NMDAPI_",path_sampleID,"_",NMDAPI_procdat11)]
+newgtab[,NMDAPI_procdat12:=paste0("NMDAPI_",path_sampleID,"_",NMDAPI_procdat12)]
+
+newgtab[,DAPI_rawdat1:=paste0("DAPI_",path_sampleID,"_",DAPI_rawdat1)]
+newgtab[,DAPI_rawdat2:=paste0("DAPI_",path_sampleID,"_",DAPI_rawdat2)]
+
+
+newgtab[,NMDAPI_rawdat1:=paste0("NMDAPI_",path_sampleID,"_",NMDAPI_rawdat1)]
+newgtab[,NMDAPI_rawdat2:=paste0("NMDAPI_",path_sampleID,"_",NMDAPI_rawdat2)]
+
+##check
+checktab <- melt.data.table(newgtab,id.vars=c("path_sampleID","altID","note"))
+stopifnot(all(unique(checktab$value) %in% unique(srcfiles$lnname)))
+
+## NMDAPI_procdat13 is redundant (registered PNGs, H&E is the same for both)
+newgtab[,NMDAPI_procdat13:=NULL]
+fwrite(newgtab,"processed-data_newseg/16_app-prep/02-GEO_filetable_corrected.txt",sep='\t',quote=F,row.names=F,col.names=F)
+```
