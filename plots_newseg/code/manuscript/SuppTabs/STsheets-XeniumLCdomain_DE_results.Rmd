@@ -1,0 +1,133 @@
+---
+title: "STsheets-XeniumLCdomains"
+author: "Bernie Mulvey"
+date: "07-14-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+library(data.table)
+
+## rstudio GUI tweaks
+require(colorout)
+ColorOut()
+options("styler.addins_style_transformer" = "biocthis::bioc_style()")
+##
+
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+    precision <- sqrt(.Machine$double.eps)
+    (x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+    precision <- sqrt(.Machine$double.eps)
+    (x <= y) | (abs(x-y) <= precision)
+}
+
+## last of all, unload the base package datasets, whose data keep getting in the way of autocompletions (e.g., Theoph is priortized over TRUE)
+unloadNamespace("datasets")
+```
+
+### these are all within big output files for all SRT domains / all rnaseq domains already
+```{r}
+srtdomde <- readRDS("processed-data_newseg/08_VisXferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdoms_andOtherXferedVisLabels.RDS")
+
+sndomde <- readRDS("processed-data_newseg/05_snSeqxferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdomainAndOtherLabelsXfered.RDS")
+
+names(srtdomde) <- gsub(names(srtdomde),pattern="dom",replacement="domain")
+names(sndomde) <- gsub(names(sndomde),pattern="dom",replacement="domain")
+
+srtdomdetabs <- mapply(x=srtdomde,n=names(srtdomde),SIMPLIFY=FALSE,function(x,n){
+  y <- lapply(x,function(z){
+    d <- rbindlist(z$detabs,idcol="contrast")
+    # we only care about "LC" (domain) contrasts here
+    d <- d[contrast %in% grep(contrast,pattern="^LC",value=T)]
+    setnames(d,"t","tstat")
+    d[,logFC:=round(logFC,5)]
+    d[,P.Value:=round(P.Value,5)]
+    d[,adj.P.Val:=round(adj.P.Val,5)]
+    d[,tstat:=round(tstat,5)]
+    d[,AveExpr:=NULL]
+    d[,B:=NULL]
+    d[,rn:=NULL]
+    
+    setnames(d,
+             c("logFC","P.Value","adj.P.Val","tstat"),
+             paste0(n,c("_logFC","_P.Value","_adj.P.Val","_tstat")))
+    return(d)
+  })
+})
+
+sndomdetabs<- mapply(x=sndomde,n=names(sndomde),SIMPLIFY=FALSE,function(x,n){
+  y <- lapply(x,function(z){
+    d <- rbindlist(z$detabs,idcol="contrast")
+    # we only care about "LC" (domain) contrasts here
+    d <- d[contrast %in% grep(contrast,pattern="^LC",value=T)]
+    setnames(d,"t","tstat")
+    d[,logFC:=round(logFC,5)]
+    d[,P.Value:=round(P.Value,5)]
+    d[,adj.P.Val:=round(adj.P.Val,5)]
+    d[,tstat:=round(tstat,5)]
+    d[,AveExpr:=NULL]
+    d[,B:=NULL]
+    d[,rn:=NULL]
+    
+    setnames(d,
+             c("logFC","P.Value","adj.P.Val","tstat"),
+             paste0(n,c("_logFC","_P.Value","_adj.P.Val","_tstat")))
+    return(d)
+  })
+})
+
+## get rid of APOE per-single-genotype contrasts and %genomic ancestry DE (not really interpretable)
+srtdomdetabs <- lapply(srtdomdetabs,function(x){
+  y <- x[!(names(x)=="ApoAllelesLabel")]
+  y <- y[!(names(y)=="AncesByLabel")]
+  return(y)
+})
+
+sndomdetabs <- lapply(sndomdetabs,function(x){
+  y <- x[!(names(x)=="ApoAllelesLabel")]
+  y <- y[!(names(y)=="AncesByLabel")]
+  return(y)
+})
+
+srtdomdetabs <- lapply(srtdomdetabs,function(x){rbindlist(x,idcol="DE_model")})
+sndomdetabs <- lapply(sndomdetabs,function(x){rbindlist(x,idcol="DE_model")})
+
+### merge merge merge
+maindetab <- merge.data.table(srtdomdetabs[[1]],srtdomdetabs[[2]],by=c("DE_model","contrast","gene_id","gene_name"),all=T)
+
+maindetab <- merge.data.table(maindetab,srtdomdetabs[[3]],by=c("DE_model","contrast","gene_id","gene_name"),all=T)
+
+maindetab <- merge.data.table(maindetab,srtdomdetabs[[4]],by=c("DE_model","contrast","gene_id","gene_name"),all=T)
+
+## sn tabs are missing gene_id, but itll fill thru here:
+maindetab <- merge.data.table(maindetab,sndomdetabs[[1]],by=c("DE_model","contrast","gene_name"),all=T)
+
+maindetab <- merge.data.table(maindetab,sndomdetabs[[2]],by=c("DE_model","contrast","gene_name"),all=T)
+
+fwrite(maindetab,"plots_newseg/manuscript/SuppTabs/ST-ISS_LCdomains_DE.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
+
+replication stats from SRT transfer
+```{r}
+repstat <- fread("processed-data_newseg/08_VisXferDomainDE/05a-VisLC_Replication_Rates_by_DomainDefinition_withLCsmoothing.txt")
+
+repstat[,V1:=NULL]
+repstat[,transferred_SRT_label:=gsub(contrast,pattern="^(ACHE_SERT_Npep|LC|Oligo_Astro|Astro).*$",replacement="\\1")]
+repstat[,contrast:=gsub(contrast,pattern="^ACHE_SERT_Npep_|LC_|Oligo_Astro_|Astro_(.*)$",replacement="\\1")]
+
+repstat[transferred_SRT_label=="LC",transferred_SRT_label:="kNN smoothed LC domain"]
+setnames(repstat,"transferred_SRT_label","Transferred SRT Label or Smoothed LC Domain")
+namereord <- names(repstat)[c(1,7,2:6)]
+repstat <- repstat[,..namereord]
+fwrite(repstat,"plots_newseg/manuscript/SuppTabs/ST-SRTde_replication_rates.txt",sep='\t',quote=F,row.names=F,col.names=T)
+```
+

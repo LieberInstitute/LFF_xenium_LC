@@ -29,7 +29,7 @@ greaterOrEqual <- function(x,y) {
 
 lessOrEqual <- function(x,y){
     precision <- sqrt(.Machine$double.eps)
-    (x <= y) | (abs(x-y) <= precision)
+    (x <= y) | (abs(x-y) <= precision)}
 
 
 ## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 

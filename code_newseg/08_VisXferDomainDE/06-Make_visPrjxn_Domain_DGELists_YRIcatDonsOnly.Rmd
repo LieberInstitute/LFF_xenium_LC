@@ -1,7 +1,7 @@
 ---
 title: "01-Make_VisXferDomain_DGELists"
 author: "Bernie Mulvey"
-date: "07-11-26"
+date: "07-14-26"
 output: html_document
 ---
 
@@ -54,12 +54,12 @@ tmprd <- as.data.table(rowData(xlc))
 
 lcd <- fread("processed-data_newseg/07_visLabelTransfer/05-srtLCsmoothDoms_and_NMFpreds_lut.txt")
 
-# if LC domain, assign LC label; else, keep nmf predicted SRT label
+# if LC domain, assign LC label; else, keep nmf predicted SRT label (except for out-of-domain LC cells; removed in DGEList creation loop below)
 
-lcd[,domain8426:=ifelse(domain8426=="LC","LC",SRTnmfpred)]
-lcd[,domain12199:=ifelse(domain12199=="LC","LC",SRTnmfpred)]
-lcd[,domain16119:=ifelse(domain16119=="LC","LC",SRTnmfpred)]
-lcd[,domain20079:=ifelse(domain20079=="LC","LC",SRTnmfpred)]
+lcd[,domain8426:=ifelse(domain8426=="LC","LCdom",SRTnmfpred)]
+lcd[,domain12199:=ifelse(domain12199=="LC","LCdom",SRTnmfpred)]
+lcd[,domain16119:=ifelse(domain16119=="LC","LCdom",SRTnmfpred)]
+lcd[,domain20079:=ifelse(domain20079=="LC","LCdom",SRTnmfpred)]
 
 tmpcd <- merge.data.table(tmpcd,lcd[,.(rn,domain8426,domain12199,domain16119,domain20079)],by="rn")
 
@@ -107,6 +107,8 @@ dgels <- lapply(c("domain8426","domain12199","domain16119","domain20079"),functi
   agn[,brnum:=as.character(brnum)]
   agn[,clus_brnum:=paste0(clus,"_",brnum)]
   agn <- agn[value>=10] ## these are the samples we want to keep to start: 10+ cells for domain/nmfpred type
+  # drop "LC" pseudobulks -- these are non-domain cells given the LC label
+  agn <- agn[clus!="LC"]
   setnames(agn,"value","ncells")
 
   

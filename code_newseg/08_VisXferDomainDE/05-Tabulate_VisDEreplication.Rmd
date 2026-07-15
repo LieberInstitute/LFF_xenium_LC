@@ -1,7 +1,7 @@
 ---
 title: "05-Tabulate srtNMFtransfer Xen LC Domain VisDE Replication"
 author: "Bernie Mulvey"
-date: "06-08-26"
+date: "07-14-26"
 output: html_document
 ---
 
@@ -47,11 +47,16 @@ unloadNamespace("datasets")
 totde <- readRDS("processed-data_newseg/08_VisXferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdoms_andOtherXferedVisLabels.RDS")
 totde <- lapply(totde,function(x){
   y <- lapply(x,function(z){
-    z2 <- z$detab
+    z2 <- z$detabs
     z2 <- rbindlist(z2,idcol="contrast",fill=T)
     return(z2)
   })
   rbindlist(y,idcol="modelset")
+})
+
+## revert "LCdom" to LC so we can match it to the SRT DE results
+totde <- lapply(totde,function(x){
+  x[,contrast:=gsub(contrast,pattern="^LCdom",replacement="LC")]
 })
 
 
@@ -109,13 +114,13 @@ fwrite(reps2,"processed-data_newseg/08_VisXferDomainDE/05a-VisLC_Replication_Rat
 ### which E4-E2 genes replicate for the LC domain?
 ```{r}
 lce4.8426 <- totde$dom8426[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xlfc*logFC>0] # 7: "ITGB8" "SPARC" "NPY"   "C3"    "EGFR"  "PLPP3" "NTSR2"
-lce4.12199 <- totde$dom12199[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xlfc*logFC>0] # 1: NPY
+lce4.12199 <- totde$dom12199[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xlfc*logFC>0] # "FGFR3" "ITGB8" "SPARC" "NPY"   "C3"    "TPH2"  "EGFR"  "PLPP3" "NTSR2" "IDH2" 
 lce4.16119 <- totde$dom16119[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xlfc*logFC>0] # same 7 as dom8426
-lce4.20079 <- totde$dom20079[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xlfc*logFC>0] # 1: NPY
+lce4.20079 <- totde$dom20079[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xlfc*logFC>0] # "ITGB8" "SPARC" "NPY"   "C3"    "EGFR"  "PLPP3" "NTSR2" "IDH2"  "TRIL" 
 ```
 
 unique replication hits across these for DOMAIN-level E4-E2 DE in LC: 
-"ITGB8" "SPARC" "NPY"   "C3"    "EGFR"  "PLPP3" "NTSR2"
+"ITGB8" "SPARC" "NPY"   "C3"    "EGFR"  "PLPP3" "NTSR2" "TRIL" "IDH2" "FGFR3"
 
 ### with intra-LC only, direct label transfers (since we'll subset this to the LC label). this RESULT THUS LOOKS at how intra-domain cells  transferred the label "LC" perform in replicating LC SRT domain DE findings.
 ```{r}

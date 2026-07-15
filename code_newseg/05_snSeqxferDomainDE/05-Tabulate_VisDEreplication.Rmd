@@ -1,7 +1,7 @@
 ---
 title: "05-Tabulate Xen LC Domain VisDE Replication"
 author: "Bernie Mulvey"
-date: "06-04-26"
+date: "07-14-26"
 output: html_document
 ---
 
@@ -44,7 +44,7 @@ unloadNamespace("datasets")
 
 ## with LC as a smoothed domain
 ```{r}
-totde <- readRDS("processed-data_newseg/05_snSeqxferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_XferedVisLabels.RDS")
+totde <- readRDS("processed-data_newseg/05_snSeqxferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdomainAndOtherLabelsXfered.RDS")
 totde <- lapply(totde,function(x){
   y <- lapply(x,function(z){
     z2 <- z$detab
@@ -53,7 +53,10 @@ totde <- lapply(totde,function(x){
   })
   rbindlist(y,idcol="modelset")
 })
-
+## convert LCdom to "LC" for compatability with SRT labels
+totde <- lapply(totde,function(x){
+  x[,contrast:=gsub(contrast,pattern="^LCdom",replacement="LC")]
+})
 
 visde <- readRDS("../LFF_spatial_LC/processed-data/12_DEanalyses_removedsampsAndFinalNMseg/02b-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_noMixClusts_YRIcontAndCat_JUL2025.RDS")
 visdes <- list(visde$cont_ances$E2E4label$detabs,visde$cont_ances$sexlabel$detabs,visde$cat_ances$YRIAPOlabel$detabs)
@@ -107,10 +110,8 @@ lce4.8492 <- totde$dom8492[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xl
 lce4.12412 <- totde$dom12412[contrast=="LC_E4vE2"&lessOrEqual(Xen.P.unadj,0.05)&xlfc*logFC>0]
 sharedg <- lce4.8492[gene_name %in% lce4.12412$gene_name,.(xlfc,gene_name)]
 ```
-C3
-ITGB8
-NPY
-PLPP3
+ [1] "AIF1"  "C3"    "EGFR"  "FGFR3" "IDH2"  "ITGB8" "NPY"   "NTSR2" "PLPP3" "SPARC" "SPON1"
+[12] "TRIL" 
 
 ### with intra-LC only, direct label transfers
 ```{r}
@@ -226,7 +227,7 @@ loaded via a namespace (and not attached):
  collate  en_US.UTF-8
  ctype    en_US.UTF-8
  tz       America/Chicago
- date     2026-02-28
+ date     2026-07-14
  rstudio  2026.01.0+392 Apple Blossom (desktop)
  pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
  quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto

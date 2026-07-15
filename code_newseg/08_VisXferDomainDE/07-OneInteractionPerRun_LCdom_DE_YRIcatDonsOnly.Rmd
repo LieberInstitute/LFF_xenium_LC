@@ -1,7 +1,7 @@
 ---
 title: "07-OneInteractionPerRun_LCdom_DE_YRIcatDonsOnly"
 author: "Bernie Mulvey"
-date: "07-11-26"
+date: "07-14-26"
 output: html_document
 ---
 
@@ -414,7 +414,7 @@ loaded via a namespace (and not attached):
  collate  en_US.UTF-8
  ctype    en_US.UTF-8
  tz       America/New_York
- date     2026-07-11
+ date     2026-07-14
  rstudio  2026.01.1+403 Apple Blossom (desktop)
  pandoc   3.6.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
  quarto   1.8.25 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto

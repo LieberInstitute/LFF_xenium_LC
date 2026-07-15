@@ -1,7 +1,7 @@
 ---
 title: "01-Make_snSeqPrjxnDomain_DGELists"
 author: "Bernie Mulvey"
-date: "06-04-26"
+date: "07-14-26"
 output: html_document
 ---
 
@@ -30,7 +30,7 @@ greaterOrEqual <- function(x,y) {
 
 lessOrEqual <- function(x,y){
     precision <- sqrt(.Machine$double.eps)
-    (x <= y) | (abs(x-y) <= precision)
+    (x <= y) | (abs(x-y) <= precision)}
 
 ## enable forked parallel processing with BiocParallel::multicoreParam, future::, etc. seemed to need this a couple times, but otherwise havent so its here as a preventative measure. part of this is adding the line 
 # OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
@@ -51,9 +51,9 @@ xlc <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-an
 tmpcd <- as.data.table(colData(xlc),keep.rownames=T)
 # 
 lcd <- fread("processed-data_newseg/04_snSeqLabelTransfer/06-wdLCsmoothings_LUT.txt")
-# if LC domain, assign LC label; else, keep nmf predicted lable
-lcd[,LCsmooth8492_orxfer:=ifelse(domain8492=="LC","LC",nmfpred)]
-lcd[,LCsmooth12412_orxfer:=ifelse(domain12412=="LC","LC",nmfpred)]
+# if LC domain, assign LC label; else, keep nmf predicted label. drop extra-LC cells given the NE label from snseq--we'll do that during dgelist creation.
+lcd[,LCsmooth8492_orxfer:=ifelse(domain8492=="LC","LCdom",nmfpred)]
+lcd[,LCsmooth12412_orxfer:=ifelse(domain12412=="LC","LCdom",nmfpred)]
 
 tmpcd <- merge.data.table(tmpcd,lcd[,.(rn,LCsmooth8492_orxfer,LCsmooth12412_orxfer)],by="rn")
 
@@ -83,6 +83,8 @@ dgels <- lapply(c("LCsmooth8492_orxfer","LCsmooth12412_orxfer"),function(d){
   agn[,brnum:=as.character(brnum)]
   agn[,clus_brnum:=paste0(clus,"_",brnum)]
   agn <- agn[value>=10] ## these are the samples we want to keep to start: 10+ cells for domain/nmfpred type
+  # drop cells given wd "NE" label outside of our LC domain
+  agn <- agn[clus!="NE"]
   setnames(agn,"value","ncells")
 
   
