@@ -1,0 +1,107 @@
+---
+title: "STs-IntraDom_and_wholeTiss_Banksy_DE"
+date: "2026-07-17"
+author: "Bernie Mulvey"
+format: html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 10,fig.width = 7,include = FALSE)
+#### sets tab autocompletion for directories to begin from the directory containing the .Rproj session, instead of the script's directory if different
+knitr::opts_knit$set(root.dir = here::here())
+
+
+## >= and <= comparators that account for floating point error
+greaterOrEqual <- function(x,y) {
+precision <- sqrt(.Machine$double.eps)
+(x >= y) | (abs(x-y) <= precision)
+}
+
+lessOrEqual <- function(x,y){
+precision <- sqrt(.Machine$double.eps)
+(x <= y) | (abs(x-y) <= precision)}
+
+
+library(data.table)
+
+# library(SpatialFeatureExperiment)
+
+```
+
+read in result files. only write out the effect tables for the E2/E4 two-condition models, mean intensity and median intensity of each.
+```{r}
+wdbsyde <- readRDS("processed-data_newseg/13_BanksyDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_BksyClus_inWDlcDoms_or_wholetiss.RDS")
+
+srtbsyde <- readRDS("processed-data_newseg/13_BanksyDE/04-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_BksyClus_inSRTlcDoms_or_wholetiss.RDS")
+
+srtbsyde.t <- lapply(srtbsyde,function(s){
+    v <- lapply(s[c("sexlabel","E2E4label","YRIAPOlabel")],function(u){
+        x <- rbindlist(u$detabs,idcol="contrast")
+        x <- x[,gene_name:=NULL]
+        x <- x[,gene_id:=NULL]
+        x[,Banksy_cluster:=gsub(contrast,pattern="^(.*)_Sex$",replacement="\\1")]
+        x[,Banksy_cluster:=gsub(Banksy_cluster,pattern="^(.*)_E4.*_vs.*$",replacement="\\1")]
+        x[,Banksy_cluster:=gsub(Banksy_cluster,pattern="^(.*)_E2.*_vs.*$",replacement="\\1")]
+        x[,Banksy_cluster:=gsub(Banksy_cluster,pattern="^(.*)_E4vE2$",replacement="\\1")]
+        bcluspatts <- paste0(unique(x$Banksy_cluster),"_")
+        bcluspatts <- paste0(bcluspatts,collapse = "|")
+        x[,contrast:=gsub(contrast,pattern=bcluspatts,replacement="")]
+        x[,B:=NULL]
+        x[,AveExpr:=NULL]
+        setnames(x,c("t","adj.P.Val","P.Value","rn"),c("t_stat","FDR","pval","gene_name"))
+        
+        return(x)
+    })
+    y <- rbindlist(v,idcol="DEmodel")
+    return(y)
+})
+
+
+wdbsyde.t <- lapply(wdbsyde[c("intraLC12412","intraLC8492")],function(s){
+    v <- lapply(s[c("sexlabel","E2E4label","YRIAPOlabel")],function(u){
+        x <- rbindlist(u$detabs,idcol="contrast")
+        x <- x[,gene_name:=NULL]
+        x <- x[,gene_id:=NULL]
+        x[,Banksy_cluster:=gsub(contrast,pattern="^(.*)_Sex$",replacement="\\1")]
+        x[,Banksy_cluster:=gsub(Banksy_cluster,pattern="^(.*)_E4.*_vs.*$",replacement="\\1")]
+        x[,Banksy_cluster:=gsub(Banksy_cluster,pattern="^(.*)_E2.*_vs.*$",replacement="\\1")]
+        x[,Banksy_cluster:=gsub(Banksy_cluster,pattern="^(.*)_E4vE2$",replacement="\\1")]
+        bcluspatts <- paste0(unique(x$Banksy_cluster),"_")
+        bcluspatts <- paste0(bcluspatts,collapse = "|")
+        x[,contrast:=gsub(contrast,pattern=bcluspatts,replacement="")]
+        x[,B:=NULL]
+        x[,AveExpr:=NULL]
+        setnames(x,c("t","adj.P.Val","P.Value","rn"),c("t_stat","FDR","pval","gene_name"))
+        
+        return(x)
+    })
+    y <- rbindlist(v,idcol="DEmodel")
+    return(y)
+})
+
+i<-1
+for (i in c(1:length(srtbsyde.t))){
+    setnames(srtbsyde.t[[i]],
+             c("t_stat","FDR","pval","logFC"),
+             paste0(c("t_stat","FDR","pval","logFC"),"_",names(srtbsyde.t)[i]),
+             skip_absent=TRUE)
+    if(i==1){
+        widedetab <- copy(srtbsyde.t[[i]])
+    } else {
+        widedetab <- merge.data.table(widedetab,srtbsyde.t[[i]],by=c("DEmodel","contrast","Banksy_cluster","gene_name"),all.x = T,all.y=T)
+    }
+        
+}
+
+i<-1
+for (i in c(1:length(wdbsyde.t))){
+    setnames(wdbsyde.t[[i]],
+             c("t_stat","FDR","pval","logFC"),
+             paste0(c("t_stat","FDR","pval","logFC"),"_",names(wdbsyde.t)[i]),
+             skip_absent=TRUE)
+    widedetab <- merge.data.table(widedetab,wdbsyde.t[[i]],by=c("DEmodel","contrast","Banksy_cluster","gene_name"),all.x = T,all.y=T)
+}
+
+fwrite(widedetab,"plots_newseg/manuscript/SuppTabs/ST-ISS_banksyclusts_intraLC_and_wholetiss_DE.txt",sep='\t',quote=F,row.names=F)
+
+```

@@ -1,7 +1,7 @@
 ---
 title: "Fig7-SmoothedLCDomains_AncestrySpecificDE"
 format: html
-date: "07-01-26"
+date: "07-16-26"
 ---
 
 ```{r setup, include=FALSE}
@@ -333,10 +333,10 @@ dev.off()
 srtdomde <- readRDS("processed-data_newseg/08_VisXferDomainDE/02-voomLmFit_objs_and_DE_tables_LabSex_LabE2vE4_LabSingleGenos_LabAnces_LabAncesE4E2_LCdoms_andOtherXferedVisLabels.RDS")
 
 pbulk <- srtdomde$dom12199$YRIAPOlabel$voomLFt$EList$E
-keepn <- grep(colnames(pbulk),pattern="^LC_Br",value=T)
+keepn <- grep(colnames(pbulk),pattern="^LCdom_Br",value=T)
 
 sampinf <- srtdomde$dom12199$YRIAPOlabel$dgel$samples
-keepn <- grep(rownames(sampinf),pattern="^LC_Br",value=T)
+keepn <- grep(rownames(sampinf),pattern="^LCdom_Br",value=T)
 sampinf <- sampinf[keepn,]
 
 ### cleaning y for the pbulk
@@ -358,7 +358,7 @@ setnames(degs,"rn","gene")
 ```{r}
 b <- melt.data.table(degs,id.vars="gene")
 b[,variable:=as.character(variable)]
-b <- b[gene %in% c("PLPP3","NTSR2","FGFR3")&variable %in% grep(variable,pattern="LC_Br",value=T)]
+b <- b[gene %in% c("PLPP3","NTSR2","FGFR3")&variable %in% grep(variable,pattern="LCdom_Br",value=T)]
 b[,titleg:=paste0("*",gene,"*")]
     
 # drop existing rn from sample table if present
@@ -368,7 +368,7 @@ s2 <- as.data.table(tmpsampinf,keep.rownames=T)
 s2[,YRIcat:=ifelse(YRIcat=="YRI","AA","EA")]
 b <- merge.data.table(b,s2,by.x="variable",by.y="rn")
 
-b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="^LC_",replacement="")]
+b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="^LCdom_",replacement="")]
 b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="_",replacement=" ")]
 b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="YRI",replacement="AA")]
 b[,lab_APOE_PredomAnces:=gsub(lab_APOE_PredomAnces,pattern="CEU",replacement="EA")]
