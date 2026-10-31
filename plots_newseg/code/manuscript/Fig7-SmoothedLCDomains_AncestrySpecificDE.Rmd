@@ -263,7 +263,7 @@ p <- p+ theme(panel.grid = element_blank(),
 
 p <- rasterize(p,layers="Points",dpi=600,dev="cairo_png")
 
-pdf(paste0("plots_newseg/manuscript/Fig7/7Ainset-Predlabels_wSRT20079DomainBounds_Br5941.pdf"),height=2.25,width=1.5)
+pdf(paste0("plots_newseg/manuscript/Fig7/7Ainset-Predlabels_wSRT12199DomainBounds_Br5941.pdf"),height=2.25,width=1.5)
 print(p)
 dev.off()
 

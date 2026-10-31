@@ -23,6 +23,11 @@ unloadNamespace("datasets")
 ### make symlink commands from geo table:
 ```{r}
 srcfiles <- fread("processed-data_newseg/16_app-prep/02-geo_upload_filepaths.txt",header=F)
+## tifs are with one f, not two
+srcfiles[,V14:=gsub(V14,pattern="tiff",replacement="tif")]
+srcfiles[,V16:=gsub(V14,pattern="tiff",replacement="tif")]
+
+
 setnames(srcfiles,c(1:3),c("path_sampleID","altID","note"))
 setnames(srcfiles,c(4:8),paste0("DAPI_procdat",c(4:8)))
 setnames(srcfiles,c(9:13),paste0("NMDAPI_procdat",c(9:13)))

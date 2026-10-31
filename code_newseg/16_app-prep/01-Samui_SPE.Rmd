@@ -85,6 +85,14 @@ spe <- scater::computeLibraryFactors(spe)
 spe <- scater::logNormCounts(spe)
 
 saveRDS(spe,"processed-data_newseg/16_app-prep/01-SamuiSPE.RDS")
+
+## save images as pngs
+lapply(c(1:length(spe@int_metadata$imgData$sample_id)),function(x){
+    cursamp <- spe@int_metadata$imgData$sample_id[x]
+    tiff(filename = paste0("processed-data_newseg/16_app-prep/samui_tiffs/",cursamp,".tiff"),width = dim(spe@int_metadata$imgData$data[[x]])[2], height=dim(spe@int_metadata$imgData$data[[x]])[1])
+    plot(as.raster(spe@int_metadata$imgData@listData$data[[x]]))
+    dev.off()
+})
 ```
 
 ```{r}
