@@ -12,9 +12,9 @@ spe <- readRDS("processed-data_newseg/02_QC/02b-spe_filtered_genetargonly_log-an
 
 spes <- lapply(unique(spe$brnum),function(b){spe[,spe$brnum==b]})
 names(spes) <- unique(spe$brnum)
-
+setDTthreads(1,restore_after_fork=FALSE)
 newspes <- mcmapply(d=spes,n=names(spes),mc.cores=4,SIMPLIFY=FALSE,function(d,n){
-    img <- readImgData(path=paste0("processed-data/xenium_imageProcessing_new/HE_DAPIregist_midres/",n,"/"),sample_id = n,scaleFactors = paste0("processed-data/xenium_imageProcessing_new/HE_DAPIregist_midres/",n,"/scalefactors_json.json"))
+    img <- readImgData(path=paste0("processed-data/xenium_imageProcessing_new/HE_DAPIregist_midres/",n),sample_id = n,scaleFactors = paste0("processed-data/xenium_imageProcessing_new/HE_DAPIregist_midres/",n,"/scalefactors_json.json"))
 
     newspe <- SpatialExperiment(assays=list(counts=counts(d)),sample_id = n,spatialCoords = spatialCoords(d),imgData = img,colData=colData(d),rowData=rowData(d))
 })
@@ -22,7 +22,7 @@ newspes <- mcmapply(d=spes,n=names(spes),mc.cores=4,SIMPLIFY=FALSE,function(d,n)
 names(newspes) <- names(spes)
 
 ### save single-sample SPEs with larger H&E image for Xenium viewer
-mapply(d=spes,n=names(spes),SIMPLIFY=FALSE,function(d,n){
+mapply(d=newspes,n=names(newspes),SIMPLIFY=FALSE,function(d,n){
     qs_save(d,paste0("processed-data/xenium_imageProcessing_new/HE_DAPIregist_midres/",n,".qs2"))
     # return(newspe)
 })

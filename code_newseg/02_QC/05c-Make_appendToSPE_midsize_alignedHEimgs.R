@@ -71,8 +71,9 @@ for (b in c(1:nrow(brainz.dt))){
     fullres,
     as.integer(low_over_hi * dim(fullres)[1]),
     as.integer(low_over_hi * dim(fullres)[2]))
-    
-    imager::save.image(outimg,paste0(outdir,"tissue_midsize_image.png"))
+    # we have to save this as the "lowres" image for consistency with what
+    # spatialexperiment looks for when loading image data.
+    imager::save.image(outimg,paste0(outdir,"tissue_lowres_image.png"))
     
     write(
         rjson::toJSON(sr_json),
