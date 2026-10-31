@@ -1,0 +1,104 @@
+<h1 id="this-app-was-produced-interactively-through-claude-code-opus-5-and-5-5-using-two-test-case-sample-spatialexperiment-objects-and-image-files-this-code-has-not-been-line-checked-by-a-human-for-bugs-or-vulnerabilities-">This app was produced interactively through Claude Code (Opus 5 and 5.5) using two test-case sample spatialexperiment objects and image files. THIS CODE HAS NOT BEEN LINE-CHECKED BY A HUMAN FOR BUGS OR VULNERABILITIES!</h1>
+<p>The entire claude back-and-forth that led to the production of all code within this directory is below. All content other than originating SPE objects (qs2 format) and histology/DAPI images were created by Claude. The entire Claude conversation is provided in Claude_DevelopingCustomVites_for_LC_Xenium_Chatlog.pdf .</p>
+<h1 id="xenium-lc-viewer">Xenium LC viewer</h1>
+<p>Static Vitessce site showing Xenium cells over H&amp;E or DAPI, coloured by cluster / transferred
+label or by gene (logcounts), with LC domain outlines. Everything under <code>site/</code> is plain static
+files: copy it to any web server.</p>
+<h2 id="pipeline-per-sample-then-once-for-the-site-">Pipeline (per sample, then once for the site)</h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Script</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>once</td>
+<td><code>Rscript 00_build_palettes.R</code></td>
+<td><code>viewer_data/label_palettes.json</code> (paper palettes, renamed to SPE label values)</td>
+</tr>
+<tr>
+<td>per sample (QC)</td>
+<td><code>Rscript 01_inspect_inputs.R &lt;spe.qs2&gt; &lt;morphology_focus_0000.ome.tif&gt; viewer_data/&lt;sample&gt;/inspect</code></td>
+<td>inventory (stdout) + alignment PNGs incl. H&amp;E-vs-DAPI registration check</td>
+</tr>
+<tr>
+<td>per sample</td>
+<td><code>Rscript 02_prep_viewer_data.R &lt;spe.qs2&gt; &lt;morphology_focus_0000.ome.tif&gt; viewer_data</code></td>
+<td><code>viewer_data/&lt;sample&gt;/</code>: <code>cells.h5ad</code>, <code>domains.geojson</code>, <code>he_image.tif</code>, <code>sample_meta.json</code>, <code>qc_domains.png</code></td>
+</tr>
+<tr>
+<td>per sample</td>
+<td><code>uv run python 03_package_vitessce.py viewer_data/&lt;sample&gt;</code></td>
+<td><code>site/data/&lt;sample&gt;/</code> (zarr stores, <code>matrix_info.json</code>, <code>vitessce_config.json</code>), adds the sample (label + title) to <code>site/samples.json</code></td>
+</tr>
+<tr>
+<td>after all samples</td>
+<td><code>uv run python 05_global_zscores.py --workers 8</code></td>
+<td>pooled per-gene mean/SD across samples (<code>site/zscore_global_stats.json</code>) and each sample&#39;s <code>layers/zscore_all</code>; re-run whenever samples are added</td>
+</tr>
+<tr>
+<td>once</td>
+<td><code>uv run python 04_vendor_vitessce.py</code></td>
+<td><code>site/vendor/vitessce-4.0.8/</code> (pinned bundle + one patch, below)</td>
+</tr>
+</tbody>
+</table>
+<p>SPE inputs may be <code>.qs2</code> (read with <code>qs2::qs_read</code>) or <code>.RDS</code>, chosen by file extension.
+Sample folders follow <code>&lt;brnum&gt;/&lt;brnum&gt;.qs2</code> + <code>&lt;brnum&gt;/morphology_focus_0000.ome.tif</code>, e.g.
+<code>Br1039L/Br1039L.qs2</code>; the trailing <code>L</code> (left hemisphere) is part of <code>brnum</code>/<code>sample_id</code>.</p>
+<p>Python dependencies are pinned through <code>pyproject.toml</code> / <code>uv.lock</code> (<code>uv sync</code>).</p>
+<h2 id="coordinates">Coordinates</h2>
+<p>Everything is in microns in the Xenium frame (x right, y down, origin at the top-left of the
+DAPI image). Cell centroids are already in microns. The DAPI pyramid carries a 0.2125 um/px
+scale and the H&amp;E carries 1 / its <code>imgData</code> scale factor, in their OME-NGFF metadata.</p>
+<h2 id="using-the-viewer">Using the viewer</h2>
+<ul>
+<li>Every sidebar panel collapses/expands by clicking its title (remembered per browser); the
+others take up the freed space. Panels have no close (x) buttons.</li>
+<li><strong>Display options</strong> (custom panel, <code>site/xenviewer-controls.js</code>):<ul>
+<li><em>LC Region Boundaries</em>: which of the domain definitions is outlined, or None.</li>
+<li><em>Cell size</em>: marker radius, 1-15 um.</li>
+<li><em>Multi-gene z-score</em>: whether multi-gene colouring uses z-scores computed within this
+sample or across all samples.</li>
+<li><em>Gene legend</em> (only while colouring by gene): one gene = logcounts; two or more genes =
+per-cell mean of the genes&#39; z-scored logcounts. Ranges are computed from the same values
+Vitessce colours by.</li>
+<li><em>Colour by <genes></em> / <em>Clear genes</em>: return to gene colouring after using cell sets, or
+drop the gene selection.</li>
+</ul>
+</li>
+<li><strong>Spatial Layers</strong>: H&amp;E, DAPI and cells, each with an inline Alpha slider (hover for
+&quot;Transparency: N% (alpha a)&quot;). DAPI brightness/contrast controls start collapsed (chevron).</li>
+<li><strong>Cell Sets panel</strong>: pick the grouping (Banksy cluster, transferred SRT / snRNA-seq labels,
+domain membership). Tick/untick sets to show/hide those cells, in either colouring mode.</li>
+<li><strong>Gene Expression (1 or Multiple)</strong>: plain click adds/removes a gene.</li>
+<li>Sample picker label: <code>BrNNNN_&lt;APOE&gt;_&lt;Sex&gt;_&lt;age&gt;</code>; the title over the viewer spells it out.</li>
+</ul>
+<h2 id="vitessce-patches-and-page-customisation">Vitessce patches and page customisation</h2>
+<p><code>04_vendor_vitessce.py</code> vendors Vitessce 4.0.8 (npm integrity verified) and applies four exact
+string patches, refusing to run if any target is not found (e.g. after a version bump):
+hide cells outside selected sets (show/hide also works with gene colouring); plain click adds
+genes in the multi-select list; image channel controls start collapsed; opacity sliders stay
+inline in a narrow sidebar.</p>
+<p><code>site/sidebar.js</code> + CSS in <code>site/index.html</code> re-lay out the right-hand column with CSS grid
+(collapsible panels), add the Alpha labels / transparency hints, and put the cell-set level
+checkboxes inline. These rely on Vitessce&#39;s DOM (role attributes, MUI/rc-tree classes), so
+re-check them when upgrading Vitessce. When changing site JS, bump <code>ASSET_VERSION</code> in
+<code>site/index.html</code> so browsers fetch the new modules.</p>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>Domain outlines are drawn into the mask (7 um line, max-pooled pyramid) and rendered filled;
+Vitessce&#39;s own outline mode has a fixed world-space width that is far too thick zoomed in.</li>
+<li>Caching: browsers must not reuse stale zarr metadata after a sample is re-packaged (a stale
+<code>.zarray</code> makes Vitessce read the wrong shape and silently skip data). Serve <code>site/data/</code>
+with <code>Cache-Control: no-cache</code> (revalidate every time; unchanged files return cheap 304s).</li>
+<li><code>site/</code> is ~485 MB per sample, almost all DAPI (lossless).</li>
+<li>Vitessce&#39;s small inset legend averages per-gene display ranges for multi-gene colouring
+(it would read &quot;0 - 238&quot;), so the Display options panel hides it while colouring by gene.</li>
+<li>React is loaded from esm.sh (pinned 18.2.0); vendor it too if the server must avoid CDNs.</li>
+<li>Local preview: <code>uv run python serve.py</code> (same as <code>http.server</code>, plus <code>no-cache</code> headers),
+then open <a href="http://localhost:8765">http://localhost:8765</a></li>
+</ul>
